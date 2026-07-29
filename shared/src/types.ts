@@ -48,3 +48,11 @@ export interface MapFeatureDTO {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PlaceResultDTO {
+  placeId: string;
+  name: string;
+  formattedAddress: string;
+  lng: number;
+  lat: number;
+}

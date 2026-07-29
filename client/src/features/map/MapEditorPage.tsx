@@ -18,6 +18,7 @@ import { DrawControls, DRAW_MODE_TO_EDITOR_MODE } from '../draw/DrawControls';
 import { useMapboxDraw } from '../draw/useMapboxDraw';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
+import { SearchBox } from '../search/SearchBox';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
 import { FeaturePopup } from './FeaturePopup';
@@ -104,6 +105,7 @@ export function MapEditorPage() {
         onMapReady={setMapInstance}
       />
       <FeatureLayer map={mapInstance} layers={layers ?? []} />
+      <SearchBox map={mapInstance} activeLayerId={activeLayerId} />
       <FeaturePopup
         map={mapInstance}
         feature={selectedFeature?.feature ?? null}
