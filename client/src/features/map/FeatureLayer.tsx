@@ -120,19 +120,24 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
       if (map) ensureLayersAdded(map, dataRef.current);
     }
 
-    function handleClick(e: mapboxgl.MapLayerMouseEvent) {
-      const featureId = e.features?.[0]?.properties?.featureId;
-      if (typeof featureId === 'string') {
-        setSelection({ type: 'feature', featureId });
-      }
+    // A single map-level click handler (rather than per-layer listeners) so
+    // clicking empty map background reliably clears the selection too.
+    function handleClick(e: mapboxgl.MapMouseEvent) {
+      if (!map) return;
+      const existingLayers = CLICKABLE_LAYER_IDS.filter((id) => map.getLayer(id));
+      const hits = existingLayers.length
+        ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
+        : [];
+      const featureId = hits[0]?.properties?.featureId;
+      setSelection(typeof featureId === 'string' ? { type: 'feature', featureId } : null);
     }
 
     map.on('style.load', handleStyleLoad);
-    CLICKABLE_LAYER_IDS.forEach((layerId) => map.on('click', layerId, handleClick));
+    map.on('click', handleClick);
 
     return () => {
       map.off('style.load', handleStyleLoad);
-      CLICKABLE_LAYER_IDS.forEach((layerId) => map.off('click', layerId, handleClick));
+      map.off('click', handleClick);
     };
   }, [map, setSelection]);
 

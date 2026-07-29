@@ -151,4 +151,29 @@ describe('features.service CRUD and ownership', () => {
     expect(await findFeatureForOwner(created!.id, ownerId)).toBeNull();
     expect(await deleteFeatureForOwner(created!.id, ownerId)).toBe(false);
   });
+
+  it('re-sanitizes descriptionHtml server-side on create, independent of any client-side sanitization', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [1, 1] },
+      properties: {
+        ...defaultProperties,
+        descriptionHtml: '<p>hi</p><script>alert(1)</script>',
+      },
+    });
+
+    expect(created?.properties.descriptionHtml).toBe('<p>hi</p>');
+  });
+
+  it('re-sanitizes descriptionHtml server-side on update', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [2, 2] },
+      properties: defaultProperties,
+    });
+
+    const updated = await updateFeatureForOwner(created!.id, ownerId, {
+      properties: { descriptionHtml: '<img src=x onerror="alert(1)"><p>safe</p>' },
+    });
+
+    expect(updated?.properties.descriptionHtml).toBe('<p>safe</p>');
+  });
 });

@@ -4,6 +4,15 @@ import { geometryToFeatureType, type Geometry } from '@mapinski/shared';
 import { db } from '../db/client';
 import { layers, maps, mapFeatures, type MapFeatureProperties } from '../db/schema';
 import { findLayerForOwner } from './layers.service';
+import { sanitizeHtml } from '../lib/sanitizeHtml';
+
+// Defense in depth: the client sanitizes with DOMPurify before sending, but
+// descriptionHtml is re-sanitized here too so storage is never trusted to
+// have gone through the client's sanitizer.
+function sanitizeProperties<T extends { descriptionHtml?: string }>(properties: T): T {
+  if (properties.descriptionHtml === undefined) return properties;
+  return { ...properties, descriptionHtml: sanitizeHtml(properties.descriptionHtml) };
+}
 
 interface FeatureRow {
   id: string;
@@ -59,7 +68,7 @@ export async function createFeature(
       layerId,
       featureType: geometryToFeatureType(input.geometry),
       geometry: geometryToSql(input.geometry),
-      properties: input.properties,
+      properties: sanitizeProperties(input.properties),
     })
     .returning(selectShape);
   return created;
@@ -83,7 +92,9 @@ export async function updateFeatureForOwner(
   const existing = await findFeatureForOwner(featureId, ownerId);
   if (!existing) return null;
 
-  const nextProperties = input.properties ? { ...existing.properties, ...input.properties } : undefined;
+  const nextProperties = input.properties
+    ? sanitizeProperties({ ...existing.properties, ...input.properties })
+    : undefined;
 
   const [updated] = await db
     .update(mapFeatures)

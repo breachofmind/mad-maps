@@ -16,8 +16,11 @@ import { useEditorStore } from '../../state/editorStore';
 import { LayerPanel } from '../layers/LayerPanel';
 import { DrawControls, DRAW_MODE_TO_EDITOR_MODE } from '../draw/DrawControls';
 import { useMapboxDraw } from '../draw/useMapboxDraw';
+import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
+import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
+import { FeaturePopup } from './FeaturePopup';
 
 export function MapEditorPage() {
   const { mapId } = useParams<{ mapId: string }>();
@@ -28,6 +31,7 @@ export function MapEditorPage() {
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const setActiveLayerId = useEditorStore((s) => s.setActiveLayerId);
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
+  const setSelection = useEditorStore((s) => s.setSelection);
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -40,6 +44,8 @@ export function MapEditorPage() {
     queryFn: () => fetchLayers(mapId!),
     enabled: Boolean(mapId),
   });
+
+  const selectedFeature = useSelectedFeature(layers ?? []);
 
   useEffect(() => {
     if (!activeLayerId && layers && layers.length > 0) {
@@ -98,6 +104,11 @@ export function MapEditorPage() {
         onMapReady={setMapInstance}
       />
       <FeatureLayer map={mapInstance} layers={layers ?? []} />
+      <FeaturePopup
+        map={mapInstance}
+        feature={selectedFeature?.feature ?? null}
+        onClose={() => setSelection(null)}
+      />
       <Paper
         elevation={3}
         sx={{ position: 'absolute', top: 16, left: 16, zIndex: 1, px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}
@@ -109,6 +120,14 @@ export function MapEditorPage() {
       </Paper>
       <LayerPanel mapId={map.id} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />
+      {selectedFeature && (
+        <FeaturePropertiesPanel
+          key={selectedFeature.feature.id}
+          feature={selectedFeature.feature}
+          layerId={selectedFeature.layer.id}
+          onClose={() => setSelection(null)}
+        />
+      )}
     </Box>
   );
 }
