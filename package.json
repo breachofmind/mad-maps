@@ -1,0 +1,29 @@
+{
+  "name": "mapinski",
+  "version": "1.0.0",
+  "description": "Custom map creation and viewing app built on Mapbox, similar to Google My Maps.",
+  "license": "ISC",
+  "author": "",
+  "private": true,
+  "type": "commonjs",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "dependencies": {
+    "drizzle-orm": "^0.36.4"
+  },
+  "overrides": {
+    "rollup": "npm:@rollup/wasm-node@^4.62.3"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=server & npm run dev --workspace=client & wait",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
+    "test": "npm run test --workspace=shared && npm run test --workspace=server && npm run test --workspace=client",
+    "db:generate": "npm run db:generate --workspace=server",
+    "db:migrate": "npm run db:migrate --workspace=server"
+  }
+}

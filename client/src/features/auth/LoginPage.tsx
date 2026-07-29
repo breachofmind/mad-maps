@@ -1,0 +1,26 @@
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { Navigate } from 'react-router-dom';
+import { LoginButton } from './LoginButton';
+import { useAuth } from './useAuth';
+
+export function LoginPage() {
+  const { isLoading, isAuthenticated } = useAuth();
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4">Mapinski</Typography>
+        <Typography variant="body1" color="text.secondary">
+          Create and share custom maps.
+        </Typography>
+        <LoginButton />
+      </Stack>
+    </Box>
+  );
+}
