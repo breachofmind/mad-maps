@@ -1,34 +1,55 @@
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { mapboxgl, DEFAULT_MAP_STYLE, MAP_STYLE_OPTIONS } from './mapbox';
+import { mapboxgl, MAP_STYLE_OPTIONS } from './mapbox';
 import { StyleSwitcher } from './StyleSwitcher';
 
-const DEFAULT_CENTER: [number, number] = [-98.5795, 39.8283];
-const DEFAULT_ZOOM = 3.5;
+export interface MapViewChange {
+  center: { lng: number; lat: number };
+  zoom: number;
+}
 
-export function MapView() {
+interface MapViewProps {
+  initialCenter: { lng: number; lat: number };
+  initialZoom: number;
+  initialStyleUrl: string;
+  onMoveEnd?: (change: MapViewChange) => void;
+  onStyleChange?: (styleUrl: string) => void;
+}
+
+function styleIdForUrl(styleUrl: string): string {
+  return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? MAP_STYLE_OPTIONS[0].id;
+}
+
+export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd, onStyleChange }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const [activeStyleId, setActiveStyleId] = useState(DEFAULT_MAP_STYLE.id);
+  const [activeStyleId, setActiveStyleId] = useState(styleIdForUrl(initialStyleUrl));
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: DEFAULT_MAP_STYLE.styleUrl,
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      style: initialStyleUrl,
+      center: [initialCenter.lng, initialCenter.lat],
+      zoom: initialZoom,
     });
 
     map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      onMoveEnd?.({ center: { lng: center.lng, lat: center.lat }, zoom: map.getZoom() });
+    });
+
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleStyleChange(styleId: string) {
@@ -36,6 +57,7 @@ export function MapView() {
     if (!option || !mapRef.current) return;
     mapRef.current.setStyle(option.styleUrl);
     setActiveStyleId(styleId);
+    onStyleChange?.(option.styleUrl);
   }
 
   return (

@@ -4,10 +4,13 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
+import { eq } from 'drizzle-orm';
 import { env } from './config/env';
-import { pool } from './db/client';
+import { db, pool } from './db/client';
+import { users } from './db/schema';
 import { passport } from './auth/passport';
 import { authRouter } from './auth/routes';
+import { mapsRouter } from './routes/maps';
 
 const PgSession = connectPgSimple(session);
 
@@ -39,6 +42,24 @@ export function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
+  app.use('/api/maps', mapsRouter);
+
+  // Test-only: establishes a real Passport session for a given user id, so
+  // route tests can authenticate without driving a real Google OAuth flow.
+  // Keyed off JEST_WORKER_ID (always set under Jest) rather than NODE_ENV,
+  // since NODE_ENV may already be set to something else in the shell.
+  if (process.env.JEST_WORKER_ID !== undefined) {
+    app.post('/api/test/login', async (req, res) => {
+      const { userId } = req.body as { userId?: string };
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) return res.status(404).json({ error: 'test user not found' });
+      req.login(user, (err) => {
+        if (err) return res.status(500).json({ error: 'login failed' });
+        res.status(204).end();
+      });
+    });
+  }
 
   return app;
 }
