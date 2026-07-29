@@ -21,6 +21,7 @@ import {
   createLayer,
   deleteLayer,
   fetchLayers,
+  layersQueryKey,
   reorderLayers,
   updateLayer,
   type UpdateLayerInput,
@@ -28,10 +29,6 @@ import {
 
 interface LayerPanelProps {
   mapId: string;
-}
-
-function layersQueryKey(mapId: string) {
-  return ['maps', mapId, 'layers'];
 }
 
 export function LayerPanel({ mapId }: LayerPanelProps) {

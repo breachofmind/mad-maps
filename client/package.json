@@ -13,6 +13,7 @@
   "dependencies": {
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
+    "@mapbox/mapbox-gl-draw": "^1.4.3",
     "@mapinski/shared": "*",
     "@mui/icons-material": "^6.1.2",
     "@mui/material": "^6.1.2",
@@ -30,6 +31,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/jest": "^29.5.13",
     "@types/mapbox-gl": "^3.4.0",
+    "@types/mapbox__mapbox-gl-draw": "^1.4.6",
     "@types/react": "^18.3.10",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.2",

@@ -7,6 +7,10 @@ export interface UpdateLayerInput {
   color?: string;
 }
 
+export function layersQueryKey(mapId: string) {
+  return ['maps', mapId, 'layers'];
+}
+
 export async function fetchLayers(mapId: string): Promise<LayerDTO[]> {
   const { data } = await apiClient.get<LayerDTO[]>(`/api/maps/${mapId}/layers`);
   return data;

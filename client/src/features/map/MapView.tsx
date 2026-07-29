@@ -15,13 +15,21 @@ interface MapViewProps {
   initialStyleUrl: string;
   onMoveEnd?: (change: MapViewChange) => void;
   onStyleChange?: (styleUrl: string) => void;
+  onMapReady?: (map: mapboxgl.Map) => void;
 }
 
 function styleIdForUrl(styleUrl: string): string {
   return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? MAP_STYLE_OPTIONS[0].id;
 }
 
-export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd, onStyleChange }: MapViewProps) {
+export function MapView({
+  initialCenter,
+  initialZoom,
+  initialStyleUrl,
+  onMoveEnd,
+  onStyleChange,
+  onMapReady,
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [activeStyleId, setActiveStyleId] = useState(styleIdForUrl(initialStyleUrl));
@@ -42,6 +50,8 @@ export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd
       const center = map.getCenter();
       onMoveEnd?.({ center: { lng: center.lng, lat: center.lat }, zoom: map.getZoom() });
     });
+
+    map.on('load', () => onMapReady?.(map));
 
     mapRef.current = map;
 

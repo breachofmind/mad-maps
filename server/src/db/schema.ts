@@ -1,4 +1,16 @@
-import { pgTable, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean, customType } from 'drizzle-orm/pg-core';
+
+// Drizzle's built-in pg-core `geometry()` column only supports Point geometry
+// (its mapToDriverValue always emits `point(...)`), which doesn't fit a
+// column that stores mixed Point/LineString/Polygon geometry. We store the
+// raw EWKB text form here and always read/write through explicit
+// ST_GeomFromGeoJSON / ST_AsGeoJSON SQL fragments in features.service.ts
+// instead of relying on Drizzle's value mapping for this column.
+const geometryPostGIS = customType<{ data: string }>({
+  dataType() {
+    return 'geometry(Geometry, 4326)';
+  },
+});
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -50,3 +62,31 @@ export const layers = pgTable('layers', {
 
 export type Layer = typeof layers.$inferSelect;
 export type NewLayer = typeof layers.$inferInsert;
+
+export interface MapFeatureProperties {
+  title: string;
+  descriptionHtml: string;
+  icon: string;
+  color: string;
+  strokeWidth?: number;
+}
+
+export const mapFeatures = pgTable('map_features', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  layerId: uuid('layer_id')
+    .notNull()
+    .references(() => layers.id, { onDelete: 'cascade' }),
+  featureType: text('feature_type').notNull(),
+  geometry: geometryPostGIS('geometry').notNull(),
+  properties: jsonb('properties').$type<MapFeatureProperties>().notNull().default({
+    title: '',
+    descriptionHtml: '',
+    icon: 'marker',
+    color: '#1976d2',
+  }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MapFeatureRow = typeof mapFeatures.$inferSelect;
+export type NewMapFeatureRow = typeof mapFeatures.$inferInsert;

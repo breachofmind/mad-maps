@@ -29,7 +29,7 @@ export async function createLayer(mapId: string, ownerId: string, name: string):
   return created;
 }
 
-async function findLayerForOwner(layerId: string, ownerId: string): Promise<Layer | null> {
+export async function findLayerForOwner(layerId: string, ownerId: string): Promise<Layer | null> {
   const [row] = await db
     .select({ layer: layers })
     .from(layers)
