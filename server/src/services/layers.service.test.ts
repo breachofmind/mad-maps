@@ -1,0 +1,99 @@
+import { eq } from 'drizzle-orm';
+import { db, pool } from '../db/client';
+import { users, maps } from '../db/schema';
+import { createMap } from './maps.service';
+import {
+  createLayer,
+  deleteLayerForOwner,
+  listLayersForMap,
+  reorderLayers,
+  updateLayerForOwner,
+} from './layers.service';
+
+let ownerId: string;
+let mapId: string;
+let otherOwnerId: string;
+
+beforeAll(async () => {
+  const [user] = await db
+    .insert(users)
+    .values({
+      googleId: `layers-service-test-${Date.now()}`,
+      email: 'layers-service-test@example.com',
+    })
+    .returning();
+  ownerId = user.id;
+
+  const [otherUser] = await db
+    .insert(users)
+    .values({
+      googleId: `layers-service-test-other-${Date.now()}`,
+      email: 'layers-service-test-other@example.com',
+    })
+    .returning();
+  otherOwnerId = otherUser.id;
+
+  const map = await createMap({ ownerId, title: 'Layers Test Map' });
+  mapId = map.id;
+});
+
+afterAll(async () => {
+  await db.delete(maps).where(eq(maps.ownerId, ownerId));
+  await db.delete(users).where(eq(users.id, ownerId));
+  await db.delete(users).where(eq(users.id, otherOwnerId));
+  await pool.end();
+});
+
+describe('layers.service', () => {
+  it('returns null when the map does not belong to the requesting owner', async () => {
+    expect(await listLayersForMap(mapId, otherOwnerId)).toBeNull();
+    expect(await createLayer(mapId, otherOwnerId, 'Nope')).toBeNull();
+  });
+
+  it('creates layers with sequential order indexes and lists them in order', async () => {
+    const first = await createLayer(mapId, ownerId, 'Trails');
+    const second = await createLayer(mapId, ownerId, 'Points of Interest');
+
+    expect(first?.orderIndex).toBe(0);
+    expect(second?.orderIndex).toBe(1);
+
+    const list = await listLayersForMap(mapId, ownerId);
+    expect(list?.map((l) => l.name)).toEqual(['Trails', 'Points of Interest']);
+  });
+
+  it('renames and toggles visibility for a layer', async () => {
+    const created = await createLayer(mapId, ownerId, 'To Rename');
+    const updated = await updateLayerForOwner(created!.id, ownerId, {
+      name: 'Renamed',
+      visible: false,
+    });
+
+    expect(updated?.name).toBe('Renamed');
+    expect(updated?.visible).toBe(false);
+  });
+
+  it('refuses to update a layer for a non-owning user', async () => {
+    const created = await createLayer(mapId, ownerId, 'Owner Only');
+    const updated = await updateLayerForOwner(created!.id, otherOwnerId, { name: 'Hijacked' });
+    expect(updated).toBeNull();
+  });
+
+  it('reorders layers and rejects a mismatched id set', async () => {
+    const list = (await listLayersForMap(mapId, ownerId))!;
+    const reversedIds = [...list].reverse().map((l) => l.id);
+
+    const reordered = await reorderLayers(mapId, ownerId, reversedIds);
+    expect(reordered?.map((l) => l.id)).toEqual(reversedIds);
+    expect(reordered?.map((l) => l.orderIndex)).toEqual(reversedIds.map((_, i) => i));
+
+    const invalid = await reorderLayers(mapId, ownerId, [reversedIds[0]]);
+    expect(invalid).toBeNull();
+  });
+
+  it('deletes a layer, and returns false when deleting again', async () => {
+    const created = await createLayer(mapId, ownerId, 'To Delete');
+
+    expect(await deleteLayerForOwner(created!.id, ownerId)).toBe(true);
+    expect(await deleteLayerForOwner(created!.id, ownerId)).toBe(false);
+  });
+});

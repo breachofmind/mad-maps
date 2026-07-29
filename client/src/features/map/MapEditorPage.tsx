@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchMap, updateMap, type UpdateMapInput } from '../maps/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
+import { LayerPanel } from '../layers/LayerPanel';
 import { MapView, type MapViewChange } from './MapView';
 
 export function MapEditorPage() {
@@ -62,6 +63,7 @@ export function MapEditorPage() {
         </IconButton>
         <Typography variant="subtitle1">{map.title}</Typography>
       </Paper>
+      <LayerPanel mapId={map.id} />
     </Box>
   );
 }

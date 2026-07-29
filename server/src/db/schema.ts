@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, doublePrecision, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -34,3 +34,19 @@ export const maps = pgTable('maps', {
 
 export type Map = typeof maps.$inferSelect;
 export type NewMap = typeof maps.$inferInsert;
+
+export const layers = pgTable('layers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mapId: uuid('map_id')
+    .notNull()
+    .references(() => maps.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  orderIndex: integer('order_index').notNull().default(0),
+  visible: boolean('visible').notNull().default(true),
+  color: text('color').notNull().default('#1976d2'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Layer = typeof layers.$inferSelect;
+export type NewLayer = typeof layers.$inferInsert;

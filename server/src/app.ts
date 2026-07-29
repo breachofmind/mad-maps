@@ -11,6 +11,7 @@ import { users } from './db/schema';
 import { passport } from './auth/passport';
 import { authRouter } from './auth/routes';
 import { mapsRouter } from './routes/maps';
+import { layersRouter, mapLayersRouter } from './routes/layers';
 
 const PgSession = connectPgSimple(session);
 
@@ -43,6 +44,8 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
   app.use('/api/maps', mapsRouter);
+  app.use('/api/maps/:mapId/layers', mapLayersRouter);
+  app.use('/api/layers', layersRouter);
 
   // Test-only: establishes a real Passport session for a given user id, so
   // route tests can authenticate without driving a real Google OAuth flow.

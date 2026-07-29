@@ -15,6 +15,13 @@
       "when": 1785351977223,
       "tag": "0001_grey_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785352283416,
+      "tag": "0002_tiny_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }
