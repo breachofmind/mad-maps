@@ -19,6 +19,7 @@ import { useMapboxDraw } from '../draw/useMapboxDraw';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
 import { SearchBox } from '../search/SearchBox';
+import { ExportMenu } from '../export/ExportMenu';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
 import { FeaturePopup } from './FeaturePopup';
@@ -119,6 +120,7 @@ export function MapEditorPage() {
           <ArrowBackIcon fontSize="small" />
         </IconButton>
         <Typography variant="subtitle1">{map.title}</Typography>
+        <ExportMenu mapId={map.id} />
       </Paper>
       <LayerPanel mapId={map.id} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />
