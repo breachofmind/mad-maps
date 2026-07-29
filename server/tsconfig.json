@@ -5,7 +5,8 @@
     "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node", "jest", "geojson"]
+    "types": ["node", "jest", "geojson"],
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src"]
 }

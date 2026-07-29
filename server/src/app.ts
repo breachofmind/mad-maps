@@ -15,6 +15,7 @@ import { layersRouter, mapLayersRouter } from './routes/layers';
 import { layerMapFeaturesRouter, mapFeaturesRouter } from './routes/mapFeatures';
 import { searchRouter } from './routes/search';
 import { mapExportRouter } from './routes/export';
+import { mapImportRouter, newMapImportRouter } from './routes/import';
 
 const PgSession = connectPgSimple(session);
 
@@ -53,6 +54,8 @@ export function createApp() {
   app.use('/api/mapFeatures', mapFeaturesRouter);
   app.use('/api/search', searchRouter);
   app.use('/api/maps/:mapId/export', mapExportRouter);
+  app.use('/api/maps/import', newMapImportRouter);
+  app.use('/api/maps/:mapId/import', mapImportRouter);
 
   // Test-only: establishes a real Passport session for a given user id, so
   // route tests can authenticate without driving a real Google OAuth flow.

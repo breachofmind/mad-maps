@@ -16,7 +16,9 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import UploadIcon from '@mui/icons-material/Upload';
 import { useEditorStore } from '../../state/editorStore';
+import { ImportDialog } from '../import/ImportDialog';
 import {
   createLayer,
   deleteLayer,
@@ -40,6 +42,7 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
   const [addingLayer, setAddingLayer] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const { data: layers, isLoading } = useQuery({ queryKey, queryFn: () => fetchLayers(mapId) });
 
@@ -157,9 +160,14 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
         <Typography variant="subtitle1">Layers</Typography>
-        <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
-          <AddIcon fontSize="small" />
-        </IconButton>
+        <Stack direction="row">
+          <IconButton size="small" onClick={() => setImportDialogOpen(true)} aria-label="Import layer from file">
+            <UploadIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       </Stack>
 
       {isLoading ? (
@@ -272,6 +280,12 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
           />
         </Box>
       )}
+
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        mapId={mapId}
+      />
     </Paper>
   );
 }

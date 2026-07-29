@@ -17,7 +17,9 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import UploadIcon from '@mui/icons-material/Upload';
 import { useAuth } from '../auth/useAuth';
+import { ImportDialog } from '../import/ImportDialog';
 import { createMap, deleteMap, fetchMaps } from './api';
 
 const MAPS_QUERY_KEY = ['maps'];
@@ -27,6 +29,7 @@ export function MapsListPage() {
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
 
   const { data: maps, isLoading } = useQuery({ queryKey: MAPS_QUERY_KEY, queryFn: fetchMaps });
@@ -63,14 +66,14 @@ export function MapsListPage() {
         </Stack>
       </Stack>
 
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={() => setDialogOpen(true)}
-        sx={{ mb: 3 }}
-      >
-        New Map
-      </Button>
+      <Stack direction="row" spacing={2} mb={3}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+          New Map
+        </Button>
+        <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportDialogOpen(true)}>
+          Import
+        </Button>
+      </Stack>
 
       {isLoading ? (
         <CircularProgress />
@@ -131,6 +134,8 @@ export function MapsListPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImportDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} />
     </Box>
   );
 }
