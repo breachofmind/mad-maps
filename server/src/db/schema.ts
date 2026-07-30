@@ -69,6 +69,7 @@ export interface MapFeatureProperties {
   icon: string;
   color: string;
   strokeWidth?: number;
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
 }
 
 export const mapFeatures = pgTable('map_features', {

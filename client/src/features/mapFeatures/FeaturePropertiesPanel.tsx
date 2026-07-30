@@ -15,9 +15,11 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { FeatureType, MapFeatureDTO } from '@mapinski/shared';
+import type { FeatureType, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput } from './api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
@@ -40,6 +42,14 @@ const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   line: 'Line',
   polygon: 'Polygon',
 };
+
+const DEFAULT_STROKE_WIDTH = 3;
+
+const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
+  { value: 'solid', label: 'Solid' },
+  { value: 'dashed', label: 'Dashed' },
+  { value: 'dotted', label: 'Dotted' },
+];
 
 function MeasurementStat({ label, value }: { label: string; value: string }) {
   return (
@@ -87,6 +97,7 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
+  const [strokeWidth, setStrokeWidth] = useState(feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
   const areaUnit = useUnitsStore((s) => s.areaUnit);
@@ -239,21 +250,49 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
         </Box>
 
         {showStroke && (
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Stroke width
-            </Typography>
-            <Slider
-              size="small"
-              min={1}
-              max={10}
-              step={0.5}
-              value={feature.properties.strokeWidth ?? 3}
-              onChangeCommitted={(_e, value) =>
-                updateMutation.mutate({ properties: { strokeWidth: value as number } })
-              }
-            />
-          </Box>
+          <>
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Stroke width
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {strokeWidth}px
+                </Typography>
+              </Stack>
+              <Slider
+                size="small"
+                min={1}
+                max={10}
+                step={0.5}
+                value={strokeWidth}
+                onChange={(_e, value) => setStrokeWidth(value as number)}
+                onChangeCommitted={(_e, value) =>
+                  updateMutation.mutate({ properties: { strokeWidth: value as number } })
+                }
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                Line style
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={feature.properties.lineStyle ?? 'solid'}
+                onChange={(_e, next: LineStyle | null) => {
+                  if (next) updateMutation.mutate({ properties: { lineStyle: next } });
+                }}
+              >
+                {LINE_STYLE_OPTIONS.map((option) => (
+                  <ToggleButton key={option.value} value={option.value}>
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+          </>
         )}
 
         <Divider />

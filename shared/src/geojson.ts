@@ -33,6 +33,7 @@ export const mapFeaturePropertiesSchema = z.object({
   icon: z.string().default('marker'),
   color: z.string().default('#1976d2'),
   strokeWidth: z.number().positive().optional(),
+  lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
 });
 
 export const geoJsonFeatureSchema = z.object({

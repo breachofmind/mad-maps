@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO, MapFeatureDTO } from '@mapinski/shared';
+import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
 import { featuresQueryKey, fetchFeatures } from '../mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from './featureIconImages';
@@ -17,9 +17,21 @@ const LAYER_IDS = {
 };
 const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.line, LAYER_IDS.point];
 const POINT_ICON_SIZE = 0.4;
-const POINT_HOVER_RADIUS = 16;
-const GEOMETRY_HOVER_WIDTH = 7;
+const POINT_HOVER_RADIUS = 18;
+const POINT_HOVER_STROKE_WIDTH = 5;
+const GEOMETRY_HOVER_WIDTH = 11;
 const HOVER_COLOR = '#ffffff';
+const DEFAULT_STROKE_WIDTH = 3;
+
+// mapbox's line-dasharray only accepts a fixed array per-feature (no
+// omitting it for "solid"), so a solid line is represented as one long dash
+// with no gap — the standard workaround for mixing dash styles within a
+// single data-driven layer.
+const LINE_DASH_ARRAYS: Record<LineStyle, number[]> = {
+  solid: [1, 0],
+  dashed: [3, 2],
+  dotted: [0, 2],
+};
 
 function hoverFilter(featureId: string | null, geometryTypes: string[]): mapboxgl.FilterSpecification {
   return [
@@ -65,6 +77,8 @@ function buildFeatureCollection(
           color,
           title: feature.properties.title,
           icon: featureIconImageId(icon, color),
+          strokeWidth: feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH,
+          dashArray: LINE_DASH_ARRAYS[feature.properties.lineStyle ?? 'solid'],
         },
       });
     }
@@ -92,7 +106,12 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     type: 'line',
     source: SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
-    paint: { 'line-color': ['get', 'color'], 'line-width': 2 },
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['get', 'color'],
+      'line-width': ['get', 'strokeWidth'],
+      'line-dasharray': ['get', 'dashArray'],
+    },
   });
   // Inserted before polygonOutline (i.e. between it and polygonFill) so it
   // renders underneath both the polygon outline and the line layer (added
@@ -114,7 +133,12 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     type: 'line',
     source: SOURCE_ID,
     filter: ['==', ['geometry-type'], 'LineString'],
-    paint: { 'line-color': ['get', 'color'], 'line-width': 3 },
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['get', 'color'],
+      'line-width': ['get', 'strokeWidth'],
+      'line-dasharray': ['get', 'dashArray'],
+    },
   });
   map.addLayer({
     id: LAYER_IDS.point,
@@ -135,8 +159,9 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     filter: hoverFilter(null, ['Point']),
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
-      'circle-color': 'rgba(0, 0, 0, 0)',
-      'circle-stroke-width': 3,
+      'circle-color': HOVER_COLOR,
+      'circle-opacity': 0.3,
+      'circle-stroke-width': POINT_HOVER_STROKE_WIDTH,
       'circle-stroke-color': HOVER_COLOR,
     },
   });
@@ -145,6 +170,7 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
 export function FeatureLayer({ map, layers }: FeatureLayerProps) {
   const setSelection = useEditorStore((s) => s.setSelection);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
+  const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
 
   const featureQueries = useQueries({
     queries: layers.map((layer) => ({
@@ -210,7 +236,9 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
 
     // A single map-level mousemove handler (rather than per-layer
     // mouseenter/mouseleave) avoids cursor flicker where two clickable
-    // layers overlap the same feature (e.g. polygon fill + outline).
+    // layers overlap the same feature (e.g. polygon fill + outline). It
+    // also drives the hover highlight (the same one the layer panel's row
+    // hover uses) so hovering a feature directly on the map lights it up too.
     function handleMouseMove(e: mapboxgl.MapMouseEvent) {
       if (!map) return;
       const existingLayers = CLICKABLE_LAYER_IDS.filter((id) => map.getLayer(id));
@@ -218,19 +246,30 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
         ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
         : [];
       map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
+      const featureId = hits[0]?.properties?.featureId;
+      const nextHoveredId = typeof featureId === 'string' ? featureId : null;
+      if (useEditorStore.getState().hoveredFeatureId !== nextHoveredId) {
+        setHoveredFeatureId(nextHoveredId);
+      }
+    }
+
+    function handleMouseOut() {
+      setHoveredFeatureId(null);
     }
 
     map.on('style.load', handleStyleLoad);
     map.on('click', handleClick);
     map.on('mousemove', handleMouseMove);
+    map.on('mouseout', handleMouseOut);
 
     return () => {
       map.off('style.load', handleStyleLoad);
       map.off('click', handleClick);
       map.off('mousemove', handleMouseMove);
+      map.off('mouseout', handleMouseOut);
       map.getCanvas().style.cursor = '';
     };
-  }, [map, setSelection]);
+  }, [map, setSelection, setHoveredFeatureId]);
 
   return null;
 }
