@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
 import type { MapFeatureDTO } from '@mapinski/shared';
 import { mapboxgl } from './mapbox';
@@ -38,9 +39,11 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
             <Icon fontSize="small" sx={{ color: feature.properties.color }} />
             <Typography variant="subtitle2">{feature.properties.title || 'Untitled'}</Typography>
           </Stack>
-          <IconButton size="small" onClick={() => onCloseRef.current()} aria-label="Close popup">
-            <CloseIcon fontSize="inherit" />
-          </IconButton>
+          <Tooltip title="Close">
+            <IconButton size="small" onClick={() => onCloseRef.current()} aria-label="Close popup">
+              <CloseIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
         </Stack>
         {sanitizedDescription && (
           <Box

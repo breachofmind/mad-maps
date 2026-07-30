@@ -10,6 +10,7 @@ import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { MapFeatureDTO } from '@mapinski/shared';
@@ -82,9 +83,11 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
         <Typography variant="subtitle1">Feature Details</Typography>
-        <IconButton size="small" onClick={onClose} aria-label="Close feature details">
-          <CloseIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Close">
+          <IconButton size="small" onClick={onClose} aria-label="Close feature details">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Stack>
 
       <Stack spacing={2}>

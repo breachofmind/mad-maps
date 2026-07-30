@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchMap, updateMap, type UpdateMapInput } from '../maps/api';
 import { fetchLayers, layersQueryKey } from '../layers/api';
@@ -116,9 +117,11 @@ export function MapEditorPage() {
         elevation={3}
         sx={{ position: 'absolute', top: 16, left: 16, zIndex: 1, px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}
       >
-        <IconButton size="small" onClick={() => navigate('/')} aria-label="Back to maps">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Back to maps">
+          <IconButton size="small" onClick={() => navigate('/')} aria-label="Back to maps">
+            <ArrowBackIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Typography variant="subtitle1">{map.title}</Typography>
         <ExportMenu mapId={map.id} />
       </Paper>

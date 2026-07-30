@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -89,16 +90,18 @@ export function MapsListPage() {
                 primary={map.title}
                 secondary={new Date(map.updatedAt).toLocaleString()}
               />
-              <IconButton
-                edge="end"
-                aria-label={`delete ${map.title}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteMutation.mutate(map.id);
-                }}
-              >
-                <DeleteIcon />
-              </IconButton>
+              <Tooltip title="Delete map">
+                <IconButton
+                  edge="end"
+                  aria-label={`delete ${map.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMutation.mutate(map.id);
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
             </ListItemButton>
           ))}
         </List>

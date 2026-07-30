@@ -1,4 +1,5 @@
 import Paper from '@mui/material/Paper';
+import Tooltip from '@mui/material/Tooltip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import NearMeIcon from '@mui/icons-material/NearMe';
@@ -40,18 +41,26 @@ export function DrawControls({ setMode, disabled }: DrawControlsProps) {
   return (
     <Paper elevation={3} sx={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1, p: 0.5 }}>
       <ToggleButtonGroup value={drawMode} exclusive size="small" onChange={handleChange} disabled={disabled}>
-        <ToggleButton value="none" aria-label="Select">
-          <NearMeIcon fontSize="small" />
-        </ToggleButton>
-        <ToggleButton value="point" aria-label="Draw point">
-          <PlaceIcon fontSize="small" />
-        </ToggleButton>
-        <ToggleButton value="line" aria-label="Draw line">
-          <TimelineIcon fontSize="small" />
-        </ToggleButton>
-        <ToggleButton value="polygon" aria-label="Draw polygon">
-          <PentagonIcon fontSize="small" />
-        </ToggleButton>
+        <Tooltip title="Select">
+          <ToggleButton value="none" aria-label="Select">
+            <NearMeIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Draw point">
+          <ToggleButton value="point" aria-label="Draw point">
+            <PlaceIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Draw line">
+          <ToggleButton value="line" aria-label="Draw line">
+            <TimelineIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Draw polygon">
+          <ToggleButton value="polygon" aria-label="Draw polygon">
+            <PentagonIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
       </ToggleButtonGroup>
     </Paper>
   );

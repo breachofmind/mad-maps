@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -329,12 +330,16 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
       <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
         <Typography variant="subtitle1">Layers</Typography>
         <Stack direction="row">
-          <IconButton size="small" onClick={() => setImportDialogOpen(true)} aria-label="Import layer from file">
-            <UploadIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
-            <AddIcon fontSize="small" />
-          </IconButton>
+          <Tooltip title="Import layer from file">
+            <IconButton size="small" onClick={() => setImportDialogOpen(true)} aria-label="Import layer from file">
+              <UploadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Add layer">
+            <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Stack>
       </Stack>
 
@@ -385,28 +390,34 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                     <DragIndicatorIcon fontSize="small" />
                   </Box>
 
-                  <IconButton
-                    size="small"
-                    aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
-                    disabled={features.length === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLayerCollapsed(layer.id);
-                    }}
-                  >
-                    {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-                  </IconButton>
+                  <Tooltip title={collapsed ? 'Expand layer' : 'Collapse layer'}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
+                        disabled={features.length === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLayerCollapsed(layer.id);
+                        }}
+                      >
+                        {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
 
-                  <IconButton
-                    size="small"
-                    aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
-                    }}
-                  >
-                    {layer.visible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                  </IconButton>
+                  <Tooltip title={layer.visible ? 'Hide layer' : 'Show layer'}>
+                    <IconButton
+                      size="small"
+                      aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
+                      }}
+                    >
+                      {layer.visible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
 
                   {renamingId === layer.id ? (
                     <TextField
@@ -437,38 +448,48 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                     </Typography>
                   )}
 
-                  <IconButton
-                    size="small"
-                    aria-label={`Move ${layer.name} up`}
-                    disabled={index === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      move(index, -1);
-                    }}
-                  >
-                    <ArrowUpwardIcon fontSize="inherit" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    aria-label={`Move ${layer.name} down`}
-                    disabled={!layers || index === layers.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      move(index, 1);
-                    }}
-                  >
-                    <ArrowDownwardIcon fontSize="inherit" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    aria-label={`Delete ${layer.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMutation.mutate(layer.id);
-                    }}
-                  >
-                    <DeleteIcon fontSize="inherit" />
-                  </IconButton>
+                  <Tooltip title="Move layer up">
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label={`Move ${layer.name} up`}
+                        disabled={index === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          move(index, -1);
+                        }}
+                      >
+                        <ArrowUpwardIcon fontSize="inherit" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Move layer down">
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label={`Move ${layer.name} down`}
+                        disabled={!layers || index === layers.length - 1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          move(index, 1);
+                        }}
+                      >
+                        <ArrowDownwardIcon fontSize="inherit" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Delete layer">
+                    <IconButton
+                      size="small"
+                      aria-label={`Delete ${layer.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(layer.id);
+                      }}
+                    >
+                      <DeleteIcon fontSize="inherit" />
+                    </IconButton>
+                  </Tooltip>
                 </ListItem>
 
                 <Collapse in={!collapsed && features.length > 0} unmountOnExit>

@@ -1,5 +1,6 @@
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Tooltip from '@mui/material/Tooltip';
 import { FEATURE_ICONS, FEATURE_ICON_NAMES, type FeatureIconName } from './icons';
 
 interface IconPickerProps {
@@ -21,9 +22,11 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
       {FEATURE_ICON_NAMES.map((name) => {
         const Icon = FEATURE_ICONS[name];
         return (
-          <ToggleButton key={name} value={name} aria-label={name}>
-            <Icon fontSize="small" />
-          </ToggleButton>
+          <Tooltip key={name} title={name}>
+            <ToggleButton value={name} aria-label={name}>
+              <Icon fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
         );
       })}
     </ToggleButtonGroup>
