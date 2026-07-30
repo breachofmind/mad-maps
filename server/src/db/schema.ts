@@ -76,6 +76,7 @@ export const mapFeatures = pgTable('map_features', {
   layerId: uuid('layer_id')
     .notNull()
     .references(() => layers.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').notNull().default(0),
   featureType: text('feature_type').notNull(),
   geometry: geometryPostGIS('geometry').notNull(),
   properties: jsonb('properties').$type<MapFeatureProperties>().notNull().default({

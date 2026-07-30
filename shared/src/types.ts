@@ -42,6 +42,7 @@ export interface MapFeaturePropertiesDTO {
 export interface MapFeatureDTO {
   id: string;
   layerId: string;
+  orderIndex: number;
   featureType: FeatureType;
   geometry: GeoJSON.Geometry;
   properties: MapFeaturePropertiesDTO;

@@ -7,6 +7,7 @@ import {
   createFeature,
   deleteFeatureForOwner,
   listFeaturesForLayer,
+  moveFeatureForOwner,
   toMapFeatureDTO,
   updateFeatureForOwner,
 } from '../services/features.service';
@@ -23,6 +24,11 @@ const createFeatureSchema = z.object({
 const updateFeatureSchema = z.object({
   geometry: geometrySchema.optional(),
   properties: mapFeaturePropertiesSchema.partial().optional(),
+});
+
+const moveFeatureSchema = z.object({
+  layerId: z.string().uuid(),
+  index: z.number().int().min(0),
 });
 
 export const layerMapFeaturesRouter = Router({ mergeParams: true });
@@ -57,6 +63,20 @@ mapFeaturesRouter.patch('/:featureId', async (req, res) => {
   const updated = await updateFeatureForOwner(req.params.featureId, currentUser(req).id, parsed.data);
   if (!updated) return res.status(404).json({ error: 'Feature not found' });
   res.json(toMapFeatureDTO(updated));
+});
+
+mapFeaturesRouter.patch('/:featureId/move', async (req, res) => {
+  const parsed = moveFeatureSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const moved = await moveFeatureForOwner(
+    req.params.featureId,
+    currentUser(req).id,
+    parsed.data.layerId,
+    parsed.data.index,
+  );
+  if (!moved) return res.status(404).json({ error: 'Feature or target layer not found' });
+  res.json(toMapFeatureDTO(moved));
 });
 
 mapFeaturesRouter.delete('/:featureId', async (req, res) => {

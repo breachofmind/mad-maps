@@ -33,3 +33,8 @@ export async function updateFeature(featureId: string, input: UpdateFeatureInput
 export async function deleteFeature(featureId: string): Promise<void> {
   await apiClient.delete(`/api/mapFeatures/${featureId}`);
 }
+
+export async function moveFeature(featureId: string, layerId: string, index: number): Promise<MapFeatureDTO> {
+  const { data } = await apiClient.patch<MapFeatureDTO>(`/api/mapFeatures/${featureId}/move`, { layerId, index });
+  return data;
+}

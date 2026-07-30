@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { MapFeatureDTO } from '@mapinski/shared';
 import { geometryToFeatureType, type Geometry } from '@mapinski/shared';
 import { db } from '../db/client';
@@ -17,6 +17,7 @@ function sanitizeProperties<T extends { descriptionHtml?: string }>(properties: 
 interface FeatureRow {
   id: string;
   layerId: string;
+  orderIndex: number;
   featureType: string;
   geometry: string;
   properties: MapFeatureProperties;
@@ -27,6 +28,7 @@ interface FeatureRow {
 const selectShape = {
   id: mapFeatures.id,
   layerId: mapFeatures.layerId,
+  orderIndex: mapFeatures.orderIndex,
   featureType: mapFeatures.featureType,
   geometry: sql<string>`ST_AsGeoJSON(${mapFeatures.geometry})`,
   properties: mapFeatures.properties,
@@ -51,7 +53,11 @@ export interface UpdateFeatureInput {
 export async function listFeaturesForLayer(layerId: string, ownerId: string): Promise<FeatureRow[] | null> {
   const layer = await findLayerForOwner(layerId, ownerId);
   if (!layer) return null;
-  return db.select(selectShape).from(mapFeatures).where(eq(mapFeatures.layerId, layerId));
+  return db
+    .select(selectShape)
+    .from(mapFeatures)
+    .where(eq(mapFeatures.layerId, layerId))
+    .orderBy(asc(mapFeatures.orderIndex));
 }
 
 export async function createFeature(
@@ -62,10 +68,16 @@ export async function createFeature(
   const layer = await findLayerForOwner(layerId, ownerId);
   if (!layer) return null;
 
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(mapFeatures)
+    .where(eq(mapFeatures.layerId, layerId));
+
   const [created] = await db
     .insert(mapFeatures)
     .values({
       layerId,
+      orderIndex: count,
       featureType: geometryToFeatureType(input.geometry),
       geometry: geometryToSql(input.geometry),
       properties: sanitizeProperties(input.properties),
@@ -110,6 +122,82 @@ export async function updateFeatureForOwner(
   return updated;
 }
 
+// Moves a feature to `targetIndex` within `targetLayerId`'s ordering,
+// reindexing whichever layer(s) are affected. `targetIndex` is interpreted
+// against each layer's *current* order (before this feature is removed from
+// it) — same-layer moves adjust for the resulting shift themselves so
+// callers don't have to.
+export async function moveFeatureForOwner(
+  featureId: string,
+  ownerId: string,
+  targetLayerId: string,
+  targetIndex: number,
+): Promise<FeatureRow | null> {
+  const existing = await findFeatureForOwner(featureId, ownerId);
+  if (!existing) return null;
+
+  const targetLayer = await findLayerForOwner(targetLayerId, ownerId);
+  if (!targetLayer) return null;
+
+  const sourceLayerId = existing.layerId;
+
+  if (sourceLayerId === targetLayerId) {
+    const siblings = await db
+      .select({ id: mapFeatures.id })
+      .from(mapFeatures)
+      .where(eq(mapFeatures.layerId, targetLayerId))
+      .orderBy(asc(mapFeatures.orderIndex));
+    const currentIndex = siblings.findIndex((s) => s.id === featureId);
+    const ids = siblings.map((s) => s.id).filter((id) => id !== featureId);
+    let insertAt = targetIndex;
+    if (currentIndex !== -1 && currentIndex < targetIndex) insertAt -= 1;
+    insertAt = Math.max(0, Math.min(insertAt, ids.length));
+    ids.splice(insertAt, 0, featureId);
+
+    await Promise.all(
+      ids.map((id, index) =>
+        db.update(mapFeatures).set({ orderIndex: index, updatedAt: new Date() }).where(eq(mapFeatures.id, id)),
+      ),
+    );
+  } else {
+    const [sourceSiblings, targetSiblings] = await Promise.all([
+      db
+        .select({ id: mapFeatures.id })
+        .from(mapFeatures)
+        .where(eq(mapFeatures.layerId, sourceLayerId))
+        .orderBy(asc(mapFeatures.orderIndex)),
+      db
+        .select({ id: mapFeatures.id })
+        .from(mapFeatures)
+        .where(eq(mapFeatures.layerId, targetLayerId))
+        .orderBy(asc(mapFeatures.orderIndex)),
+    ]);
+    const sourceIds = sourceSiblings.map((s) => s.id).filter((id) => id !== featureId);
+    const targetIds = targetSiblings.map((s) => s.id);
+    const insertAt = Math.max(0, Math.min(targetIndex, targetIds.length));
+    targetIds.splice(insertAt, 0, featureId);
+
+    await Promise.all([
+      ...sourceIds.map((id, index) =>
+        db.update(mapFeatures).set({ orderIndex: index, updatedAt: new Date() }).where(eq(mapFeatures.id, id)),
+      ),
+      ...targetIds.map((id, index) =>
+        db
+          .update(mapFeatures)
+          .set({
+            orderIndex: index,
+            ...(id === featureId ? { layerId: targetLayerId } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(mapFeatures.id, id)),
+      ),
+    ]);
+  }
+
+  const [updated] = await db.select(selectShape).from(mapFeatures).where(eq(mapFeatures.id, featureId));
+  return updated ?? null;
+}
+
 export async function deleteFeatureForOwner(featureId: string, ownerId: string): Promise<boolean> {
   const existing = await findFeatureForOwner(featureId, ownerId);
   if (!existing) return false;
@@ -122,6 +210,7 @@ export function toMapFeatureDTO(row: FeatureRow): MapFeatureDTO {
   return {
     id: row.id,
     layerId: row.layerId,
+    orderIndex: row.orderIndex,
     featureType: row.featureType as MapFeatureDTO['featureType'],
     geometry: JSON.parse(row.geometry) as GeoJSON.Geometry,
     properties: row.properties,
