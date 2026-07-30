@@ -12,9 +12,31 @@ const LAYER_IDS = {
   polygonOutline: 'mapinski-features-polygon-outline',
   line: 'mapinski-features-line',
   point: 'mapinski-features-point',
+  pointHover: 'mapinski-features-point-hover',
+  geometryHover: 'mapinski-features-geometry-hover',
 };
 const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.line, LAYER_IDS.point];
 const POINT_ICON_SIZE = 0.4;
+const POINT_HOVER_RADIUS = 16;
+const GEOMETRY_HOVER_WIDTH = 7;
+const HOVER_COLOR = '#ffffff';
+
+function hoverFilter(featureId: string | null, geometryTypes: string[]): mapboxgl.FilterSpecification {
+  return [
+    'all',
+    ['in', ['geometry-type'], ['literal', geometryTypes]],
+    ['==', ['get', 'featureId'], featureId ?? ''],
+  ];
+}
+
+function applyHoverFilters(map: mapboxgl.Map, featureId: string | null) {
+  if (map.getLayer(LAYER_IDS.pointHover)) {
+    map.setFilter(LAYER_IDS.pointHover, hoverFilter(featureId, ['Point']));
+  }
+  if (map.getLayer(LAYER_IDS.geometryHover)) {
+    map.setFilter(LAYER_IDS.geometryHover, hoverFilter(featureId, ['LineString', 'Polygon']));
+  }
+}
 
 interface FeatureLayerProps {
   map: mapboxgl.Map | null;
@@ -72,6 +94,21 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: { 'line-color': ['get', 'color'], 'line-width': 2 },
   });
+  // Inserted before polygonOutline (i.e. between it and polygonFill) so it
+  // renders underneath both the polygon outline and the line layer (added
+  // next), giving hovered LineStrings/Polygons a soft white glow behind
+  // their crisp edge.
+  map.addLayer(
+    {
+      id: LAYER_IDS.geometryHover,
+      type: 'line',
+      source: SOURCE_ID,
+      filter: hoverFilter(null, ['LineString', 'Polygon']),
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': HOVER_COLOR, 'line-width': GEOMETRY_HOVER_WIDTH },
+    },
+    LAYER_IDS.polygonOutline,
+  );
   map.addLayer({
     id: LAYER_IDS.line,
     type: 'line',
@@ -91,10 +128,23 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       'icon-ignore-placement': true,
     },
   });
+  map.addLayer({
+    id: LAYER_IDS.pointHover,
+    type: 'circle',
+    source: SOURCE_ID,
+    filter: hoverFilter(null, ['Point']),
+    paint: {
+      'circle-radius': POINT_HOVER_RADIUS,
+      'circle-color': 'rgba(0, 0, 0, 0)',
+      'circle-stroke-width': 3,
+      'circle-stroke-color': HOVER_COLOR,
+    },
+  });
 }
 
 export function FeatureLayer({ map, layers }: FeatureLayerProps) {
   const setSelection = useEditorStore((s) => s.setSelection);
+  const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
 
   const featureQueries = useQueries({
     queries: layers.map((layer) => ({
@@ -117,6 +167,13 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
   dataRef.current = data;
   const iconRefsRef = useRef(iconRefs);
   iconRefsRef.current = iconRefs;
+  const hoveredFeatureIdRef = useRef(hoveredFeatureId);
+  hoveredFeatureIdRef.current = hoveredFeatureId;
+
+  useEffect(() => {
+    if (!map) return;
+    applyHoverFilters(map, hoveredFeatureId);
+  }, [map, hoveredFeatureId]);
 
   useEffect(() => {
     if (!map) return;
@@ -133,6 +190,7 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
+      applyHoverFilters(map, hoveredFeatureIdRef.current);
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );

@@ -69,6 +69,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const setActiveLayerId = useEditorStore((s) => s.setActiveLayerId);
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const [newLayerName, setNewLayerName] = useState('');
   const [addingLayer, setAddingLayer] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -326,6 +327,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           setDropIndicator(null);
         }
       }}
+      onMouseLeave={() => setHoveredFeatureId(null)}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
         <Typography variant="subtitle1">Layers</Typography>
@@ -508,6 +510,10 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                             onDragOver={(e) => {
                               if (!draggedFeature) return;
                               updateDropIndicatorFromRow(e, { layerId: layer.id }, featureIndex);
+                            }}
+                            onMouseEnter={() => setHoveredFeatureId(feature.id)}
+                            onMouseLeave={() => {
+                              if (useEditorStore.getState().hoveredFeatureId === feature.id) setHoveredFeatureId(null);
                             }}
                             sx={{ pl: 5, py: 0.5, gap: 1 }}
                           >
