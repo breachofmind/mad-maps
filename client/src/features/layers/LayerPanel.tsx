@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LayerDTO } from '@mapinski/shared';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import type mapboxgl from 'mapbox-gl';
+import type { LayerDTO, MapFeatureDTO } from '@mapinski/shared';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -9,6 +10,8 @@ import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -17,8 +20,13 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useEditorStore } from '../../state/editorStore';
 import { ImportDialog } from '../import/ImportDialog';
+import { geometryAnchor } from '../map/geometryAnchor';
+import { featuresQueryKey, fetchFeatures } from '../mapFeatures/api';
+import { FEATURE_ICONS, type FeatureIconName } from '../mapFeatures/icons';
 import {
   createLayer,
   deleteLayer,
@@ -31,20 +39,52 @@ import {
 
 interface LayerPanelProps {
   mapId: string;
+  map: mapboxgl.Map | null;
 }
 
-export function LayerPanel({ mapId }: LayerPanelProps) {
+const FEATURE_SELECT_ZOOM = 14;
+
+export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const queryClient = useQueryClient();
   const queryKey = layersQueryKey(mapId);
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const setActiveLayerId = useEditorStore((s) => s.setActiveLayerId);
+  const selection = useEditorStore((s) => s.selection);
+  const setSelection = useEditorStore((s) => s.setSelection);
   const [newLayerName, setNewLayerName] = useState('');
   const [addingLayer, setAddingLayer] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
 
   const { data: layers, isLoading } = useQuery({ queryKey, queryFn: () => fetchLayers(mapId) });
+
+  const featureQueries = useQueries({
+    queries: (layers ?? []).map((layer) => ({
+      queryKey: featuresQueryKey(layer.id),
+      queryFn: () => fetchFeatures(layer.id),
+    })),
+  });
+
+  function toggleLayerCollapsed(layerId: string) {
+    setCollapsedLayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerId)) next.delete(layerId);
+      else next.add(layerId);
+      return next;
+    });
+  }
+
+  function selectFeature(feature: MapFeatureDTO) {
+    setSelection({ type: 'feature', featureId: feature.id });
+    if (map) {
+      map.flyTo({
+        center: geometryAnchor(feature.geometry),
+        zoom: Math.max(map.getZoom(), FEATURE_SELECT_ZOOM),
+      });
+    }
+  }
 
   function rollbackOnError(_err: unknown, _vars: unknown, context: { previous?: LayerDTO[] } | undefined) {
     if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
@@ -176,9 +216,12 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
         </Box>
       ) : (
         <List dense disablePadding>
-          {layers?.map((layer, index) => (
+          {layers?.map((layer, index) => {
+            const features = featureQueries[index]?.data ?? [];
+            const collapsed = collapsedLayerIds.has(layer.id);
+            return (
+            <Box key={layer.id}>
             <ListItem
-              key={layer.id}
               onClick={() => setActiveLayerId(layer.id)}
               sx={{
                 cursor: 'pointer',
@@ -187,6 +230,18 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
                 gap: 0.5,
               }}
             >
+              <IconButton
+                size="small"
+                aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
+                disabled={features.length === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLayerCollapsed(layer.id);
+                }}
+              >
+                {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+              </IconButton>
+
               <IconButton
                 size="small"
                 aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
@@ -260,7 +315,35 @@ export function LayerPanel({ mapId }: LayerPanelProps) {
                 <DeleteIcon fontSize="inherit" />
               </IconButton>
             </ListItem>
-          ))}
+
+            <Collapse in={!collapsed && features.length > 0} unmountOnExit>
+              <List dense disablePadding>
+                {features.map((feature) => {
+                  const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
+                  const isSelected = selection?.featureId === feature.id;
+                  return (
+                    <ListItemButton
+                      key={feature.id}
+                      selected={isSelected}
+                      onClick={() => selectFeature(feature)}
+                      sx={{ pl: 5, py: 0.5, gap: 1 }}
+                    >
+                      <Icon fontSize="small" sx={{ color: feature.properties.color, flexShrink: 0 }} />
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {feature.properties.title || 'Untitled'}
+                      </Typography>
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Collapse>
+            </Box>
+            );
+          })}
         </List>
       )}
 

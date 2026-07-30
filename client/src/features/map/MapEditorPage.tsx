@@ -122,7 +122,7 @@ export function MapEditorPage() {
         <Typography variant="subtitle1">{map.title}</Typography>
         <ExportMenu mapId={map.id} />
       </Paper>
-      <LayerPanel mapId={map.id} />
+      <LayerPanel mapId={map.id} map={mapInstance} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />
       {selectedFeature && (
         <FeaturePropertiesPanel
