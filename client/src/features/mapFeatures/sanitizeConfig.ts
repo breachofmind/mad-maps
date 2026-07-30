@@ -1,6 +1,8 @@
 // Mirrors server/src/lib/sanitizeHtml.ts's allowlist — kept in sync manually
 // since the two run in different runtimes (DOMPurify in-browser vs
 // sanitize-html on the server) and can't share a single config module.
+// href/target/rel are only meaningful on `a` in practice; DOMPurify already
+// strips javascript:/data: URIs from href by default.
 export const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
     'p',
@@ -19,6 +21,7 @@ export const SANITIZE_CONFIG = {
     'code',
     'pre',
     'hr',
+    'a',
   ],
-  ALLOWED_ATTR: [] as string[],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
 };

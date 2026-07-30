@@ -58,4 +58,5 @@ export interface PlaceResultDTO {
   formattedAddress: string;
   lng: number;
   lat: number;
+  googleMapsUri: string | null;
 }

@@ -1,17 +1,31 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Paper from '@mui/material/Paper';
-import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import AddIcon from '@mui/icons-material/Add';
 import type { PlaceResultDTO } from '@mapinski/shared';
 import type mapboxgl from 'mapbox-gl';
 import { searchPlaces } from './api';
 import { createFeature, featuresQueryKey } from '../mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
+import { SANITIZE_CONFIG } from '../mapFeatures/sanitizeConfig';
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function buildDescriptionHtml(place: PlaceResultDTO): string {
+  if (!place.googleMapsUri) return '';
+  const href = escapeHtml(place.googleMapsUri);
+  return `<p><a href="${href}" target="_blank" rel="noopener noreferrer">View on Google Maps</a></p>`;
+}
 
 interface SearchBoxProps {
   map: mapboxgl.Map | null;
@@ -38,7 +52,10 @@ export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
     mutationFn: (place: PlaceResultDTO) =>
       createFeature(activeLayerId!, {
         geometry: { type: 'Point', coordinates: [place.lng, place.lat] },
-        properties: { title: place.name },
+        properties: {
+          title: place.name,
+          descriptionHtml: DOMPurify.sanitize(buildDescriptionHtml(place), SANITIZE_CONFIG),
+        },
       }),
     onSuccess: () => {
       if (activeLayerId) queryClient.invalidateQueries({ queryKey: featuresQueryKey(activeLayerId) });
@@ -112,14 +129,19 @@ export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
           <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 220 }}>
             {selectedPlace.formattedAddress}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            disabled={!activeLayerId || addPinMutation.isPending}
-            onClick={() => addPinMutation.mutate(selectedPlace)}
-          >
-            Add pin here
-          </Button>
+          <Tooltip title={activeLayerId ? 'Add pin at this location' : 'Select a layer first'}>
+            <span>
+              <IconButton
+                size="small"
+                color="primary"
+                disabled={!activeLayerId || addPinMutation.isPending}
+                onClick={() => addPinMutation.mutate(selectedPlace)}
+                aria-label="Add pin at this location"
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
         </Stack>
       )}
     </Paper>

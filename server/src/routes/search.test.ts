@@ -47,14 +47,28 @@ describe('GET /api/search', () => {
 
   it('returns the mapped results from googlePlaces.service on success', async () => {
     mockedSearchPlaces.mockResolvedValue([
-      { placeId: 'p1', name: 'Golden Gate Park', formattedAddress: 'SF, CA', lng: -122.48, lat: 37.77 },
+      {
+        placeId: 'p1',
+        name: 'Golden Gate Park',
+        formattedAddress: 'SF, CA',
+        lng: -122.48,
+        lat: 37.77,
+        googleMapsUri: 'https://maps.google.com/?cid=123',
+      },
     ]);
 
     const res = await agent.get('/api/search?q=golden+gate').expect(200);
 
     expect(mockedSearchPlaces).toHaveBeenCalledWith('golden gate');
     expect(res.body).toEqual([
-      { placeId: 'p1', name: 'Golden Gate Park', formattedAddress: 'SF, CA', lng: -122.48, lat: 37.77 },
+      {
+        placeId: 'p1',
+        name: 'Golden Gate Park',
+        formattedAddress: 'SF, CA',
+        lng: -122.48,
+        lat: 37.77,
+        googleMapsUri: 'https://maps.google.com/?cid=123',
+      },
     ]);
   });
 

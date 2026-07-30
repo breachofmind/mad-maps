@@ -20,7 +20,7 @@ describe('sanitizeHtml — XSS payloads are stripped', () => {
     {
       name: 'javascript: href on <a>',
       input: '<a href="javascript:alert(1)">link</a>',
-      mustNotContain: ['javascript:', 'href', '<a'],
+      mustNotContain: ['javascript:', 'alert(1)'],
     },
     {
       name: '<iframe> embed',
@@ -50,7 +50,7 @@ describe('sanitizeHtml — XSS payloads are stripped', () => {
     {
       name: 'data: URI script in <a>',
       input: '<a href="data:text/html,<script>alert(1)</script>">click</a>',
-      mustNotContain: ['<script', 'href'],
+      mustNotContain: ['<script', 'data:text/html'],
     },
   ];
 
@@ -81,6 +81,17 @@ describe('sanitizeHtml — allowlisted formatting survives', () => {
   it('keeps blockquote, code, pre, hr, br', () => {
     const input = '<blockquote>quoted</blockquote><pre><code>code</code></pre><hr /><p>a<br />b</p>';
     expect(sanitizeHtml(input)).toBe(input.replace('<hr />', '<hr />'));
+  });
+
+  it('keeps safe http/https links on <a> with href/target/rel', () => {
+    const input =
+      '<p><a href="https://maps.google.com/?cid=123" target="_blank" rel="noopener noreferrer">View on Google Maps</a></p>';
+    expect(sanitizeHtml(input)).toBe(input);
+  });
+
+  it('strips javascript:/data: hrefs but keeps the anchor and its text', () => {
+    expect(sanitizeHtml('<a href="javascript:alert(1)">click</a>')).toBe('<a>click</a>');
+    expect(sanitizeHtml('<a href="data:text/html,evil">click</a>')).toBe('<a>click</a>');
   });
 
   it('strips disallowed tags but keeps their safe inner text', () => {
