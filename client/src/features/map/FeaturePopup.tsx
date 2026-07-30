@@ -51,7 +51,7 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
       </Stack>,
     );
 
-    const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+    const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 20 })
       .setLngLat(geometryAnchor(feature.geometry))
       .setDOMContent(container)
       .addTo(map);
