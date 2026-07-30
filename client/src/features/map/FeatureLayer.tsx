@@ -11,17 +11,32 @@ const LAYER_IDS = {
   polygonFill: 'mapinski-features-polygon-fill',
   polygonOutline: 'mapinski-features-polygon-outline',
   line: 'mapinski-features-line',
+  lineHitArea: 'mapinski-features-line-hit-area',
   point: 'mapinski-features-point',
   pointHover: 'mapinski-features-point-hover',
   geometryHover: 'mapinski-features-geometry-hover',
 };
-const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.line, LAYER_IDS.point];
+// Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
+// instead of the visible line layer, since a thin rendered line is a hard
+// target to click precisely — see lineHitArea's paint below.
+const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.lineHitArea, LAYER_IDS.point];
 const POINT_ICON_SIZE = 0.4;
 const POINT_HOVER_RADIUS = 18;
 const POINT_HOVER_STROKE_WIDTH = 5;
 const GEOMETRY_HOVER_WIDTH = 11;
 const HOVER_COLOR = '#ffffff';
 const DEFAULT_STROKE_WIDTH = 3;
+const LINE_HIT_AREA_PADDING = 18;
+// mapbox-gl-draw registers each theme layer under both a "hot" (actively
+// changing) and "cold" (static) source, appending that suffix to the style
+// id — see drawTheme.ts / mapbox-gl-draw's options.js addSources(). These
+// are the vertex-handle layers from that theme, queried below so hovering a
+// control point can get a real pointer cursor: Draw's own CSS for this
+// (`.feature-vertex.mouse-move`) references a `feature-vertex` class that,
+// in the installed version, no mode ever actually applies — so it never
+// matches, and the effective cursor otherwise falls back to a generic
+// "move" state that only kicks in after a vertex has been dragged once.
+const DRAW_VERTEX_LAYER_IDS = ['gl-draw-vertex-inner.hot', 'gl-draw-vertex-inner.cold'];
 
 // mapbox's line-dasharray only accepts a fixed array per-feature (no
 // omitting it for "solid"), so a solid line is represented as one long dash
@@ -33,37 +48,50 @@ const LINE_DASH_ARRAYS: Record<LineStyle, number[]> = {
   dotted: [0, 2],
 };
 
-function hoverFilter(featureId: string | null, geometryTypes: string[]): mapboxgl.FilterSpecification {
+function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxgl.FilterSpecification {
   return [
     'all',
     ['in', ['geometry-type'], ['literal', geometryTypes]],
-    ['==', ['get', 'featureId'], featureId ?? ''],
+    ['in', ['get', 'featureId'], ['literal', featureIds]],
   ];
 }
 
-function applyHoverFilters(map: mapboxgl.Map, featureId: string | null) {
+// pointHover doubles as the selected-pin ring: a selected point gets the
+// same white circle a hovered one does, so this drives the filter off
+// whichever feature ids are hovered and/or currently selected (points
+// only — lines/polygons show selection via their own vertex-edit mode
+// instead, so geometryHover stays hover-only).
+function applyHighlightFilters(map: mapboxgl.Map, hoveredFeatureId: string | null, selectedFeatureId: string | null) {
+  const pointIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
   if (map.getLayer(LAYER_IDS.pointHover)) {
-    map.setFilter(LAYER_IDS.pointHover, hoverFilter(featureId, ['Point']));
+    map.setFilter(LAYER_IDS.pointHover, highlightFilter(pointIds, ['Point']));
   }
   if (map.getLayer(LAYER_IDS.geometryHover)) {
-    map.setFilter(LAYER_IDS.geometryHover, hoverFilter(featureId, ['LineString', 'Polygon']));
+    const hoverIds = hoveredFeatureId !== null ? [hoveredFeatureId] : [];
+    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(hoverIds, ['LineString', 'Polygon']));
   }
 }
 
 interface FeatureLayerProps {
   map: mapboxgl.Map | null;
   layers: LayerDTO[];
+  // Excluded from this layer's own rendering while its vertices are being
+  // edited via mapbox-gl-draw's direct_select mode, which draws its own
+  // overlay for it — without this it would render twice.
+  editingFeatureId?: string | null;
 }
 
 function buildFeatureCollection(
   layers: LayerDTO[],
   featuresByLayer: Map<string, MapFeatureDTO[]>,
+  editingFeatureId: string | null,
 ): { collection: GeoJSON.FeatureCollection; iconRefs: FeatureIconRef[] } {
   const features: GeoJSON.Feature[] = [];
   const iconRefs: FeatureIconRef[] = [];
   for (const layer of layers) {
     if (!layer.visible) continue;
     for (const feature of featuresByLayer.get(layer.id) ?? []) {
+      if (feature.id === editingFeatureId) continue;
       const color = feature.properties.color || layer.color;
       const icon = feature.properties.icon || 'marker';
       iconRefs.push({ icon, color });
@@ -122,7 +150,7 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       id: LAYER_IDS.geometryHover,
       type: 'line',
       source: SOURCE_ID,
-      filter: hoverFilter(null, ['LineString', 'Polygon']),
+      filter: highlightFilter([], ['LineString', 'Polygon']),
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': HOVER_COLOR, 'line-width': GEOMETRY_HOVER_WIDTH },
     },
@@ -138,6 +166,18 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       'line-color': ['get', 'color'],
       'line-width': ['get', 'strokeWidth'],
       'line-dasharray': ['get', 'dashArray'],
+    },
+  });
+  // Invisible, much wider than the visible line — see CLICKABLE_LAYER_IDS.
+  map.addLayer({
+    id: LAYER_IDS.lineHitArea,
+    type: 'line',
+    source: SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'LineString'],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-width': ['+', ['get', 'strokeWidth'], LINE_HIT_AREA_PADDING],
+      'line-opacity': 0,
     },
   });
   map.addLayer({
@@ -156,7 +196,7 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     id: LAYER_IDS.pointHover,
     type: 'circle',
     source: SOURCE_ID,
-    filter: hoverFilter(null, ['Point']),
+    filter: highlightFilter([], ['Point']),
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
       'circle-color': HOVER_COLOR,
@@ -173,11 +213,12 @@ interface PointDragState {
   moved: boolean;
 }
 
-export function FeatureLayer({ map, layers }: FeatureLayerProps) {
+export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLayerProps) {
   const queryClient = useQueryClient();
   const setSelection = useEditorStore((s) => s.setSelection);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
+  const selectedFeatureId = useEditorStore((s) => s.selection?.featureId ?? null);
   const dragStateRef = useRef<PointDragState | null>(null);
 
   const moveFeatureMutation = useMutation({
@@ -200,10 +241,10 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
     layers.forEach((layer, index) => {
       featuresByLayer.set(layer.id, featureQueries[index]?.data ?? []);
     });
-    const { collection, iconRefs } = buildFeatureCollection(layers, featuresByLayer);
+    const { collection, iconRefs } = buildFeatureCollection(layers, featuresByLayer, editingFeatureId);
     return { data: collection, iconRefs };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layers, featureQueries.map((q) => q.dataUpdatedAt).join(',')]);
+  }, [layers, editingFeatureId, featureQueries.map((q) => q.dataUpdatedAt).join(',')]);
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -211,13 +252,25 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
   iconRefsRef.current = iconRefs;
   const hoveredFeatureIdRef = useRef(hoveredFeatureId);
   hoveredFeatureIdRef.current = hoveredFeatureId;
+  const selectedFeatureIdRef = useRef(selectedFeatureId);
+  selectedFeatureIdRef.current = selectedFeatureId;
   const moveFeatureMutationRef = useRef(moveFeatureMutation);
   moveFeatureMutationRef.current = moveFeatureMutation;
+  const editingFeatureIdRef = useRef(editingFeatureId);
+  editingFeatureIdRef.current = editingFeatureId;
 
   useEffect(() => {
     if (!map) return;
-    applyHoverFilters(map, hoveredFeatureId);
-  }, [map, hoveredFeatureId]);
+    applyHighlightFilters(map, hoveredFeatureId, selectedFeatureId);
+  }, [map, hoveredFeatureId, selectedFeatureId]);
+
+  useEffect(() => {
+    // Clear any cursor we set ourselves right as editing starts, so Draw's
+    // own CSS-driven cursor (see handleMouseMove's early return below) takes
+    // over cleanly instead of being stuck behind a stale inline value.
+    if (!map || !editingFeatureId) return;
+    map.getCanvas().style.cursor = '';
+  }, [map, editingFeatureId]);
 
   useEffect(() => {
     if (!map) return;
@@ -234,7 +287,7 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
-      applyHoverFilters(map, hoveredFeatureIdRef.current);
+      applyHighlightFilters(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current);
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
@@ -295,6 +348,20 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
           };
           source.setData(patched);
         }
+        return;
+      }
+
+      // While a feature is being vertex-edited via mapbox-gl-draw's
+      // direct_select mode, take over cursor management ourselves rather
+      // than relying on Draw's own CSS-class-driven cursor (see
+      // DRAW_VERTEX_LAYER_IDS above for why that doesn't reliably work).
+      // Only vertices get a special cursor; clearing to '' the rest of the
+      // time lets Draw's own inherited styling (e.g. "move" over the
+      // feature body) show through undisturbed.
+      if (editingFeatureIdRef.current) {
+        const vertexLayers = DRAW_VERTEX_LAYER_IDS.filter((id) => map.getLayer(id));
+        const onVertex = vertexLayers.length > 0 && map.queryRenderedFeatures(e.point, { layers: vertexLayers }).length > 0;
+        map.getCanvas().style.cursor = onVertex ? 'pointer' : '';
         return;
       }
 

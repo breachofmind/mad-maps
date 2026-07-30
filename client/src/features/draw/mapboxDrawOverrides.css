@@ -1,0 +1,13 @@
+/* Enabling controls.trash on MapboxDraw is required to satisfy its
+   keyboard Delete/Backspace binding (see events.js — it gates the
+   keydown handler on this same flag), but we don't want the floating
+   trash button it also renders, since we have our own custom toolbar. */
+.mapbox-gl-draw_trash {
+  display: none !important;
+}
+
+/* Vertex-hover cursor is handled in FeatureLayer.tsx (via
+   DRAW_VERTEX_LAYER_IDS) instead of a CSS rule here — mapbox-gl-draw's own
+   theme targets a `.feature-vertex` class that no mode in the installed
+   version ever actually applies, so a CSS-only override can't reliably hit
+   the right state. */

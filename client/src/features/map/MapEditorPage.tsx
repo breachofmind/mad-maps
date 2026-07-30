@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
@@ -11,7 +11,7 @@ import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchMap, updateMap, type UpdateMapInput } from '../maps/api';
 import { fetchLayers, layersQueryKey } from '../layers/api';
-import { createFeature, featuresQueryKey } from '../mapFeatures/api';
+import { createFeature, featuresQueryKey, updateFeature } from '../mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { useEditorStore } from '../../state/editorStore';
 import { LayerPanel } from '../layers/LayerPanel';
@@ -71,14 +71,48 @@ export function MapEditorPage() {
     },
   });
 
-  const { setMode } = useMapboxDraw({
+  const updateGeometryMutation = useMutation({
+    mutationFn: ({ featureId, geometry }: { featureId: string; layerId: string; geometry: GeoJSON.Geometry }) =>
+      updateFeature(featureId, { geometry }),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
+    },
+  });
+
+  const { setMode, editFeature, stopEditing } = useMapboxDraw({
     map: mapInstance,
     onCreate: (feature) => {
       if (!activeLayerId || !feature.geometry) return;
       createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
     },
     onModeChange: (mode) => setDrawMode(DRAW_MODE_TO_EDITOR_MODE[mode] ?? 'none'),
+    onUpdateGeometry: (layerId, featureId, geometry) => {
+      updateGeometryMutation.mutate({ featureId, layerId, geometry });
+    },
   });
+
+  // Show vertex-edit handles for the selected line/polygon by loading it
+  // into mapbox-gl-draw's direct_select mode. Keyed on feature id (not the
+  // whole selectedFeature object) so this doesn't re-trigger — and reset
+  // the in-progress edit session — every time our own edits round-trip
+  // back through the query cache.
+  const editingFeatureIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const feature = selectedFeature?.feature.featureType !== 'point' ? selectedFeature : null;
+    if (feature) {
+      if (editingFeatureIdRef.current !== feature.feature.id) {
+        editFeature(
+          { id: feature.feature.id, type: 'Feature', geometry: feature.feature.geometry, properties: {} },
+          feature.layer.id,
+        );
+        editingFeatureIdRef.current = feature.feature.id;
+      }
+    } else if (editingFeatureIdRef.current !== null) {
+      stopEditing();
+      editingFeatureIdRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFeature?.feature.id, selectedFeature?.feature.featureType]);
 
   const persistViewport = useDebouncedCallback((change: MapViewChange) => {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });
@@ -106,7 +140,13 @@ export function MapEditorPage() {
         onStyleChange={persistStyle}
         onMapReady={setMapInstance}
       />
-      <FeatureLayer map={mapInstance} layers={layers ?? []} />
+      <FeatureLayer
+        map={mapInstance}
+        layers={layers ?? []}
+        editingFeatureId={
+          selectedFeature && selectedFeature.feature.featureType !== 'point' ? selectedFeature.feature.id : null
+        }
+      />
       <SearchBox map={mapInstance} activeLayerId={activeLayerId} />
       <FeaturePopup
         map={mapInstance}
