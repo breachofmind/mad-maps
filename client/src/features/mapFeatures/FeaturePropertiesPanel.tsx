@@ -24,7 +24,7 @@ import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
-import { FEATURE_COLORS } from './colors';
+import { FEATURE_COLORS, normalizeHexColor } from './colors';
 import { SANITIZE_CONFIG } from './sanitizeConfig';
 import {
   AREA_UNIT_OPTIONS,
@@ -98,6 +98,7 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
   const [strokeWidth, setStrokeWidth] = useState(feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH);
+  const [colorText, setColorText] = useState(feature.properties.color);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
   const areaUnit = useUnitsStore((s) => s.areaUnit);
@@ -150,7 +151,22 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
     persistDescription(html);
   }
 
+  function selectColor(color: string) {
+    setColorText(color);
+    updateMutation.mutate({ properties: { color } });
+  }
+
+  function commitColorText() {
+    const normalized = normalizeHexColor(colorText);
+    if (normalized) {
+      selectColor(normalized);
+    } else {
+      setColorText(feature.properties.color);
+    }
+  }
+
   const showStroke = feature.featureType !== 'point';
+  const customColorValue = normalizeHexColor(colorText) ?? feature.properties.color;
 
   return (
     <Paper
@@ -231,11 +247,11 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
           <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
             Color
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             {FEATURE_COLORS.map((color) => (
               <Box
                 key={color}
-                onClick={() => updateMutation.mutate({ properties: { color } })}
+                onClick={() => selectColor(color)}
                 sx={{
                   width: 24,
                   height: 24,
@@ -246,6 +262,38 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
                 }}
               />
             ))}
+            <Tooltip title="Custom color">
+              <Box
+                component="input"
+                type="color"
+                value={customColorValue}
+                onChange={(e) => selectColor(e.target.value)}
+                sx={{
+                  width: 24,
+                  height: 24,
+                  p: 0,
+                  border: 'none',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  '&::-webkit-color-swatch-wrapper': { p: 0 },
+                  '&::-webkit-color-swatch': { border: '2px solid black', borderRadius: '50%' },
+                  '&::-moz-color-swatch': { border: '2px solid black', borderRadius: '50%' },
+                }}
+              />
+            </Tooltip>
+            <TextField
+              size="small"
+              variant="standard"
+              value={colorText}
+              onChange={(e) => setColorText(e.target.value)}
+              onBlur={commitColorText}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitColorText();
+              }}
+              sx={{ width: 84 }}
+              inputProps={{ 'aria-label': 'Custom color hex value' }}
+            />
           </Stack>
         </Box>
 
