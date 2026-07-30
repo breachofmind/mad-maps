@@ -20,12 +20,10 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import UploadIcon from '@mui/icons-material/Upload';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useEditorStore } from '../../state/editorStore';
-import { ImportDialog } from '../import/ImportDialog';
 import { geometryAnchor } from '../map/geometryAnchor';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../mapFeatures/api';
 import { FEATURE_ICONS, type FeatureIconName } from '../mapFeatures/icons';
@@ -74,7 +72,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const [addingLayer, setAddingLayer] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
   const [draggedFeature, setDraggedFeature] = useState<{ featureId: string; layerId: string } | null>(null);
@@ -331,18 +328,11 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
         <Typography variant="subtitle1">Layers</Typography>
-        <Stack direction="row">
-          <Tooltip title="Import layer from file">
-            <IconButton size="small" onClick={() => setImportDialogOpen(true)} aria-label="Import layer from file">
-              <UploadIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Add layer">
-            <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+        <Tooltip title="Add layer">
+          <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Stack>
 
       {isLoading ? (
@@ -572,12 +562,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           />
         </Box>
       )}
-
-      <ImportDialog
-        open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
-        mapId={mapId}
-      />
     </Paper>
   );
 }

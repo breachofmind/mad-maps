@@ -20,10 +20,10 @@ import { useMapboxDraw } from '../draw/useMapboxDraw';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
 import { SearchBox } from '../search/SearchBox';
-import { ExportMenu } from '../export/ExportMenu';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
 import { FeaturePopup } from './FeaturePopup';
+import { MapMenu } from './MapMenu';
 
 export function MapEditorPage() {
   const { mapId } = useParams<{ mapId: string }>();
@@ -123,7 +123,7 @@ export function MapEditorPage() {
           </IconButton>
         </Tooltip>
         <Typography variant="subtitle1">{map.title}</Typography>
-        <ExportMenu mapId={map.id} />
+        <MapMenu mapId={map.id} />
       </Paper>
       <LayerPanel mapId={map.id} map={mapInstance} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />
