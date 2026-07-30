@@ -308,7 +308,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   return (
     <Paper
       elevation={3}
-      sx={{ position: 'absolute', top: 72, right: 16, zIndex: 1, width: 280, maxHeight: '60vh', overflowY: 'auto' }}
+      sx={{ position: 'absolute', top: 72, right: 16, zIndex: 1, width: 360, maxHeight: '60vh', overflowY: 'auto' }}
       onDragOver={(e) => {
         // A catch-all so the cursor never flashes "not-allowed" while
         // dragging over gaps between rows that don't have their own more
