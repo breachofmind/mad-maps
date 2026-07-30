@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import Paper from '@mui/material/Paper';
@@ -13,13 +13,42 @@ import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { MapFeatureDTO } from '@mapinski/shared';
+import type { FeatureType, MapFeatureDTO } from '@mapinski/shared';
 import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput } from './api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { FEATURE_COLORS } from './colors';
 import { SANITIZE_CONFIG } from './sanitizeConfig';
+import {
+  formatArea,
+  formatAreaImperial,
+  formatDistance,
+  formatDistanceImperial,
+  lineLengthMeters,
+  polygonAreaSquareMeters,
+  polygonPerimeterMeters,
+} from './geometryMeasurements';
+
+const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
+  point: 'Pin',
+  line: 'Line',
+  polygon: 'Polygon',
+};
+
+function MeasurementStat({ label, metric, imperial }: { label: string; metric: string; imperial: string }) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {label}
+      </Typography>
+      <Typography variant="body2">{metric}</Typography>
+      <Typography variant="caption" color="text.secondary">
+        {imperial}
+      </Typography>
+    </Box>
+  );
+}
 
 interface FeaturePropertiesPanelProps {
   feature: MapFeatureDTO;
@@ -31,6 +60,20 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
+
+  const measurements = useMemo(() => {
+    if (feature.geometry.type === 'LineString') {
+      return { kind: 'line' as const, length: lineLengthMeters(feature.geometry.coordinates) };
+    }
+    if (feature.geometry.type === 'Polygon') {
+      return {
+        kind: 'polygon' as const,
+        perimeter: polygonPerimeterMeters(feature.geometry.coordinates),
+        area: polygonAreaSquareMeters(feature.geometry.coordinates),
+      };
+    }
+    return null;
+  }, [feature.geometry]);
 
   const updateMutation = useMutation({
     mutationFn: (input: UpdateFeatureInput) => updateFeature(feature.id, input),
@@ -82,7 +125,7 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-        <Typography variant="subtitle1">Feature Details</Typography>
+        <Typography variant="subtitle1">{FEATURE_TYPE_LABELS[feature.featureType]} details</Typography>
         <Tooltip title="Close">
           <IconButton size="small" onClick={onClose} aria-label="Close feature details">
             <CloseIcon fontSize="small" />
@@ -98,6 +141,31 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
         />
+
+        {measurements && (
+          <Stack direction="row" spacing={2}>
+            {measurements.kind === 'line' ? (
+              <MeasurementStat
+                label="Length"
+                metric={formatDistance(measurements.length)}
+                imperial={formatDistanceImperial(measurements.length)}
+              />
+            ) : (
+              <>
+                <MeasurementStat
+                  label="Perimeter"
+                  metric={formatDistance(measurements.perimeter)}
+                  imperial={formatDistanceImperial(measurements.perimeter)}
+                />
+                <MeasurementStat
+                  label="Area"
+                  metric={formatArea(measurements.area)}
+                  imperial={formatAreaImperial(measurements.area)}
+                />
+              </>
+            )}
+          </Stack>
+        )}
 
         <Box>
           <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
