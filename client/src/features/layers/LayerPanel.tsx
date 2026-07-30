@@ -1,7 +1,7 @@
 import { useState, type DragEvent } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO, MapFeatureDTO } from '@mapinski/shared';
+import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mapinski/shared';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -23,6 +23,9 @@ import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import PlaceIcon from '@mui/icons-material/Place';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import PentagonIcon from '@mui/icons-material/Pentagon';
 import { useEditorStore } from '../../state/editorStore';
 import { geometryAnchor } from '../map/geometryAnchor';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../mapFeatures/api';
@@ -58,6 +61,28 @@ function isFeatureDrop(
 function DropIndicatorLine({ show }: { show: boolean }) {
   if (!show) return null;
   return <Box sx={{ borderTop: '2px dashed', borderColor: 'primary.main', mx: 1 }} />;
+}
+
+// Matches the icons DrawControls already uses for these tools, so the
+// same shape means "point"/"line"/"polygon" everywhere in the app.
+const FEATURE_TYPE_ICONS: Record<FeatureType, typeof PlaceIcon> = {
+  point: PlaceIcon,
+  line: TimelineIcon,
+  polygon: PentagonIcon,
+};
+const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
+  point: 'Pin',
+  line: 'Line',
+  polygon: 'Polygon',
+};
+
+function FeatureTypeIcon({ featureType }: { featureType: FeatureType }) {
+  const Icon = FEATURE_TYPE_ICONS[featureType];
+  return (
+    <Tooltip title={FEATURE_TYPE_LABELS[featureType]}>
+      <Icon fontSize="inherit" sx={{ color: 'text.disabled', flexShrink: 0 }} />
+    </Tooltip>
+  );
 }
 
 export function LayerPanel({ mapId, map }: LayerPanelProps) {
@@ -522,6 +547,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                             >
                               <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
                             </Box>
+                            <FeatureTypeIcon featureType={feature.featureType} />
                             <Icon fontSize="small" sx={{ color: feature.properties.color, flexShrink: 0 }} />
                             <Typography
                               variant="body2"
