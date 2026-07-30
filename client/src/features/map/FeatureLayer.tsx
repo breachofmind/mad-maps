@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
 import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
-import { featuresQueryKey, fetchFeatures } from '../mapFeatures/api';
+import { featuresQueryKey, fetchFeatures, updateFeature } from '../mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from './featureIconImages';
 
 const SOURCE_ID = 'mapinski-features';
@@ -167,10 +167,26 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
   });
 }
 
+interface PointDragState {
+  featureId: string;
+  layerId: string;
+  moved: boolean;
+}
+
 export function FeatureLayer({ map, layers }: FeatureLayerProps) {
+  const queryClient = useQueryClient();
   const setSelection = useEditorStore((s) => s.setSelection);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
+  const dragStateRef = useRef<PointDragState | null>(null);
+
+  const moveFeatureMutation = useMutation({
+    mutationFn: ({ featureId, lng, lat }: { featureId: string; layerId: string; lng: number; lat: number }) =>
+      updateFeature(featureId, { geometry: { type: 'Point', coordinates: [lng, lat] } }),
+    onSuccess: (_result, vars) => {
+      queryClient.invalidateQueries({ queryKey: featuresQueryKey(vars.layerId) });
+    },
+  });
 
   const featureQueries = useQueries({
     queries: layers.map((layer) => ({
@@ -195,6 +211,8 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
   iconRefsRef.current = iconRefs;
   const hoveredFeatureIdRef = useRef(hoveredFeatureId);
   hoveredFeatureIdRef.current = hoveredFeatureId;
+  const moveFeatureMutationRef = useRef(moveFeatureMutation);
+  moveFeatureMutationRef.current = moveFeatureMutation;
 
   useEffect(() => {
     if (!map) return;
@@ -224,6 +242,8 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
 
     // A single map-level click handler (rather than per-layer listeners) so
     // clicking empty map background reliably clears the selection too.
+    // Mapbox suppresses 'click' when the gesture involved real movement, so
+    // this doesn't fire (and re-select) after a pin drag.
     function handleClick(e: mapboxgl.MapMouseEvent) {
       if (!map) return;
       const existingLayers = CLICKABLE_LAYER_IDS.filter((id) => map.getLayer(id));
@@ -234,22 +254,89 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
       setSelection(typeof featureId === 'string' ? { type: 'feature', featureId } : null);
     }
 
+    // Pressing down on a pin starts a drag instead of the map's own
+    // drag-to-pan; e.preventDefault() stops that default camera behavior
+    // for this gesture.
+    function handleMouseDown(e: mapboxgl.MapMouseEvent) {
+      if (!map || !map.getLayer(LAYER_IDS.point)) return;
+      const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_IDS.point] });
+      const hit = hits[0];
+      const featureId = hit?.properties?.featureId;
+      const layerId = hit?.properties?.layerId;
+      if (typeof featureId !== 'string' || typeof layerId !== 'string') return;
+
+      e.preventDefault();
+      dragStateRef.current = { featureId, layerId, moved: false };
+      map.getCanvas().style.cursor = 'grabbing';
+    }
+
     // A single map-level mousemove handler (rather than per-layer
     // mouseenter/mouseleave) avoids cursor flicker where two clickable
     // layers overlap the same feature (e.g. polygon fill + outline). It
     // also drives the hover highlight (the same one the layer panel's row
-    // hover uses) so hovering a feature directly on the map lights it up too.
+    // hover uses) so hovering a feature directly on the map lights it up
+    // too, and — while a pin is being dragged — repositions it directly on
+    // the source for live visual feedback without touching react-query.
     function handleMouseMove(e: mapboxgl.MapMouseEvent) {
       if (!map) return;
+
+      const dragState = dragStateRef.current;
+      if (dragState) {
+        dragState.moved = true;
+        const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+        if (source) {
+          const patched: GeoJSON.FeatureCollection = {
+            ...dataRef.current,
+            features: dataRef.current.features.map((feature) =>
+              feature.properties?.featureId === dragState.featureId
+                ? { ...feature, geometry: { type: 'Point', coordinates: [e.lngLat.lng, e.lngLat.lat] } }
+                : feature,
+            ),
+          };
+          source.setData(patched);
+        }
+        return;
+      }
+
       const existingLayers = CLICKABLE_LAYER_IDS.filter((id) => map.getLayer(id));
       const hits = existingLayers.length
         ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
         : [];
-      map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
-      const featureId = hits[0]?.properties?.featureId;
+      const hit = hits[0];
+      map.getCanvas().style.cursor = hit ? (hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer') : '';
+      const featureId = hit?.properties?.featureId;
       const nextHoveredId = typeof featureId === 'string' ? featureId : null;
       if (useEditorStore.getState().hoveredFeatureId !== nextHoveredId) {
         setHoveredFeatureId(nextHoveredId);
+      }
+    }
+
+    function handleMouseUp(e: mapboxgl.MapMouseEvent) {
+      const dragState = dragStateRef.current;
+      if (!dragState || !map) return;
+      dragStateRef.current = null;
+      map.getCanvas().style.cursor = 'grab';
+      if (dragState.moved) {
+        moveFeatureMutationRef.current.mutate({
+          featureId: dragState.featureId,
+          layerId: dragState.layerId,
+          lng: e.lngLat.lng,
+          lat: e.lngLat.lat,
+        });
+      }
+    }
+
+    // Safety net for releasing the mouse outside the map canvas mid-drag
+    // (e.g. over a floating panel), which wouldn't fire the map's own
+    // mouseup — snap the pin back to its last saved position instead of
+    // leaving the drag stuck.
+    function handleWindowMouseUp() {
+      const dragState = dragStateRef.current;
+      if (!dragState) return;
+      dragStateRef.current = null;
+      if (map) {
+        ensureLayersAdded(map, dataRef.current);
+        map.getCanvas().style.cursor = '';
       }
     }
 
@@ -259,14 +346,20 @@ export function FeatureLayer({ map, layers }: FeatureLayerProps) {
 
     map.on('style.load', handleStyleLoad);
     map.on('click', handleClick);
+    map.on('mousedown', handleMouseDown);
     map.on('mousemove', handleMouseMove);
+    map.on('mouseup', handleMouseUp);
     map.on('mouseout', handleMouseOut);
+    window.addEventListener('mouseup', handleWindowMouseUp);
 
     return () => {
       map.off('style.load', handleStyleLoad);
       map.off('click', handleClick);
+      map.off('mousedown', handleMouseDown);
       map.off('mousemove', handleMouseMove);
+      map.off('mouseup', handleMouseUp);
       map.off('mouseout', handleMouseOut);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
       map.getCanvas().style.cursor = '';
     };
   }, [map, setSelection, setHoveredFeatureId]);
