@@ -11,6 +11,10 @@ import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { FeatureType, MapFeatureDTO } from '@mapinski/shared';
@@ -21,14 +25,15 @@ import { IconPicker } from './IconPicker';
 import { FEATURE_COLORS } from './colors';
 import { SANITIZE_CONFIG } from './sanitizeConfig';
 import {
+  AREA_UNIT_OPTIONS,
+  DISTANCE_UNIT_OPTIONS,
   formatArea,
-  formatAreaImperial,
   formatDistance,
-  formatDistanceImperial,
   lineLengthMeters,
   polygonAreaSquareMeters,
   polygonPerimeterMeters,
 } from './geometryMeasurements';
+import { useUnitsStore } from '../../state/unitsStore';
 
 const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   point: 'Pin',
@@ -36,17 +41,39 @@ const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   polygon: 'Polygon',
 };
 
-function MeasurementStat({ label, metric, imperial }: { label: string; metric: string; imperial: string }) {
+function MeasurementStat({ label, value }: { label: string; value: string }) {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary" display="block">
         {label}
       </Typography>
-      <Typography variant="body2">{metric}</Typography>
-      <Typography variant="caption" color="text.secondary">
-        {imperial}
-      </Typography>
+      <Typography variant="body2">{value}</Typography>
     </Box>
+  );
+}
+
+function UnitSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <FormControl size="small" variant="standard" sx={{ minWidth: 130 }}>
+      <InputLabel>{label}</InputLabel>
+      <Select value={value} label={label} onChange={(e) => onChange(e.target.value as T)}>
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   );
 }
 
@@ -60,6 +87,10 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
+  const distanceUnit = useUnitsStore((s) => s.distanceUnit);
+  const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
+  const areaUnit = useUnitsStore((s) => s.areaUnit);
+  const setAreaUnit = useUnitsStore((s) => s.setAreaUnit);
 
   const measurements = useMemo(() => {
     if (feature.geometry.type === 'LineString') {
@@ -143,28 +174,29 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
         />
 
         {measurements && (
-          <Stack direction="row" spacing={2}>
-            {measurements.kind === 'line' ? (
-              <MeasurementStat
-                label="Length"
-                metric={formatDistance(measurements.length)}
-                imperial={formatDistanceImperial(measurements.length)}
+          <Box>
+            <Stack direction="row" spacing={2} mb={1}>
+              <UnitSelect
+                label="Distance unit"
+                value={distanceUnit}
+                options={DISTANCE_UNIT_OPTIONS}
+                onChange={setDistanceUnit}
               />
-            ) : (
-              <>
-                <MeasurementStat
-                  label="Perimeter"
-                  metric={formatDistance(measurements.perimeter)}
-                  imperial={formatDistanceImperial(measurements.perimeter)}
-                />
-                <MeasurementStat
-                  label="Area"
-                  metric={formatArea(measurements.area)}
-                  imperial={formatAreaImperial(measurements.area)}
-                />
-              </>
-            )}
-          </Stack>
+              {measurements.kind === 'polygon' && (
+                <UnitSelect label="Area unit" value={areaUnit} options={AREA_UNIT_OPTIONS} onChange={setAreaUnit} />
+              )}
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              {measurements.kind === 'line' ? (
+                <MeasurementStat label="Length" value={formatDistance(measurements.length, distanceUnit)} />
+              ) : (
+                <>
+                  <MeasurementStat label="Perimeter" value={formatDistance(measurements.perimeter, distanceUnit)} />
+                  <MeasurementStat label="Area" value={formatArea(measurements.area, areaUnit)} />
+                </>
+              )}
+            </Stack>
+          </Box>
         )}
 
         <Box>

@@ -58,33 +58,46 @@ const SQUARE_FEET_PER_SQUARE_METER = 1 / (0.3048 * 0.3048);
 const SQUARE_METERS_PER_ACRE = 4046.8564224;
 const SQUARE_METERS_PER_SQUARE_MILE = METERS_PER_MILE * METERS_PER_MILE;
 
-export function formatDistance(meters: number): string {
-  if (meters >= 1000) {
-    return `${(meters / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} km`;
-  }
-  return `${Math.round(meters).toLocaleString()} m`;
+export type DistanceUnit = 'meters' | 'kilometers' | 'feet' | 'miles';
+export type AreaUnit = 'squareMeters' | 'squareKilometers' | 'squareFeet' | 'hectares' | 'acres' | 'squareMiles';
+
+interface UnitOption<T extends string> {
+  value: T;
+  label: string;
+  suffix: string;
+  fromMeters: (value: number) => number;
 }
 
-export function formatDistanceImperial(meters: number): string {
-  if (meters >= METERS_PER_MILE) {
-    return `${(meters / METERS_PER_MILE).toLocaleString(undefined, { maximumFractionDigits: 2 })} mi`;
-  }
-  return `${Math.round(meters * FEET_PER_METER).toLocaleString()} ft`;
+export const DISTANCE_UNIT_OPTIONS: UnitOption<DistanceUnit>[] = [
+  { value: 'meters', label: 'Meters', suffix: 'm', fromMeters: (m) => m },
+  { value: 'kilometers', label: 'Kilometers', suffix: 'km', fromMeters: (m) => m / 1000 },
+  { value: 'feet', label: 'Feet', suffix: 'ft', fromMeters: (m) => m * FEET_PER_METER },
+  { value: 'miles', label: 'Miles', suffix: 'mi', fromMeters: (m) => m / METERS_PER_MILE },
+];
+
+export const AREA_UNIT_OPTIONS: UnitOption<AreaUnit>[] = [
+  { value: 'squareMeters', label: 'Square meters', suffix: 'm²', fromMeters: (m) => m },
+  { value: 'squareKilometers', label: 'Square kilometers', suffix: 'km²', fromMeters: (m) => m / 1_000_000 },
+  { value: 'squareFeet', label: 'Square feet', suffix: 'ft²', fromMeters: (m) => m * SQUARE_FEET_PER_SQUARE_METER },
+  { value: 'hectares', label: 'Hectares', suffix: 'ha', fromMeters: (m) => m / 10_000 },
+  { value: 'acres', label: 'Acres', suffix: 'ac', fromMeters: (m) => m / SQUARE_METERS_PER_ACRE },
+  { value: 'squareMiles', label: 'Square miles', suffix: 'mi²', fromMeters: (m) => m / SQUARE_METERS_PER_SQUARE_MILE },
+];
+
+// Units smaller than a kilometer/hectare read oddly with decimals (e.g.
+// "482.00 ft"), so only the larger units get fractional precision.
+const WHOLE_NUMBER_UNITS = new Set<DistanceUnit | AreaUnit>(['meters', 'feet', 'squareMeters', 'squareFeet']);
+
+export function formatDistance(meters: number, unit: DistanceUnit): string {
+  const option = DISTANCE_UNIT_OPTIONS.find((o) => o.value === unit)!;
+  const value = option.fromMeters(meters);
+  const maximumFractionDigits = WHOLE_NUMBER_UNITS.has(unit) ? 0 : 2;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })} ${option.suffix}`;
 }
 
-export function formatArea(squareMeters: number): string {
-  if (squareMeters >= 1_000_000) {
-    return `${(squareMeters / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`;
-  }
-  return `${Math.round(squareMeters).toLocaleString()} m²`;
-}
-
-export function formatAreaImperial(squareMeters: number): string {
-  if (squareMeters >= SQUARE_METERS_PER_SQUARE_MILE) {
-    return `${(squareMeters / SQUARE_METERS_PER_SQUARE_MILE).toLocaleString(undefined, { maximumFractionDigits: 2 })} mi²`;
-  }
-  if (squareMeters >= SQUARE_METERS_PER_ACRE) {
-    return `${(squareMeters / SQUARE_METERS_PER_ACRE).toLocaleString(undefined, { maximumFractionDigits: 2 })} ac`;
-  }
-  return `${Math.round(squareMeters * SQUARE_FEET_PER_SQUARE_METER).toLocaleString()} ft²`;
+export function formatArea(squareMeters: number, unit: AreaUnit): string {
+  const option = AREA_UNIT_OPTIONS.find((o) => o.value === unit)!;
+  const value = option.fromMeters(squareMeters);
+  const maximumFractionDigits = WHOLE_NUMBER_UNITS.has(unit) ? 0 : 2;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })} ${option.suffix}`;
 }
