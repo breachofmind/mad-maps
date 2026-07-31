@@ -31,7 +31,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../state/editorStore';
-import { geometryAnchor } from '../map/geometryAnchor';
+import { geometryBounds } from '../map/geometryBounds';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../mapFeatures/api';
 import { FEATURE_ICONS, type FeatureIconName } from '../mapFeatures/icons';
 import {
@@ -53,7 +53,10 @@ interface LayerPanelProps {
   map: mapboxgl.Map | null;
 }
 
-const FEATURE_SELECT_ZOOM = 14;
+// Caps how far selecting a feature zooms in — without this, a lone Point (a
+// zero-size bounding box) would make fitBounds zoom in to the map's max.
+const FEATURE_SELECT_MAX_ZOOM = 14;
+const FEATURE_SELECT_PADDING = 64;
 
 // Which gap within a layer's feature list a drag is currently hovering.
 interface DropIndicator {
@@ -191,9 +194,9 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     setSelection({ type: 'feature', featureId: feature.id });
     setSelectedLayerId(null);
     if (map) {
-      map.flyTo({
-        center: geometryAnchor(feature.geometry),
-        zoom: Math.max(map.getZoom(), FEATURE_SELECT_ZOOM),
+      map.fitBounds(geometryBounds(feature.geometry), {
+        padding: FEATURE_SELECT_PADDING,
+        maxZoom: FEATURE_SELECT_MAX_ZOOM,
       });
     }
   }
