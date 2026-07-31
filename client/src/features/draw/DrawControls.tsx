@@ -6,14 +6,18 @@ import NearMeIcon from '@mui/icons-material/NearMe';
 import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import { useEditorStore, type DrawMode } from '../../state/editorStore';
 import type { DrawToolMode } from './useMapboxDraw';
 
+// 'route' has no mapbox-gl-draw equivalent — it's handled by useMapboxRoute
+// instead, so selecting it just deselects whatever Draw mode was active.
 const MODE_TO_DRAW_MODE: Record<DrawMode, DrawToolMode> = {
   none: 'simple_select',
   point: 'draw_point',
   line: 'draw_line_string',
   polygon: 'draw_polygon',
+  route: 'simple_select',
 };
 
 export const DRAW_MODE_TO_EDITOR_MODE: Record<DrawToolMode, DrawMode> = {
@@ -59,6 +63,11 @@ export function DrawControls({ setMode, disabled }: DrawControlsProps) {
         <Tooltip title="Draw polygon">
           <ToggleButton value="polygon" aria-label="Draw polygon">
             <PentagonIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Route along roads/trails">
+          <ToggleButton value="route" aria-label="Route along roads/trails">
+            <AltRouteIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
       </ToggleButtonGroup>

@@ -17,6 +17,9 @@ import { useEditorStore } from '../../state/editorStore';
 import { LayerPanel } from '../layers/LayerPanel';
 import { DrawControls, DRAW_MODE_TO_EDITOR_MODE } from '../draw/DrawControls';
 import { useMapboxDraw } from '../draw/useMapboxDraw';
+import { RouteControls } from '../draw/RouteControls';
+import { useMapboxRoute } from '../draw/useMapboxRoute';
+import type { RouteProfile } from '../draw/mapboxDirections';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
 import { SearchBox } from '../search/SearchBox';
@@ -33,8 +36,10 @@ export function MapEditorPage() {
 
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const setActiveLayerId = useEditorStore((s) => s.setActiveLayerId);
+  const drawMode = useEditorStore((s) => s.drawMode);
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const [routeProfile, setRouteProfile] = useState<RouteProfile>('walking');
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -85,9 +90,26 @@ export function MapEditorPage() {
       if (!activeLayerId || !feature.geometry) return;
       createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
     },
-    onModeChange: (mode) => setDrawMode(DRAW_MODE_TO_EDITOR_MODE[mode] ?? 'none'),
+    onModeChange: (mode) => {
+      // 'route' has no mapbox-gl-draw equivalent (see DrawControls) — Draw
+      // reports 'simple_select' when that tool is selected, which would
+      // otherwise stomp the store's 'route' mode right back to 'none'.
+      if (useEditorStore.getState().drawMode === 'route') return;
+      setDrawMode(DRAW_MODE_TO_EDITOR_MODE[mode] ?? 'none');
+    },
     onUpdateGeometry: (layerId, featureId, geometry) => {
       updateGeometryMutation.mutate({ featureId, layerId, geometry });
+    },
+  });
+
+  const { waypointCount, isFetching, distanceMeters, error, finish, cancel } = useMapboxRoute({
+    map: mapInstance,
+    active: drawMode === 'route',
+    profile: routeProfile,
+    onCreate: (feature) => {
+      if (!activeLayerId || !feature.geometry) return;
+      createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
+      setDrawMode('none');
     },
   });
 
@@ -167,6 +189,18 @@ export function MapEditorPage() {
       </Paper>
       <LayerPanel mapId={map.id} map={mapInstance} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />
+      {drawMode === 'route' && (
+        <RouteControls
+          profile={routeProfile}
+          onProfileChange={setRouteProfile}
+          waypointCount={waypointCount}
+          isFetching={isFetching}
+          distanceMeters={distanceMeters}
+          error={error}
+          onFinish={finish}
+          onCancel={cancel}
+        />
+      )}
       {selectedFeature && (
         <FeaturePropertiesPanel
           key={selectedFeature.feature.id}

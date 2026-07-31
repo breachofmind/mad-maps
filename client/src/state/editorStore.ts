@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type DrawMode = 'none' | 'point' | 'line' | 'polygon';
+export type DrawMode = 'none' | 'point' | 'line' | 'polygon' | 'route';
 
 export interface FeatureSelection {
   type: 'feature';
