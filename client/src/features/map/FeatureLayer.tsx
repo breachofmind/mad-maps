@@ -5,10 +5,21 @@ import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
 import { featuresQueryKey, fetchFeatures, updateFeature } from '../mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from './featureIconImages';
-import { DEFAULT_HIGHLIGHT_COLOR, sampleBasemapHighlightColor } from './basemapContrast';
+import {
+  DEFAULT_HIGHLIGHT_COLOR,
+  DEFAULT_LABEL_COLORS,
+  labelColorsForHighlight,
+  sampleBasemapHighlightColor,
+} from './basemapContrast';
 import { FEATURE_POINT_LAYER_ID } from './featureLayerIds';
 
 const SOURCE_ID = 'mapinski-features';
+// Separate single-feature source the cursor-following label (see
+// CURSOR_LABEL_TEXT_OFFSET) is driven from — its data is a lngLat updated on
+// every mousemove, independent of the real feature geometry, so it can't
+// share LAYER_IDS.hoverLabel's SOURCE_ID-backed, geometry-anchored layer.
+const HOVER_CURSOR_SOURCE_ID = 'mapinski-features-hover-cursor';
+const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 const LAYER_IDS = {
   polygonFill: 'mapinski-features-polygon-fill',
   polygonOutline: 'mapinski-features-polygon-outline',
@@ -18,6 +29,7 @@ const LAYER_IDS = {
   pointHover: 'mapinski-features-point-hover',
   geometryHover: 'mapinski-features-geometry-hover',
   hoverLabel: 'mapinski-features-hover-label',
+  hoverLabelCursor: 'mapinski-features-hover-label-cursor',
 };
 // Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
 // instead of the visible line layer, since a thin rendered line is a hard
@@ -35,9 +47,13 @@ const DEFAULT_STROKE_WIDTH = 3;
 const LINE_HIT_AREA_PADDING = 18;
 const HIGHLIGHT_FADE_DURATION_MS = 200;
 const HOVER_LABEL_TEXT_SIZE = 12;
-// Lifts the label clear of the point icon/line/polygon it's labeling — text
-// offset is in ems, so negative-y moves it up regardless of text-size.
+// Lifts the label clear of the point icon it's labeling — text offset is in
+// ems, so negative-y moves it up regardless of text-size.
 const HOVER_LABEL_OFFSET_EM = -1.8;
+// Nudges the cursor-following label down-right of the pointer (paired with
+// a top-left text-anchor below) rather than centering it on the cursor,
+// where it'd overlap the pointer icon and whatever's directly under it.
+const CURSOR_LABEL_OFFSET_EM: [number, number] = [1.1, 0.8];
 // mapbox-gl-draw registers each theme layer under both a "hot" (actively
 // changing) and "cold" (static) source, appending that suffix to the style
 // id — see drawTheme.ts / mapbox-gl-draw's options.js addSources(). These
@@ -77,9 +93,17 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
 }
 
 // '' never matches a real featureId, so this renders nothing when nothing's
-// hovered rather than needing a separate "none hovered" branch.
+// hovered rather than needing a separate "none hovered" branch. Restricted
+// to Points — LineStrings/Polygons use the cursor-following label instead
+// (see LAYER_IDS.hoverLabelCursor), since a fixed geometry anchor can end up
+// far from the cursor on a large shape.
 function hoverLabelFilter(hoveredFeatureId: string | null): mapboxgl.FilterSpecification {
-  return ['all', ['==', ['get', 'featureId'], hoveredFeatureId ?? ''], ['!=', ['get', 'title'], '']];
+  return [
+    'all',
+    ['==', ['geometry-type'], 'Point'],
+    ['==', ['get', 'featureId'], hoveredFeatureId ?? ''],
+    ['!=', ['get', 'title'], ''],
+  ];
 }
 
 function setHighlightFilters(map: mapboxgl.Map, featureIds: string[]) {
@@ -327,9 +351,33 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       'text-ignore-placement': true,
     },
     paint: {
-      'text-color': '#1a1a1a',
-      'text-halo-color': '#fff',
-      'text-halo-width': 1.5,
+      'text-color': DEFAULT_LABEL_COLORS.text,
+      'text-halo-color': DEFAULT_LABEL_COLORS.halo,
+      'text-halo-width': 1,
+      'text-halo-blur': 0.5,
+    },
+  });
+  // Cursor-following label for LineString/Polygon hover — see
+  // HOVER_CURSOR_SOURCE_ID. Starts empty; handleMouseMove below drives its
+  // single feature's position and title live.
+  map.addSource(HOVER_CURSOR_SOURCE_ID, { type: 'geojson', data: EMPTY_FEATURE_COLLECTION });
+  map.addLayer({
+    id: LAYER_IDS.hoverLabelCursor,
+    type: 'symbol',
+    source: HOVER_CURSOR_SOURCE_ID,
+    layout: {
+      'text-field': ['get', 'title'],
+      'text-size': HOVER_LABEL_TEXT_SIZE,
+      'text-anchor': 'top-left',
+      'text-offset': CURSOR_LABEL_OFFSET_EM,
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': DEFAULT_LABEL_COLORS.text,
+      'text-halo-color': DEFAULT_LABEL_COLORS.halo,
+      'text-halo-width': 1,
+      'text-halo-blur': 0.5,
     },
   });
 }
@@ -348,6 +396,10 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const selectedFeatureId = useEditorStore((s) => s.selection?.featureId ?? null);
   const dragStateRef = useRef<PointDragState | null>(null);
+  // Tracks whether HOVER_CURSOR_SOURCE_ID currently holds a visible feature,
+  // so handleMouseMove only calls setData when that's actually changing
+  // rather than on every mousemove over empty map background.
+  const cursorLabelVisibleRef = useRef(false);
 
   const moveFeatureMutation = useMutation({
     mutationFn: ({ featureId, lng, lat }: { featureId: string; layerId: string; lng: number; lat: number }) =>
@@ -418,6 +470,15 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         map.setPaintProperty(LAYER_IDS.pointHover, 'circle-color', color);
         map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-color', color);
       }
+      const labelColors = labelColorsForHighlight(color);
+      if (map.getLayer(LAYER_IDS.hoverLabel)) {
+        map.setPaintProperty(LAYER_IDS.hoverLabel, 'text-color', labelColors.text);
+        map.setPaintProperty(LAYER_IDS.hoverLabel, 'text-halo-color', labelColors.halo);
+      }
+      if (map.getLayer(LAYER_IDS.hoverLabelCursor)) {
+        map.setPaintProperty(LAYER_IDS.hoverLabelCursor, 'text-color', labelColors.text);
+        map.setPaintProperty(LAYER_IDS.hoverLabelCursor, 'text-halo-color', labelColors.halo);
+      }
     }
 
     // A style's tiles aren't guaranteed to be rendered the instant
@@ -459,11 +520,41 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
+      // ensureLayersAdded just recreated HOVER_CURSOR_SOURCE_ID empty (all
+      // custom sources are gone after a style change), so the JS-side "is it
+      // showing something" flag needs to match.
+      cursorLabelVisibleRef.current = false;
       applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current, highlightFadeStateRef.current);
       map.setFilter(LAYER_IDS.hoverLabel, hoverLabelFilter(hoveredFeatureIdRef.current));
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
+    }
+
+    // Drives HOVER_CURSOR_SOURCE_ID's single feature — the LineString/
+    // Polygon counterpart to LAYER_IDS.hoverLabel's geometry-anchored,
+    // Point-only label (see hoverLabelFilter).
+    function setCursorLabel(targetMap: mapboxgl.Map, lngLat: mapboxgl.LngLat, title: string) {
+      const source = targetMap.getSource(HOVER_CURSOR_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+      if (!source) return;
+      source.setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] },
+            properties: { title },
+          },
+        ],
+      });
+      cursorLabelVisibleRef.current = true;
+    }
+
+    function clearCursorLabel(targetMap: mapboxgl.Map) {
+      if (!cursorLabelVisibleRef.current) return;
+      const source = targetMap.getSource(HOVER_CURSOR_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+      if (source) source.setData(EMPTY_FEATURE_COLLECTION);
+      cursorLabelVisibleRef.current = false;
     }
 
     // A single map-level click handler (rather than per-layer listeners) so
@@ -514,6 +605,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       const dragState = dragStateRef.current;
       if (dragState) {
         dragState.moved = true;
+        clearCursorLabel(map);
         const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
         if (source) {
           const patched: GeoJSON.FeatureCollection = {
@@ -537,6 +629,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       // time lets Draw's own inherited styling (e.g. "move" over the
       // feature body) show through undisturbed.
       if (editingFeatureIdRef.current) {
+        clearCursorLabel(map);
         const vertexLayers = DRAW_VERTEX_LAYER_IDS.filter((id) => map.getLayer(id));
         const onVertex = vertexLayers.length > 0 && map.queryRenderedFeatures(e.point, { layers: vertexLayers }).length > 0;
         setMapCursor(map, onVertex ? 'pointer' : '');
@@ -553,6 +646,17 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       const nextHoveredId = typeof featureId === 'string' ? featureId : null;
       if (useEditorStore.getState().hoveredFeatureId !== nextHoveredId) {
         setHoveredFeatureId(nextHoveredId);
+      }
+
+      // Points keep their existing geometry-anchored label (LAYER_IDS.
+      // hoverLabel); LineStrings/Polygons get this cursor-following one
+      // instead, since a fixed anchor can land far from the cursor on a
+      // large shape.
+      const title = hit?.properties?.title;
+      if (hit && hit.layer?.id !== LAYER_IDS.point && typeof title === 'string' && title !== '') {
+        setCursorLabel(map, e.lngLat, title);
+      } else {
+        clearCursorLabel(map);
       }
     }
 
@@ -587,6 +691,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
 
     function handleMouseOut() {
       setHoveredFeatureId(null);
+      if (map) clearCursorLabel(map);
     }
 
     map.on('style.load', handleStyleLoad);

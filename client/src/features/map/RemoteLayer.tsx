@@ -4,7 +4,12 @@ import type mapboxgl from 'mapbox-gl';
 import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
 import { externalLayerDataQueryKey, fetchExternalLayerData } from '../layers/api';
-import { DEFAULT_HIGHLIGHT_COLOR, sampleBasemapHighlightColor } from './basemapContrast';
+import {
+  DEFAULT_LABEL_COLORS,
+  labelColorsForHighlight,
+  sampleBasemapHighlightColor,
+  type LabelColors,
+} from './basemapContrast';
 import { ensureExternalIconImages, externalIconImageId } from './externalIconImages';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
@@ -67,23 +72,6 @@ function buildColorExpression(flatColor: string, styleConfig: LayerStyleConfig |
 
 function labelTextField(labelProperty: string | null | undefined): string | MapboxExpression {
   return labelProperty ? ['to-string', ['get', labelProperty]] : '';
-}
-
-interface LabelColors {
-  text: string;
-  halo: string;
-}
-const DEFAULT_LABEL_COLORS: LabelColors = { text: '#1a1a1a', halo: 'rgba(255, 255, 255, 0.75)' };
-
-// sampleBasemapHighlightColor returns DEFAULT_HIGHLIGHT_COLOR (white) when
-// the basemap it sampled reads as dark, and a dark color when it reads as
-// light — reused here so the label keeps the same light/dark text with a
-// halo in the *opposite* tone, instead of always-dark text that disappears
-// against a dark basemap.
-function labelColorsForHighlight(highlightColor: string): LabelColors {
-  return highlightColor === DEFAULT_HIGHLIGHT_COLOR
-    ? { text: '#ffffff', halo: 'rgba(0, 0, 0, 0.75)' }
-    : DEFAULT_LABEL_COLORS;
 }
 
 // Only rules whose image actually loaded onto the map are usable — a rule

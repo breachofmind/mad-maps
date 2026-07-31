@@ -17,6 +17,28 @@ export function highlightColorForLuminance(luminance: number): string {
   return luminance > LUMINANCE_THRESHOLD ? LIGHT_BASEMAP_HIGHLIGHT : DEFAULT_HIGHLIGHT_COLOR;
 }
 
+export interface LabelColors {
+  text: string;
+  halo: string;
+}
+
+// Default (assumed-light-basemap) label colors, used until a real sample
+// is available.
+export const DEFAULT_LABEL_COLORS: LabelColors = {
+  text: LIGHT_BASEMAP_HIGHLIGHT,
+  halo: 'rgba(255, 255, 255, 0.75)',
+};
+const DARK_BASEMAP_LABEL_COLORS: LabelColors = { text: DEFAULT_HIGHLIGHT_COLOR, halo: 'rgba(0, 0, 0, 0.75)' };
+
+// Derives a text/halo pair from sampleBasemapHighlightColor's result: white
+// text on a dark halo when that reads as a dark basemap (its result equals
+// DEFAULT_HIGHLIGHT_COLOR), otherwise dark text on a light halo — so a
+// map label's halo is always the *opposite* tone of its text, rather than
+// a fixed dark-text-on-white-halo scheme that disappears on dark basemaps.
+export function labelColorsForHighlight(highlightColor: string): LabelColors {
+  return highlightColor === DEFAULT_HIGHLIGHT_COLOR ? DARK_BASEMAP_LABEL_COLORS : DEFAULT_LABEL_COLORS;
+}
+
 // Small enough to be cheap, large enough to average out individual map
 // labels/roads rather than landing on one.
 const SAMPLE_GRID_SIZE = 8;
