@@ -42,6 +42,10 @@ export function MapView({
       style: initialStyleUrl,
       center: [initialCenter.lng, initialCenter.lat],
       zoom: initialZoom,
+      // Lets FeatureLayer read back rendered pixels to pick a highlight
+      // color that contrasts with the current basemap — without this, the
+      // browser is free to clear the WebGL buffer before that read happens.
+      preserveDrawingBuffer: true,
     });
 
     map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');

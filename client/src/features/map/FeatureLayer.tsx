@@ -5,6 +5,7 @@ import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
 import { featuresQueryKey, fetchFeatures, updateFeature } from '../mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from './featureIconImages';
+import { DEFAULT_HIGHLIGHT_COLOR, sampleBasemapHighlightColor } from './basemapContrast';
 
 const SOURCE_ID = 'mapinski-features';
 const LAYER_IDS = {
@@ -24,7 +25,9 @@ const POINT_ICON_SIZE = 0.4;
 const POINT_HOVER_RADIUS = 18;
 const POINT_HOVER_STROKE_WIDTH = 5;
 const GEOMETRY_HOVER_WIDTH = 11;
-const HOVER_COLOR = '#ffffff';
+// Placeholder used only until the contrast-sampling effect below picks a
+// color for the actual rendered basemap (see applyContrastColor).
+const DEFAULT_HOVER_COLOR = DEFAULT_HIGHLIGHT_COLOR;
 const DEFAULT_STROKE_WIDTH = 3;
 const LINE_HIT_AREA_PADDING = 18;
 // mapbox-gl-draw registers each theme layer under both a "hot" (actively
@@ -66,9 +69,10 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
 }
 
 // pointHover doubles as the selected-pin ring, and geometryHover doubles as
-// the selected line/polygon border: both get the same white highlight for a
-// hovered feature and a selected one, driven off whichever feature ids are
-// hovered and/or currently selected. (While a line/polygon is being
+// the selected line/polygon border: both get the same contrast-aware
+// highlight color (see applyContrastColor) for a hovered feature and a
+// selected one, driven off whichever feature ids are hovered and/or
+// currently selected. (While a line/polygon is being
 // vertex-edited it's excluded from this layer's data entirely — see
 // buildFeatureCollection's editingFeatureId check — so there's nothing here
 // to highlight in that case; mapbox-gl-draw renders its own overlay.)
@@ -162,7 +166,7 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       source: SOURCE_ID,
       filter: highlightFilter([], ['LineString', 'Polygon']),
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': HOVER_COLOR, 'line-width': GEOMETRY_HOVER_WIDTH },
+      paint: { 'line-color': DEFAULT_HOVER_COLOR, 'line-width': GEOMETRY_HOVER_WIDTH },
     },
     LAYER_IDS.polygonOutline,
   );
@@ -209,10 +213,10 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     filter: highlightFilter([], ['Point']),
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
-      'circle-color': HOVER_COLOR,
+      'circle-color': DEFAULT_HOVER_COLOR,
       'circle-opacity': 0.3,
       'circle-stroke-width': POINT_HOVER_STROKE_WIDTH,
-      'circle-stroke-color': HOVER_COLOR,
+      'circle-stroke-color': DEFAULT_HOVER_COLOR,
     },
   });
 }
@@ -273,6 +277,37 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     if (!map) return;
     applyHighlightFilters(map, hoveredFeatureId, selectedFeatureId);
   }, [map, hoveredFeatureId, selectedFeatureId]);
+
+  useEffect(() => {
+    if (!map) return;
+
+    function applyContrastColor() {
+      if (!map) return;
+      const color = sampleBasemapHighlightColor(map);
+      if (map.getLayer(LAYER_IDS.geometryHover)) {
+        map.setPaintProperty(LAYER_IDS.geometryHover, 'line-color', color);
+      }
+      if (map.getLayer(LAYER_IDS.pointHover)) {
+        map.setPaintProperty(LAYER_IDS.pointHover, 'circle-color', color);
+        map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-color', color);
+      }
+    }
+
+    // A style's tiles aren't guaranteed to be rendered the instant
+    // 'style.load' fires, so wait for the map to actually go idle (nothing
+    // left to load) before sampling it for a contrasting highlight color.
+    // Re-run on every basemap switch, not just the initial style.
+    function scheduleContrastUpdate() {
+      map?.once('idle', applyContrastColor);
+    }
+
+    scheduleContrastUpdate();
+    map.on('style.load', scheduleContrastUpdate);
+
+    return () => {
+      map.off('style.load', scheduleContrastUpdate);
+    };
+  }, [map]);
 
   useEffect(() => {
     // Clear any cursor we set ourselves right as editing starts, so Draw's
