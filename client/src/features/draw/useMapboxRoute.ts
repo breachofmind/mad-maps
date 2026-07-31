@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import { mapboxgl as mapboxglRuntime } from '../map/mapbox';
+import { FEATURE_POINT_LAYER_ID } from '../map/featureLayerIds';
 import { fetchDirectionsRoute, type RouteProfile } from './mapboxDirections';
 
 const SOURCE_ID = 'mapinski-route-preview';
@@ -217,8 +218,18 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
   useEffect(() => {
     if (!map || !active) return;
 
+    // Clicking directly on an existing pin uses its exact coordinates as the
+    // waypoint instead of the raw click position, so routes connect cleanly
+    // to features already on the map rather than landing a few meters off.
+    function snappedClickCoordinates(e: mapboxgl.MapMouseEvent): [number, number] {
+      if (!map || !map.getLayer(FEATURE_POINT_LAYER_ID)) return [e.lngLat.lng, e.lngLat.lat];
+      const [hit] = map.queryRenderedFeatures(e.point, { layers: [FEATURE_POINT_LAYER_ID] });
+      if (hit?.geometry.type === 'Point') return hit.geometry.coordinates as [number, number];
+      return [e.lngLat.lng, e.lngLat.lat];
+    }
+
     function handleClick(e: mapboxgl.MapMouseEvent) {
-      waypointsRef.current = [...waypointsRef.current, [e.lngLat.lng, e.lngLat.lat]];
+      waypointsRef.current = [...waypointsRef.current, snappedClickCoordinates(e)];
       setWaypointCount(waypointsRef.current.length);
       render();
       void refetch();

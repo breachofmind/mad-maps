@@ -6,6 +6,7 @@ import { useEditorStore } from '../../state/editorStore';
 import { featuresQueryKey, fetchFeatures, updateFeature } from '../mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from './featureIconImages';
 import { DEFAULT_HIGHLIGHT_COLOR, sampleBasemapHighlightColor } from './basemapContrast';
+import { FEATURE_POINT_LAYER_ID } from './featureLayerIds';
 
 const SOURCE_ID = 'mapinski-features';
 const LAYER_IDS = {
@@ -13,7 +14,7 @@ const LAYER_IDS = {
   polygonOutline: 'mapinski-features-polygon-outline',
   line: 'mapinski-features-line',
   lineHitArea: 'mapinski-features-line-hit-area',
-  point: 'mapinski-features-point',
+  point: FEATURE_POINT_LAYER_ID,
   pointHover: 'mapinski-features-point-hover',
   geometryHover: 'mapinski-features-geometry-hover',
 };
