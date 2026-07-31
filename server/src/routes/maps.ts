@@ -28,7 +28,10 @@ const lngLatSchema = z.object({
 const updateMapSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
-  baseStyle: z.string().min(1).optional(),
+  baseStyle: z
+    .string()
+    .regex(/^mapbox:\/\/styles\/[^/]+\/[^/]+$/, 'Must be a mapbox://styles/{username}/{style_id} URL')
+    .optional(),
   defaultCenter: lngLatSchema.optional(),
   defaultZoom: z.number().min(0).max(24).optional(),
 });

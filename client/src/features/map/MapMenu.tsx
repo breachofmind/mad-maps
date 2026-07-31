@@ -9,16 +9,20 @@ import Tooltip from '@mui/material/Tooltip';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
+import PaletteIcon from '@mui/icons-material/Palette';
 import { downloadMapExport, type ExportFormat } from '../export/api';
 import { ImportDialog } from '../import/ImportDialog';
+import { CustomStyleDialog } from './CustomStyleDialog';
 
 interface MapMenuProps {
   mapId: string;
+  currentStyleUrl: string;
 }
 
-export function MapMenu({ mapId }: MapMenuProps) {
+export function MapMenu({ mapId, currentStyleUrl }: MapMenuProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   async function handleExport(format: ExportFormat) {
     setAnchorEl(null);
@@ -28,6 +32,11 @@ export function MapMenu({ mapId }: MapMenuProps) {
   function handleImportClick() {
     setAnchorEl(null);
     setImportDialogOpen(true);
+  }
+
+  function handleCustomStyleClick() {
+    setAnchorEl(null);
+    setCustomStyleDialogOpen(true);
   }
 
   return (
@@ -57,8 +66,21 @@ export function MapMenu({ mapId }: MapMenuProps) {
           </ListItemIcon>
           <ListItemText>Import layer from file</ListItemText>
         </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleCustomStyleClick}>
+          <ListItemIcon>
+            <PaletteIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Custom style URL…</ListItemText>
+        </MenuItem>
       </Menu>
       <ImportDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} mapId={mapId} />
+      <CustomStyleDialog
+        open={customStyleDialogOpen}
+        onClose={() => setCustomStyleDialogOpen(false)}
+        mapId={mapId}
+        currentStyleUrl={currentStyleUrl}
+      />
     </>
   );
 }

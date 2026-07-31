@@ -58,6 +58,21 @@ describe('GET/POST/PATCH/DELETE /api/maps', () => {
     await agent.post('/api/maps').send({ title: '' }).expect(400);
   });
 
+  it('accepts a custom Mapbox Studio style URL and rejects a malformed one', async () => {
+    const createRes = await agent.post('/api/maps').send({ title: 'Style Test Map' }).expect(201);
+    const mapId = createRes.body.id as string;
+
+    const patchRes = await agent
+      .patch(`/api/maps/${mapId}`)
+      .send({ baseStyle: 'mapbox://styles/someuser/abc123' })
+      .expect(200);
+    expect(patchRes.body.baseStyle).toBe('mapbox://styles/someuser/abc123');
+
+    await agent.patch(`/api/maps/${mapId}`).send({ baseStyle: 'not-a-style-url' }).expect(400);
+
+    await agent.delete(`/api/maps/${mapId}`).expect(204);
+  });
+
   it('returns 404 for a map belonging to another owner', async () => {
     const [otherUser] = await db
       .insert(users)

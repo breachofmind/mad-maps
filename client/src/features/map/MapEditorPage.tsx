@@ -201,7 +201,7 @@ export function MapEditorPage() {
           </IconButton>
         </Tooltip>
         <Typography variant="subtitle1">{map.title}</Typography>
-        <MapMenu mapId={map.id} />
+        <MapMenu mapId={map.id} currentStyleUrl={map.baseStyle} />
       </Paper>
       <LayerPanel mapId={map.id} map={mapInstance} />
       <DrawControls setMode={setMode} disabled={!activeLayerId} />

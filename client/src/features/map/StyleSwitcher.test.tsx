@@ -35,4 +35,12 @@ describe('StyleSwitcher', () => {
 
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('highlights no preset when activeStyleId matches none (a custom style is active)', () => {
+    render(<StyleSwitcher activeStyleId="" onChange={() => {}} />);
+
+    for (const option of MAP_STYLE_OPTIONS) {
+      expect(screen.getByRole('button', { name: option.label })).toHaveAttribute('aria-pressed', 'false');
+    }
+  });
 });

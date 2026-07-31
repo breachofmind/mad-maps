@@ -19,7 +19,7 @@ interface MapViewProps {
 }
 
 function styleIdForUrl(styleUrl: string): string {
-  return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? MAP_STYLE_OPTIONS[0].id;
+  return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? '';
 }
 
 export function MapView({
@@ -62,9 +62,18 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const lastAppliedStyleUrlRef = useRef(initialStyleUrl);
+  useEffect(() => {
+    if (initialStyleUrl === lastAppliedStyleUrlRef.current) return;
+    lastAppliedStyleUrlRef.current = initialStyleUrl;
+    mapRef.current?.setStyle(initialStyleUrl);
+    setActiveStyleId(styleIdForUrl(initialStyleUrl));
+  }, [initialStyleUrl]);
+
   function handleStyleChange(styleId: string) {
     const option = MAP_STYLE_OPTIONS.find((s) => s.id === styleId);
     if (!option || !mapRef.current) return;
+    lastAppliedStyleUrlRef.current = option.styleUrl;
     mapRef.current.setStyle(option.styleUrl);
     setActiveStyleId(styleId);
     onStyleChange?.(option.styleUrl);
