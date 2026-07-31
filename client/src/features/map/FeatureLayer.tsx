@@ -48,6 +48,15 @@ const LINE_DASH_ARRAYS: Record<LineStyle, number[]> = {
   dotted: [0, 2],
 };
 
+// getCanvas() returns undefined once the map has been map.remove()'d, which
+// can happen before this component's own effect cleanup runs (MapView, a
+// sibling, removes the map on unmount, and React doesn't guarantee cleanup
+// order across sibling components) — guard every cursor update against that.
+function setMapCursor(map: mapboxgl.Map, cursor: string) {
+  const canvas = map.getCanvas();
+  if (canvas) canvas.style.cursor = cursor;
+}
+
 function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxgl.FilterSpecification {
   return [
     'all',
@@ -270,7 +279,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     // own CSS-driven cursor (see handleMouseMove's early return below) takes
     // over cleanly instead of being stuck behind a stale inline value.
     if (!map || !editingFeatureId) return;
-    map.getCanvas().style.cursor = '';
+    setMapCursor(map, '');
   }, [map, editingFeatureId]);
 
   useEffect(() => {
@@ -321,7 +330,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
 
       e.preventDefault();
       dragStateRef.current = { featureId, layerId, moved: false };
-      map.getCanvas().style.cursor = 'grabbing';
+      setMapCursor(map, 'grabbing');
     }
 
     // A single map-level mousemove handler (rather than per-layer
@@ -362,7 +371,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       if (editingFeatureIdRef.current) {
         const vertexLayers = DRAW_VERTEX_LAYER_IDS.filter((id) => map.getLayer(id));
         const onVertex = vertexLayers.length > 0 && map.queryRenderedFeatures(e.point, { layers: vertexLayers }).length > 0;
-        map.getCanvas().style.cursor = onVertex ? 'pointer' : '';
+        setMapCursor(map, onVertex ? 'pointer' : '');
         return;
       }
 
@@ -371,7 +380,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
         : [];
       const hit = hits[0];
-      map.getCanvas().style.cursor = hit ? (hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer') : '';
+      setMapCursor(map, hit ? (hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer') : '');
       const featureId = hit?.properties?.featureId;
       const nextHoveredId = typeof featureId === 'string' ? featureId : null;
       if (useEditorStore.getState().hoveredFeatureId !== nextHoveredId) {
@@ -383,7 +392,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       const dragState = dragStateRef.current;
       if (!dragState || !map) return;
       dragStateRef.current = null;
-      map.getCanvas().style.cursor = 'grab';
+      setMapCursor(map, 'grab');
       if (dragState.moved) {
         moveFeatureMutationRef.current.mutate({
           featureId: dragState.featureId,
@@ -404,7 +413,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       dragStateRef.current = null;
       if (map) {
         ensureLayersAdded(map, dataRef.current);
-        map.getCanvas().style.cursor = '';
+        setMapCursor(map, '');
       }
     }
 
@@ -428,7 +437,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       map.off('mouseup', handleMouseUp);
       map.off('mouseout', handleMouseOut);
       window.removeEventListener('mouseup', handleWindowMouseUp);
-      map.getCanvas().style.cursor = '';
+      setMapCursor(map, '');
     };
   }, [map, setSelection, setHoveredFeatureId]);
 
