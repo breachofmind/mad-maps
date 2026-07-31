@@ -113,14 +113,28 @@ export function MapEditorPage() {
     },
   });
 
-  // Show vertex-edit handles for the selected line/polygon by loading it
-  // into mapbox-gl-draw's direct_select mode. Keyed on feature id (not the
-  // whole selectedFeature object) so this doesn't re-trigger — and reset
-  // the in-progress edit session — every time our own edits round-trip
-  // back through the query cache.
+  // Vertex-editing is opt-in via a toggle button in FeaturePropertiesPanel
+  // (see isEditingVertices below) rather than showing automatically on
+  // selection. This effect loads the selected line/polygon into
+  // mapbox-gl-draw's direct_select mode while that toggle is on, and drops
+  // out of edit mode the moment the selection changes to something else —
+  // a fresh selection always starts out of edit mode, even if the same
+  // feature is reselected later.
+  const [isEditingVertices, setIsEditingVertices] = useState(false);
   const editingFeatureIdRef = useRef<string | null>(null);
+  const lastSelectionIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const feature = selectedFeature?.feature.featureType !== 'point' ? selectedFeature : null;
+    const currentSelectionId = selectedFeature?.feature.id ?? null;
+    const selectionChanged = lastSelectionIdRef.current !== currentSelectionId;
+    lastSelectionIdRef.current = currentSelectionId;
+
+    let effectiveEditing = isEditingVertices;
+    if (selectionChanged && isEditingVertices) {
+      effectiveEditing = false;
+      setIsEditingVertices(false);
+    }
+
+    const feature = effectiveEditing && selectedFeature?.feature.featureType !== 'point' ? selectedFeature : null;
     if (feature) {
       if (editingFeatureIdRef.current !== feature.feature.id) {
         editFeature(
@@ -134,7 +148,7 @@ export function MapEditorPage() {
       editingFeatureIdRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFeature?.feature.id, selectedFeature?.feature.featureType]);
+  }, [selectedFeature?.feature.id, selectedFeature?.feature.featureType, isEditingVertices]);
 
   const persistViewport = useDebouncedCallback((change: MapViewChange) => {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });
@@ -166,7 +180,9 @@ export function MapEditorPage() {
         map={mapInstance}
         layers={layers ?? []}
         editingFeatureId={
-          selectedFeature && selectedFeature.feature.featureType !== 'point' ? selectedFeature.feature.id : null
+          isEditingVertices && selectedFeature && selectedFeature.feature.featureType !== 'point'
+            ? selectedFeature.feature.id
+            : null
         }
       />
       <SearchBox map={mapInstance} activeLayerId={activeLayerId} />
@@ -207,6 +223,8 @@ export function MapEditorPage() {
           feature={selectedFeature.feature}
           layerId={selectedFeature.layer.id}
           onClose={() => setSelection(null)}
+          isEditingVertices={isEditingVertices}
+          onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
         />
       )}
     </Box>

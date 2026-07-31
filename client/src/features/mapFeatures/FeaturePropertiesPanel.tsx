@@ -19,6 +19,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PolylineIcon from '@mui/icons-material/Polyline';
 import type { FeatureType, LineStyle, MapFeatureDTO } from '@mapinski/shared';
 import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput } from './api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
@@ -91,9 +92,17 @@ interface FeaturePropertiesPanelProps {
   feature: MapFeatureDTO;
   layerId: string;
   onClose: () => void;
+  isEditingVertices: boolean;
+  onToggleEditVertices: () => void;
 }
 
-export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePropertiesPanelProps) {
+export function FeaturePropertiesPanel({
+  feature,
+  layerId,
+  onClose,
+  isEditingVertices,
+  onToggleEditVertices,
+}: FeaturePropertiesPanelProps) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
@@ -184,11 +193,25 @@ export function FeaturePropertiesPanel({ feature, layerId, onClose }: FeaturePro
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
         <Typography variant="subtitle1">{FEATURE_TYPE_LABELS[feature.featureType]} details</Typography>
-        <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} aria-label="Close feature details">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Stack direction="row" spacing={0.5}>
+          {showStroke && (
+            <Tooltip title={isEditingVertices ? 'Stop editing vertices' : 'Edit vertices'}>
+              <IconButton
+                size="small"
+                color={isEditingVertices ? 'primary' : 'default'}
+                onClick={onToggleEditVertices}
+                aria-label="Toggle vertex editing"
+              >
+                <PolylineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Close">
+            <IconButton size="small" onClick={onClose} aria-label="Close feature details">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </Stack>
 
       <Stack spacing={2}>
