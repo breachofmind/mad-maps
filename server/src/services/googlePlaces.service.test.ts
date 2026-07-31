@@ -26,6 +26,8 @@ describe('searchPlaces', () => {
           formattedAddress: 'San Francisco, CA, USA',
           location: { latitude: 37.7694, longitude: -122.4862 },
           googleMapsUri: 'https://maps.google.com/?cid=12345',
+          rating: 4.6,
+          userRatingCount: 12345,
         },
       ],
     };
@@ -44,7 +46,8 @@ describe('searchPlaces', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'X-Goog-Api-Key': 'test-api-key',
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri',
+          'X-Goog-FieldMask':
+            'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount',
         }),
         body: JSON.stringify({ textQuery: 'golden gate park' }),
       }),
@@ -57,6 +60,8 @@ describe('searchPlaces', () => {
         lng: -122.4862,
         lat: 37.7694,
         googleMapsUri: 'https://maps.google.com/?cid=12345',
+        rating: 4.6,
+        userRatingCount: 12345,
       },
     ]);
   });
@@ -72,7 +77,16 @@ describe('searchPlaces', () => {
     const results = await searchPlaces('somewhere');
 
     expect(results).toEqual([
-      { placeId: 'place-2', name: '', formattedAddress: '', lng: 0, lat: 0, googleMapsUri: null },
+      {
+        placeId: 'place-2',
+        name: '',
+        formattedAddress: '',
+        lng: 0,
+        lat: 0,
+        googleMapsUri: null,
+        rating: null,
+        userRatingCount: null,
+      },
     ]);
   });
 

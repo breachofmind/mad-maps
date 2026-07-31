@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -8,10 +9,12 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import type { PlaceResultDTO } from '@mapinski/shared';
 import type mapboxgl from 'mapbox-gl';
+import { mapboxgl as mapboxglRuntime } from '../map/mapbox';
 import { searchPlaces } from './api';
 import { createFeature, featuresQueryKey } from '../mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
@@ -22,9 +25,19 @@ function escapeHtml(value: string): string {
 }
 
 function buildDescriptionHtml(place: PlaceResultDTO): string {
-  if (!place.googleMapsUri) return '';
-  const href = escapeHtml(place.googleMapsUri);
-  return `<p><a href="${href}" target="_blank" rel="noopener noreferrer">View on Google Maps</a></p>`;
+  const lines: string[] = [];
+  if (place.formattedAddress) {
+    lines.push(`<p>${escapeHtml(place.formattedAddress)}</p>`);
+  }
+  if (place.rating != null) {
+    const count = place.userRatingCount != null ? ` (${place.userRatingCount.toLocaleString()} reviews)` : '';
+    lines.push(`<p>${escapeHtml(`${place.rating.toFixed(1)}★${count}`)}</p>`);
+  }
+  if (place.googleMapsUri) {
+    const href = escapeHtml(place.googleMapsUri);
+    lines.push(`<p><a href="${href}" target="_blank" rel="noopener noreferrer">View on Google Maps</a></p>`);
+  }
+  return lines.join('');
 }
 
 interface SearchBoxProps {
@@ -63,9 +76,54 @@ export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
     },
   });
 
-  function handleInputChange(_e: unknown, value: string) {
+  // Preview marker + popup for the selected-but-not-yet-added place. Dismissed
+  // by clicking elsewhere on the map, starting a new search, or successfully
+  // adding the pin (all of which clear `selectedPlace`).
+  useEffect(() => {
+    if (!map || !selectedPlace) return;
+
+    const place = selectedPlace;
+    const container = document.createElement('div');
+    const root: Root = createRoot(container);
+    const sanitizedDescription = DOMPurify.sanitize(buildDescriptionHtml(place), SANITIZE_CONFIG);
+
+    root.render(
+      <Stack spacing={0.5} sx={{ maxWidth: 240 }}>
+        <Typography variant="subtitle2">{place.name}</Typography>
+        {sanitizedDescription && (
+          <Box
+            sx={{ fontSize: 13, color: 'text.secondary', '& p': { m: 0 } }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+          />
+        )}
+      </Stack>,
+    );
+
+    const popup = new mapboxglRuntime.Popup({ closeButton: false, closeOnClick: false, offset: 20 }).setDOMContent(
+      container,
+    );
+    const marker = new mapboxglRuntime.Marker()
+      .setLngLat([place.lng, place.lat])
+      .setPopup(popup)
+      .addTo(map);
+    marker.togglePopup();
+
+    function handleMapClick() {
+      setSelectedPlace(null);
+    }
+    map.on('click', handleMapClick);
+
+    return () => {
+      map.off('click', handleMapClick);
+      marker.remove();
+      root.unmount();
+    };
+  }, [map, selectedPlace]);
+
+  function handleInputChange(_e: unknown, value: string, reason: string) {
     setInputValue(value);
     applyDebouncedQuery(value);
+    if (reason === 'input' || reason === 'clear') setSelectedPlace(null);
   }
 
   function handleSelect(_e: unknown, place: PlaceResultDTO | null) {

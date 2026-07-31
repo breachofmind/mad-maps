@@ -59,4 +59,6 @@ export interface PlaceResultDTO {
   lng: number;
   lat: number;
   googleMapsUri: string | null;
+  rating: number | null;
+  userRatingCount: number | null;
 }

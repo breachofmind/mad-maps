@@ -2,7 +2,8 @@ import type { PlaceResultDTO } from '@mapinski/shared';
 import { env } from '../config/env';
 
 const SEARCH_TEXT_URL = 'https://places.googleapis.com/v1/places:searchText';
-const FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri';
+const FIELD_MASK =
+  'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount';
 
 interface GooglePlace {
   id: string;
@@ -10,6 +11,8 @@ interface GooglePlace {
   formattedAddress?: string;
   location?: { latitude: number; longitude: number };
   googleMapsUri?: string;
+  rating?: number;
+  userRatingCount?: number;
 }
 
 interface GooglePlacesSearchResponse {
@@ -44,5 +47,7 @@ export async function searchPlaces(query: string): Promise<PlaceResultDTO[]> {
     lng: place.location?.longitude ?? 0,
     lat: place.location?.latitude ?? 0,
     googleMapsUri: place.googleMapsUri ?? null,
+    rating: place.rating ?? null,
+    userRatingCount: place.userRatingCount ?? null,
   }));
 }

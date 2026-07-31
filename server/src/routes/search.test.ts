@@ -54,6 +54,8 @@ describe('GET /api/search', () => {
         lng: -122.48,
         lat: 37.77,
         googleMapsUri: 'https://maps.google.com/?cid=123',
+        rating: 4.6,
+        userRatingCount: 12345,
       },
     ]);
 
@@ -68,6 +70,8 @@ describe('GET /api/search', () => {
         lng: -122.48,
         lat: 37.77,
         googleMapsUri: 'https://maps.google.com/?cid=123',
+        rating: 4.6,
+        userRatingCount: 12345,
       },
     ]);
   });
