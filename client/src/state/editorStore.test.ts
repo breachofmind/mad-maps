@@ -36,6 +36,16 @@ describe('editorStore', () => {
     expect(useEditorStore.getState().selection).toBeNull();
   });
 
+  it('sets and clears the selected layer id, independent of selectedLayerId defaulting to null', () => {
+    expect(useEditorStore.getState().selectedLayerId).toBeNull();
+
+    useEditorStore.getState().setSelectedLayerId('layer-1');
+    expect(useEditorStore.getState().selectedLayerId).toBe('layer-1');
+
+    useEditorStore.getState().setSelectedLayerId(null);
+    expect(useEditorStore.getState().selectedLayerId).toBeNull();
+  });
+
   it('toggles the layer panel open state', () => {
     expect(useEditorStore.getState().isLayerPanelOpen).toBe(true);
     useEditorStore.getState().toggleLayerPanel();

@@ -309,6 +309,7 @@ interface PointDragState {
 export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLayerProps) {
   const queryClient = useQueryClient();
   const setSelection = useEditorStore((s) => s.setSelection);
+  const setSelectedLayerId = useEditorStore((s) => s.setSelectedLayerId);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const selectedFeatureId = useEditorStore((s) => s.selection?.featureId ?? null);
@@ -433,7 +434,12 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
         : [];
       const featureId = hits[0]?.properties?.featureId;
-      setSelection(typeof featureId === 'string' ? { type: 'feature', featureId } : null);
+      if (typeof featureId === 'string') {
+        setSelection({ type: 'feature', featureId });
+        setSelectedLayerId(null);
+      } else {
+        setSelection(null);
+      }
     }
 
     // Pressing down on a pin starts a drag instead of the map's own
@@ -558,7 +564,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       window.removeEventListener('mouseup', handleWindowMouseUp);
       setMapCursor(map, '');
     };
-  }, [map, setSelection, setHoveredFeatureId]);
+  }, [map, setSelection, setSelectedLayerId, setHoveredFeatureId]);
 
   return null;
 }

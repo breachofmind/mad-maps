@@ -20,9 +20,6 @@ import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -31,7 +28,6 @@ import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
 import PublicIcon from '@mui/icons-material/Public';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../state/editorStore';
@@ -50,6 +46,7 @@ import {
   type UpdateLayerInput,
 } from './api';
 import { AddExternalLayerDialog } from './AddExternalLayerDialog';
+import { LayerPropertiesPanel } from './LayerPropertiesPanel';
 
 interface LayerPanelProps {
   mapId: string;
@@ -58,15 +55,10 @@ interface LayerPanelProps {
 
 const FEATURE_SELECT_ZOOM = 14;
 
-// Where a drag is currently hovering: either a position within the top-level
-// layer list, or a position within a specific layer's feature list.
-type DropIndicator = { scope: 'layers'; index: number } | { scope: { layerId: string }; index: number };
-
-function isFeatureDrop(
-  indicator: DropIndicator | null,
-  layerId: string,
-): indicator is { scope: { layerId: string }; index: number } {
-  return indicator !== null && indicator.scope !== 'layers' && indicator.scope.layerId === layerId;
+// Which gap within a layer's feature list a drag is currently hovering.
+interface DropIndicator {
+  layerId: string;
+  index: number;
 }
 
 function DropIndicatorLine({ show }: { show: boolean }) {
@@ -101,6 +93,8 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const queryKey = layersQueryKey(mapId);
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const setActiveLayerId = useEditorStore((s) => s.setActiveLayerId);
+  const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
+  const setSelectedLayerId = useEditorStore((s) => s.setSelectedLayerId);
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
@@ -111,7 +105,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
-  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
   const [draggedFeature, setDraggedFeature] = useState<{ featureId: string; layerId: string } | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
 
@@ -180,23 +173,23 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
 
   // Hovering a row updates which gap the drop indicator line sits in, based
   // on whether the cursor is over the top or bottom half of that row.
-  function updateDropIndicatorFromRow(e: DragEvent<HTMLElement>, scope: DropIndicator['scope'], rowIndex: number) {
+  function updateDropIndicatorFromRow(e: DragEvent<HTMLElement>, layerId: string, rowIndex: number) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     const rect = e.currentTarget.getBoundingClientRect();
     const isAfter = e.clientY > rect.top + rect.height / 2;
-    setDropIndicator({ scope, index: rowIndex + (isAfter ? 1 : 0) } as DropIndicator);
+    setDropIndicator({ layerId, index: rowIndex + (isAfter ? 1 : 0) });
   }
 
   function resetDragState() {
-    setDraggedLayerId(null);
     setDraggedFeature(null);
     setDropIndicator(null);
   }
 
   function selectFeature(feature: MapFeatureDTO) {
     setSelection({ type: 'feature', featureId: feature.id });
+    setSelectedLayerId(null);
     if (map) {
       map.flyTo({
         center: geometryAnchor(feature.geometry),
@@ -223,27 +216,11 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   });
 
   function commitDrop() {
-    if (!dropIndicator) {
-      resetDragState();
-      return;
-    }
-
-    if (draggedLayerId && dropIndicator.scope === 'layers' && layers) {
-      const ids = layers.map((l) => l.id);
-      const fromIndex = ids.indexOf(draggedLayerId);
-      if (fromIndex !== -1) {
-        let targetIndex = dropIndicator.index;
-        ids.splice(fromIndex, 1);
-        if (fromIndex < targetIndex) targetIndex -= 1;
-        const clamped = Math.max(0, Math.min(targetIndex, ids.length));
-        ids.splice(clamped, 0, draggedLayerId);
-        reorderMutation.mutate(ids);
-      }
-    } else if (draggedFeature && dropIndicator.scope !== 'layers') {
+    if (draggedFeature && dropIndicator) {
       moveFeatureMutation.mutate({
         featureId: draggedFeature.featureId,
         fromLayerId: draggedFeature.layerId,
-        toLayerId: dropIndicator.scope.layerId,
+        toLayerId: dropIndicator.layerId,
         index: dropIndicator.index,
       });
     }
@@ -367,352 +344,275 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     setAddExternalDialogOpen(true);
   }
 
-  return (
-    <Paper
-      elevation={3}
-      sx={{ position: 'absolute', top: 72, right: 16, zIndex: 1, width: 360, maxHeight: '60vh', overflowY: 'auto' }}
-      onDragOver={(e) => {
-        // A catch-all so the cursor never flashes "not-allowed" while
-        // dragging over gaps between rows that don't have their own more
-        // specific handler (row handlers below still set the precise drop
-        // position; this only guarantees every pixel in the panel accepts
-        // the drop).
-        if (draggedLayerId || draggedFeature) e.preventDefault();
-      }}
-      onDrop={(e) => {
-        if (!draggedLayerId && !draggedFeature) return;
-        e.preventDefault();
-        commitDrop();
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-          setDropIndicator(null);
-        }
-      }}
-      onMouseLeave={() => setHoveredFeatureId(null)}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
-        <Typography variant="subtitle1">Layers</Typography>
-        <Tooltip title="Add layer">
-          <IconButton
-            size="small"
-            onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
-            aria-label="Add layer"
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
-          <MenuItem onClick={handleBlankLayerClick}>
-            <ListItemIcon>
-              <CreateNewFolderIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Blank layer</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={handleAddDataLayerClick}>
-            <ListItemIcon>
-              <CloudDownloadIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Add data layer…</ListItemText>
-          </MenuItem>
-        </Menu>
-      </Stack>
+  function selectLayer(layerId: string) {
+    setActiveLayerId(layerId);
+    setSelectedLayerId(layerId);
+    setSelection(null);
+  }
 
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" py={2}>
-          <CircularProgress size={20} />
-        </Box>
-      ) : (
-        <List dense disablePadding sx={{ pb: 1.5 }}>
-          {layers?.map((layer, index) => {
-            const isRemote = layer.sourceType === 'geojson-url';
-            const features = featureQueries[index]?.data ?? [];
-            const externalQuery = externalDataQueries[index];
-            const collapsed = collapsedLayerIds.has(layer.id);
-            return (
-              <Box key={layer.id}>
-                <DropIndicatorLine show={dropIndicator?.scope === 'layers' && dropIndicator.index === index} />
-                <ListItem
-                  onClick={() => setActiveLayerId(layer.id)}
-                  onDragOver={(e) => {
-                    if (draggedLayerId) {
-                      updateDropIndicatorFromRow(e, 'layers', index);
-                    } else if (draggedFeature) {
+  const selectedIndex = layers?.findIndex((l) => l.id === selectedLayerId) ?? -1;
+  const selectedLayer = selectedIndex !== -1 ? layers![selectedIndex] : undefined;
+
+  return (
+    <>
+      <Paper
+        elevation={3}
+        sx={{ position: 'absolute', top: 72, right: 16, zIndex: 1, width: 360, maxHeight: '60vh', overflowY: 'auto' }}
+        onDragOver={(e) => {
+          // A catch-all so the cursor never flashes "not-allowed" while
+          // dragging over gaps between rows that don't have their own more
+          // specific handler (row handlers below still set the precise drop
+          // position; this only guarantees every pixel in the panel accepts
+          // the drop).
+          if (draggedFeature) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (!draggedFeature) return;
+          e.preventDefault();
+          commitDrop();
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setDropIndicator(null);
+          }
+        }}
+        onMouseLeave={() => setHoveredFeatureId(null)}
+      >
+        <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
+          <Typography variant="subtitle1">Layers</Typography>
+          <Tooltip title="Add layer">
+            <IconButton
+              size="small"
+              onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
+              aria-label="Add layer"
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
+            <MenuItem onClick={handleBlankLayerClick}>
+              <ListItemIcon>
+                <CreateNewFolderIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Blank layer</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={handleAddDataLayerClick}>
+              <ListItemIcon>
+                <CloudDownloadIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Add data layer…</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Stack>
+
+        {isLoading ? (
+          <Box display="flex" justifyContent="center" py={2}>
+            <CircularProgress size={20} />
+          </Box>
+        ) : (
+          <List dense disablePadding sx={{ pb: 1.5 }}>
+            {layers?.map((layer, index) => {
+              const isRemote = layer.sourceType === 'geojson-url';
+              const features = featureQueries[index]?.data ?? [];
+              const externalQuery = externalDataQueries[index];
+              const collapsed = collapsedLayerIds.has(layer.id);
+              return (
+                <Box key={layer.id}>
+                  <ListItem
+                    onClick={() => selectLayer(layer.id)}
+                    onDragOver={(e) => {
+                      if (!draggedFeature) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'move';
-                      setDropIndicator({ scope: { layerId: layer.id }, index: features.length });
-                    }
-                  }}
-                  sx={{
-                    cursor: 'pointer',
-                    bgcolor: activeLayerId === layer.id ? 'action.selected' : undefined,
-                    display: 'flex',
-                    gap: 0.5,
-                  }}
-                >
-                  <Box
-                    draggable
-                    onDragStart={(e) => {
-                      e.stopPropagation();
-                      setRowAsDragImage(e);
-                      setDraggedLayerId(layer.id);
-                      e.dataTransfer.effectAllowed = 'move';
+                      setDropIndicator({ layerId: layer.id, index: features.length });
                     }}
-                    onDragEnd={resetDragState}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={`Reorder ${layer.name}`}
-                    sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled' }}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor:
+                        activeLayerId === layer.id || selectedLayerId === layer.id ? 'action.selected' : undefined,
+                      display: 'flex',
+                      gap: 0.5,
+                    }}
                   >
-                    <DragIndicatorIcon fontSize="small" />
-                  </Box>
-
-                  <Tooltip title={collapsed ? 'Expand layer' : 'Collapse layer'}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
-                        disabled={features.length === 0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLayerCollapsed(layer.id);
-                        }}
-                      >
-                        {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-
-                  <Tooltip title={layer.visible ? 'Hide layer' : 'Show layer'}>
-                    <IconButton
-                      size="small"
-                      aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
-                      }}
-                    >
-                      {layer.visible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
-
-                  {isRemote && (
-                    <Tooltip title="Layer color">
-                      <Box
-                        component="input"
-                        type="color"
-                        value={layer.color}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          updateMutation.mutate({ layerId: layer.id, input: { color: e.target.value } })
-                        }
-                        aria-label={`Change ${layer.name} color`}
-                        sx={{
-                          width: 18,
-                          height: 18,
-                          p: 0,
-                          border: 'none',
-                          borderRadius: '50%',
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          '&::-webkit-color-swatch-wrapper': { p: 0 },
-                          '&::-webkit-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
-                          '&::-moz-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
-                        }}
-                      />
-                    </Tooltip>
-                  )}
-
-                  {isRemote && (
-                    <Tooltip
-                      title={
-                        externalQuery?.isError
-                          ? 'Failed to load this data source'
-                          : `External data source: ${layer.sourceUrl ?? ''}`
-                      }
-                    >
-                      <PublicIcon
-                        fontSize="small"
-                        sx={{ color: externalQuery?.isError ? 'error.main' : 'text.disabled', flexShrink: 0 }}
-                      />
-                    </Tooltip>
-                  )}
-
-                  {renamingId === layer.id ? (
-                    <TextField
-                      autoFocus
-                      size="small"
-                      variant="standard"
-                      value={renameValue}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => submitRename(layer.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') submitRename(layer.id);
-                        if (e.key === 'Escape') setRenamingId(null);
-                      }}
-                      sx={{ flex: 1 }}
-                    />
-                  ) : (
-                    <Typography
-                      variant="body2"
-                      sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setRenamingId(layer.id);
-                        setRenameValue(layer.name);
-                      }}
-                    >
-                      {layer.name}
-                    </Typography>
-                  )}
-
-                  <Tooltip title="Move layer up">
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={`Move ${layer.name} up`}
-                        disabled={index === 0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          move(index, -1);
-                        }}
-                      >
-                        <ArrowUpwardIcon fontSize="inherit" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Move layer down">
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={`Move ${layer.name} down`}
-                        disabled={!layers || index === layers.length - 1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          move(index, 1);
-                        }}
-                      >
-                        <ArrowDownwardIcon fontSize="inherit" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  {isRemote && (
-                    <Tooltip title="Refresh data">
+                    <Tooltip title={collapsed ? 'Expand layer' : 'Collapse layer'}>
                       <span>
                         <IconButton
                           size="small"
-                          aria-label={`Refresh ${layer.name}`}
-                          disabled={refreshExternalLayerMutation.isPending}
+                          aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
+                          disabled={features.length === 0}
                           onClick={(e) => {
                             e.stopPropagation();
-                            refreshExternalLayerMutation.mutate(layer.id);
+                            toggleLayerCollapsed(layer.id);
                           }}
                         >
-                          <RefreshIcon fontSize="inherit" />
+                          {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
                         </IconButton>
                       </span>
                     </Tooltip>
-                  )}
-                  <Tooltip title="Delete layer">
-                    <IconButton
-                      size="small"
-                      aria-label={`Delete ${layer.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteMutation.mutate(layer.id);
-                      }}
-                    >
-                      <DeleteIcon fontSize="inherit" />
-                    </IconButton>
-                  </Tooltip>
-                </ListItem>
 
-                <Collapse in={!collapsed && features.length > 0} unmountOnExit>
-                  <List dense disablePadding>
-                    {features.map((feature, featureIndex) => {
-                      const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
-                      const isSelected = selection?.featureId === feature.id;
-                      return (
-                        <Box key={feature.id}>
-                          <DropIndicatorLine
-                            show={isFeatureDrop(dropIndicator, layer.id) && dropIndicator.index === featureIndex}
-                          />
-                          <ListItemButton
-                            selected={isSelected}
-                            onClick={() => selectFeature(feature)}
-                            onDragOver={(e) => {
-                              if (!draggedFeature) return;
-                              updateDropIndicatorFromRow(e, { layerId: layer.id }, featureIndex);
-                            }}
-                            onMouseEnter={() => setHoveredFeatureId(feature.id)}
-                            onMouseLeave={() => {
-                              if (useEditorStore.getState().hoveredFeatureId === feature.id) setHoveredFeatureId(null);
-                            }}
-                            sx={{ pl: 5, py: 0.5, gap: 1 }}
-                          >
-                            <Box
-                              draggable
-                              onDragStart={(e) => {
-                                e.stopPropagation();
-                                setRowAsDragImage(e);
-                                setDraggedFeature({ featureId: feature.id, layerId: layer.id });
-                                e.dataTransfer.effectAllowed = 'move';
+                    <Tooltip title={layer.visible ? 'Hide layer' : 'Show layer'}>
+                      <IconButton
+                        size="small"
+                        aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
+                        }}
+                      >
+                        {layer.visible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+
+                    {isRemote && (
+                      <Tooltip
+                        title={
+                          externalQuery?.isError
+                            ? 'Failed to load this data source'
+                            : `External data source: ${layer.sourceUrl ?? ''}`
+                        }
+                      >
+                        <PublicIcon
+                          fontSize="small"
+                          sx={{ color: externalQuery?.isError ? 'error.main' : 'text.disabled', flexShrink: 0 }}
+                        />
+                      </Tooltip>
+                    )}
+
+                    {renamingId === layer.id ? (
+                      <TextField
+                        autoFocus
+                        size="small"
+                        variant="standard"
+                        value={renameValue}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => submitRename(layer.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitRename(layer.id);
+                          if (e.key === 'Escape') setRenamingId(null);
+                        }}
+                        sx={{ flex: 1 }}
+                      />
+                    ) : (
+                      <Typography
+                        variant="body2"
+                        sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setRenamingId(layer.id);
+                          setRenameValue(layer.name);
+                        }}
+                      >
+                        {layer.name}
+                      </Typography>
+                    )}
+                  </ListItem>
+
+                  <Collapse in={!collapsed && features.length > 0} unmountOnExit>
+                    <List dense disablePadding>
+                      {features.map((feature, featureIndex) => {
+                        const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
+                        const isSelected = selection?.featureId === feature.id;
+                        return (
+                          <Box key={feature.id}>
+                            <DropIndicatorLine
+                              show={dropIndicator?.layerId === layer.id && dropIndicator.index === featureIndex}
+                            />
+                            <ListItemButton
+                              selected={isSelected}
+                              onClick={() => selectFeature(feature)}
+                              onDragOver={(e) => {
+                                if (!draggedFeature) return;
+                                updateDropIndicatorFromRow(e, layer.id, featureIndex);
                               }}
-                              onDragEnd={resetDragState}
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`Reorder ${feature.properties.title || 'feature'}`}
-                              sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}
+                              onMouseEnter={() => setHoveredFeatureId(feature.id)}
+                              onMouseLeave={() => {
+                                if (useEditorStore.getState().hoveredFeatureId === feature.id) setHoveredFeatureId(null);
+                              }}
+                              sx={{ pl: 5, py: 0.5, gap: 1 }}
                             >
-                              <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-                            </Box>
-                            <FeatureTypeIcon featureType={feature.featureType} />
-                            <Icon fontSize="small" sx={{ color: feature.properties.color, flexShrink: 0 }} />
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            >
-                              {feature.properties.title || 'Untitled'}
-                            </Typography>
-                          </ListItemButton>
-                        </Box>
-                      );
-                    })}
-                    <DropIndicatorLine
-                      show={isFeatureDrop(dropIndicator, layer.id) && dropIndicator.index === features.length}
-                    />
-                  </List>
-                </Collapse>
-              </Box>
-            );
-          })}
-          <DropIndicatorLine show={dropIndicator?.scope === 'layers' && dropIndicator.index === (layers?.length ?? 0)} />
-        </List>
-      )}
+                              <Box
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  setRowAsDragImage(e);
+                                  setDraggedFeature({ featureId: feature.id, layerId: layer.id });
+                                  e.dataTransfer.effectAllowed = 'move';
+                                }}
+                                onDragEnd={resetDragState}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Reorder ${feature.properties.title || 'feature'}`}
+                                sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}
+                              >
+                                <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                              </Box>
+                              <FeatureTypeIcon featureType={feature.featureType} />
+                              <Icon fontSize="small" sx={{ color: feature.properties.color, flexShrink: 0 }} />
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              >
+                                {feature.properties.title || 'Untitled'}
+                              </Typography>
+                            </ListItemButton>
+                          </Box>
+                        );
+                      })}
+                      <DropIndicatorLine
+                        show={dropIndicator?.layerId === layer.id && dropIndicator.index === features.length}
+                      />
+                    </List>
+                  </Collapse>
+                </Box>
+              );
+            })}
+          </List>
+        )}
 
-      {addingLayer && (
-        <Box px={2} py={1.5} display="flex" gap={1}>
-          <TextField
-            autoFocus
-            size="small"
-            placeholder="Layer name"
-            value={newLayerName}
-            onChange={(e) => setNewLayerName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitCreate();
-              if (e.key === 'Escape') setAddingLayer(false);
-            }}
-            fullWidth
-          />
-        </Box>
+        {addingLayer && (
+          <Box px={2} py={1.5} display="flex" gap={1}>
+            <TextField
+              autoFocus
+              size="small"
+              placeholder="Layer name"
+              value={newLayerName}
+              onChange={(e) => setNewLayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitCreate();
+                if (e.key === 'Escape') setAddingLayer(false);
+              }}
+              fullWidth
+            />
+          </Box>
+        )}
+        <AddExternalLayerDialog
+          open={addExternalDialogOpen}
+          onClose={() => setAddExternalDialogOpen(false)}
+          mapId={mapId}
+        />
+      </Paper>
+
+      {selectedLayer && (
+        <LayerPropertiesPanel
+          layer={selectedLayer}
+          canMoveUp={selectedIndex > 0}
+          canMoveDown={layers != null && selectedIndex < layers.length - 1}
+          isRefreshing={
+            refreshExternalLayerMutation.isPending && refreshExternalLayerMutation.variables === selectedLayer.id
+          }
+          onMoveUp={() => move(selectedIndex, -1)}
+          onMoveDown={() => move(selectedIndex, 1)}
+          onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
+          onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
+          onDelete={() => {
+            deleteMutation.mutate(selectedLayer.id);
+            setSelectedLayerId(null);
+          }}
+          onClose={() => setSelectedLayerId(null)}
+        />
       )}
-      <AddExternalLayerDialog
-        open={addExternalDialogOpen}
-        onClose={() => setAddExternalDialogOpen(false)}
-        mapId={mapId}
-      />
-    </Paper>
+    </>
   );
 }
