@@ -78,8 +78,30 @@ describe('POST /api/maps/:mapId/import', () => {
       .attach('file', Buffer.from(validGeoJson), 'My Pins.geojson')
       .expect(201);
 
-    expect(res.body.layerName).toBe('My Pins');
+    expect(res.body.layers).toHaveLength(1);
+    expect(res.body.layers[0].layerName).toBe('My Pins');
     expect(res.body.featureCount).toBe(1);
+  });
+
+  it('imports a KML file with Folders as one layer per Folder', async () => {
+    const kml =
+      '<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>' +
+      '<Folder><name>Eat</name>' +
+      '<Placemark><name>Cafe</name><Point><coordinates>1,1</coordinates></Point></Placemark>' +
+      '</Folder>' +
+      '<Folder><name>Camp</name>' +
+      '<Placemark><name>Site A</name><Point><coordinates>2,2</coordinates></Point></Placemark>' +
+      '<Placemark><name>Site B</name><Point><coordinates>3,3</coordinates></Point></Placemark>' +
+      '</Folder>' +
+      '</Document></kml>';
+
+    const res = await agent
+      .post(`/api/maps/${mapId}/import`)
+      .attach('file', Buffer.from(kml), 'Trip.kml')
+      .expect(201);
+
+    expect(res.body.layers.map((l: { layerName: string }) => l.layerName)).toEqual(['Eat', 'Camp']);
+    expect(res.body.featureCount).toBe(3);
   });
 });
 
@@ -98,7 +120,7 @@ describe('POST /api/maps/import', () => {
       .expect(201);
 
     expect(res.body.mapId).toBeTruthy();
-    expect(res.body.layerName).toBe('New Map');
+    expect(res.body.layers[0].layerName).toBe('New Map');
     expect(res.body.featureCount).toBe(1);
   });
 });

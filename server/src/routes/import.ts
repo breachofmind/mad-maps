@@ -6,7 +6,7 @@ import {
   ImportValidationError,
   importFeaturesAsNewLayer,
   importFeaturesAsNewMap,
-  parseImportFile,
+  parseImportFileGroups,
 } from '../services/import.service';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -26,9 +26,9 @@ mapImportRouter.use(requireAuth);
 mapImportRouter.post('/', upload.single('file'), async (req: Request<{ mapId: string }>, res) => {
   if (!req.file) return res.status(400).json({ error: 'A file is required' });
 
-  let featureCollection;
+  let groups;
   try {
-    featureCollection = parseImportFile(req.file.originalname, req.file.buffer.toString('utf-8'));
+    groups = parseImportFileGroups(req.file.originalname, req.file.buffer.toString('utf-8'));
   } catch (err) {
     if (err instanceof ImportValidationError) return res.status(400).json({ error: err.message });
     throw err;
@@ -38,7 +38,7 @@ mapImportRouter.post('/', upload.single('file'), async (req: Request<{ mapId: st
     req.params.mapId,
     currentUser(req).id,
     nameFromFilename(req.file.originalname),
-    featureCollection,
+    groups,
   );
   if (!result) return res.status(404).json({ error: 'Map not found' });
   res.status(201).json(result);
@@ -50,15 +50,15 @@ newMapImportRouter.use(requireAuth);
 newMapImportRouter.post('/', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'A file is required' });
 
-  let featureCollection;
+  let groups;
   try {
-    featureCollection = parseImportFile(req.file.originalname, req.file.buffer.toString('utf-8'));
+    groups = parseImportFileGroups(req.file.originalname, req.file.buffer.toString('utf-8'));
   } catch (err) {
     if (err instanceof ImportValidationError) return res.status(400).json({ error: err.message });
     throw err;
   }
 
   const name = nameFromFilename(req.file.originalname);
-  const result = await importFeaturesAsNewMap(currentUser(req).id, name, name, featureCollection);
+  const result = await importFeaturesAsNewMap(currentUser(req).id, name, name, groups);
   res.status(201).json(result);
 });

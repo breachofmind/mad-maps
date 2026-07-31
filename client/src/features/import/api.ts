@@ -1,8 +1,13 @@
 import { apiClient } from '../../lib/apiClient';
 
-export interface ImportResult {
+export interface ImportedLayerResult {
   layerId: string;
   layerName: string;
+  featureCount: number;
+}
+
+export interface ImportResult {
+  layers: ImportedLayerResult[];
   featureCount: number;
 }
 
