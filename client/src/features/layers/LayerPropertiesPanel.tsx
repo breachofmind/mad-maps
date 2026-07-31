@@ -287,7 +287,7 @@ export function LayerPropertiesPanel({
         top: 72,
         left: 16,
         zIndex: 1,
-        width: 320,
+        width: 360,
         maxHeight: '75vh',
         overflowY: 'auto',
         p: 2,

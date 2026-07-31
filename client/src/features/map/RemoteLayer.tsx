@@ -4,6 +4,7 @@ import type mapboxgl from 'mapbox-gl';
 import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
 import { useEditorStore } from '../../state/editorStore';
 import { externalLayerDataQueryKey, fetchExternalLayerData } from '../layers/api';
+import { DEFAULT_HIGHLIGHT_COLOR, sampleBasemapHighlightColor } from './basemapContrast';
 import { ensureExternalIconImages, externalIconImageId } from './externalIconImages';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
@@ -68,6 +69,23 @@ function labelTextField(labelProperty: string | null | undefined): string | Mapb
   return labelProperty ? ['to-string', ['get', labelProperty]] : '';
 }
 
+interface LabelColors {
+  text: string;
+  halo: string;
+}
+const DEFAULT_LABEL_COLORS: LabelColors = { text: '#1a1a1a', halo: 'rgba(255, 255, 255, 0.75)' };
+
+// sampleBasemapHighlightColor returns DEFAULT_HIGHLIGHT_COLOR (white) when
+// the basemap it sampled reads as dark, and a dark color when it reads as
+// light — reused here so the label keeps the same light/dark text with a
+// halo in the *opposite* tone, instead of always-dark text that disappears
+// against a dark basemap.
+function labelColorsForHighlight(highlightColor: string): LabelColors {
+  return highlightColor === DEFAULT_HIGHLIGHT_COLOR
+    ? { text: '#ffffff', halo: 'rgba(0, 0, 0, 0.75)' }
+    : DEFAULT_LABEL_COLORS;
+}
+
 // Only rules whose image actually loaded onto the map are usable — a rule
 // referencing a url that 404'd or lacks CORS support falls back to the
 // default circle marker rather than rendering nothing.
@@ -115,6 +133,7 @@ function ensureRemoteLayerAdded(
   color: string,
   styleConfig: LayerStyleConfig | null,
   loadedIconUrls: ReadonlySet<string>,
+  labelColors: LabelColors,
   data: GeoJSON.FeatureCollection,
 ) {
   const id = sourceId(layerId);
@@ -133,6 +152,8 @@ function ensureRemoteLayerAdded(
     }
     if (map.getLayer(ids.label)) {
       map.setLayoutProperty(ids.label, 'text-field', labelTextField(styleConfig?.labelProperty));
+      map.setPaintProperty(ids.label, 'text-color', labelColors.text);
+      map.setPaintProperty(ids.label, 'text-halo-color', labelColors.halo);
     }
     if (map.getLayer(ids.icon)) {
       map.setFilter(ids.icon, iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER);
@@ -206,9 +227,10 @@ function ensureRemoteLayerAdded(
       'text-offset': [0, LABEL_OFFSET_EM],
     },
     paint: {
-      'text-color': '#1a1a1a',
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.5,
+      'text-color': labelColors.text,
+      'text-halo-color': labelColors.halo,
+      'text-halo-width': 1,
+      'text-halo-blur': 0.5,
     },
   });
 }
@@ -260,6 +282,10 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
   // starts empty each style load since runtime images don't survive a style
   // change, then fills in as ensureExternalIconImages resolves (see below).
   const loadedIconUrlsRef = useRef<Set<string>>(new Set());
+  // Updated by the contrast-sampling effect below; read here so a
+  // newly-added layer's label starts out with the last-known-good colors
+  // instead of always the light-basemap default.
+  const labelColorsRef = useRef<LabelColors>(DEFAULT_LABEL_COLORS);
   const [selection, setSelection] = useState<RemoteFeatureSelection | null>(null);
 
   useEffect(() => {
@@ -279,7 +305,15 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       const meta = new Map<string, { layerId: string; layerName: string; layerColor: string }>();
       currentLayers.forEach((layer, index) => {
         const data = currentQueries[index]?.data ?? EMPTY_COLLECTION;
-        ensureRemoteLayerAdded(map, layer.id, layer.color, layer.styleConfig, loadedIconUrlsRef.current, data);
+        ensureRemoteLayerAdded(
+          map,
+          layer.id,
+          layer.color,
+          layer.styleConfig,
+          loadedIconUrlsRef.current,
+          labelColorsRef.current,
+          data,
+        );
         setRemoteLayerVisibility(map, layer.id, layer.visible);
         for (const subLayerId of Object.values(subLayerIds(layer.id))) {
           meta.set(subLayerId, { layerId: layer.id, layerName: layer.name, layerColor: layer.color });
@@ -314,6 +348,38 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
     remoteLayers.map((l) => `${l.id}:${l.name}:${l.color}:${l.visible}:${JSON.stringify(l.styleConfig)}`).join(','),
     dataQueries.map((q) => q.dataUpdatedAt).join(','),
   ]);
+
+  // Keeps label text/halo colors legible against the actual basemap —
+  // mirrors FeatureLayer.tsx's applyContrastColor for its hover highlight,
+  // sampling the map's rendered pixels rather than assuming a light basemap.
+  useEffect(() => {
+    if (!map) return;
+
+    function applyLabelContrastColor() {
+      if (!map) return;
+      labelColorsRef.current = labelColorsForHighlight(sampleBasemapHighlightColor(map));
+      for (const layer of stateRef.current.remoteLayers) {
+        const id = subLayerIds(layer.id).label;
+        if (!map.getLayer(id)) continue;
+        map.setPaintProperty(id, 'text-color', labelColorsRef.current.text);
+        map.setPaintProperty(id, 'text-halo-color', labelColorsRef.current.halo);
+      }
+    }
+
+    // A style's tiles aren't guaranteed to be rendered the instant
+    // 'style.load' fires, so wait for the map to actually go idle (nothing
+    // left to load) before sampling it. Re-run on every basemap switch, not
+    // just the initial style.
+    function scheduleContrastUpdate() {
+      map?.once('idle', applyLabelContrastColor);
+    }
+
+    scheduleContrastUpdate();
+    map.on('style.load', scheduleContrastUpdate);
+    return () => {
+      map.off('style.load', scheduleContrastUpdate);
+    };
+  }, [map]);
 
   // Click-to-inspect: shows the raw properties of whichever external
   // feature was clicked, independent of FeatureLayer's own click handling
