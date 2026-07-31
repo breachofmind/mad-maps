@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchMap, updateMap, type UpdateMapInput } from '../maps/api';
@@ -40,6 +41,8 @@ export function MapEditorPage() {
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
   const setSelection = useEditorStore((s) => s.setSelection);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('walking');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState('');
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -158,6 +161,13 @@ export function MapEditorPage() {
     patchMutation.mutate({ baseStyle: styleUrl });
   }, 500);
 
+  function submitTitle() {
+    setIsEditingTitle(false);
+    const trimmed = titleValue.trim();
+    if (!trimmed || trimmed === map?.title) return;
+    patchMutation.mutate({ title: trimmed });
+  }
+
   if (isLoading || !map) {
     return (
       <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
@@ -200,7 +210,31 @@ export function MapEditorPage() {
             <ArrowBackIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Typography variant="subtitle1">{map.title}</Typography>
+        {isEditingTitle ? (
+          <TextField
+            autoFocus
+            size="small"
+            variant="standard"
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={submitTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitTitle();
+              if (e.key === 'Escape') setIsEditingTitle(false);
+            }}
+          />
+        ) : (
+          <Typography
+            variant="subtitle1"
+            onDoubleClick={() => {
+              setTitleValue(map.title);
+              setIsEditingTitle(true);
+            }}
+            sx={{ cursor: 'text' }}
+          >
+            {map.title}
+          </Typography>
+        )}
         <MapMenu mapId={map.id} currentStyleUrl={map.baseStyle} />
       </Paper>
       <LayerPanel mapId={map.id} map={mapInstance} />

@@ -10,6 +10,7 @@ import {
   toMapDTO,
   updateMapForOwner,
 } from '../services/maps.service';
+import { createLayer } from '../services/layers.service';
 
 export const mapsRouter = Router();
 
@@ -51,6 +52,7 @@ mapsRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const created = await createMap({ ownerId: currentUser(req).id, ...parsed.data });
+  await createLayer(created.id, currentUser(req).id, 'Untitled');
   res.status(201).json(toMapDTO(created));
 });
 
