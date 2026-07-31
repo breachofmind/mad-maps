@@ -365,7 +365,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           <CircularProgress size={20} />
         </Box>
       ) : (
-        <List dense disablePadding>
+        <List dense disablePadding sx={{ pb: 1.5 }}>
           {layers?.map((layer, index) => {
             const features = featureQueries[index]?.data ?? [];
             const collapsed = collapsedLayerIds.has(layer.id);
