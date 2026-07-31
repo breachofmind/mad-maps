@@ -70,6 +70,34 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
   ];
 }
 
+function setHighlightFilters(map: mapboxgl.Map, featureIds: string[]) {
+  if (map.getLayer(LAYER_IDS.pointHover)) {
+    map.setFilter(LAYER_IDS.pointHover, highlightFilter(featureIds, ['Point']));
+  }
+  if (map.getLayer(LAYER_IDS.geometryHover)) {
+    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(featureIds, ['LineString', 'Polygon']));
+  }
+}
+
+function setHighlightOpacity(map: mapboxgl.Map, visible: boolean) {
+  if (map.getLayer(LAYER_IDS.pointHover)) {
+    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-opacity', visible ? POINT_HOVER_OPACITY : 0);
+    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-opacity', visible ? 1 : 0);
+  }
+  if (map.getLayer(LAYER_IDS.geometryHover)) {
+    map.setPaintProperty(LAYER_IDS.geometryHover, 'line-opacity', visible ? 1 : 0);
+  }
+}
+
+interface HighlightFadeState {
+  // The feature ids the hover/selection layers are currently filtered to
+  // render. While fading out this lags one step behind the real
+  // hovered/selected ids (see applyHighlight) so there's still something on
+  // screen for the opacity transition to actually animate.
+  renderedIds: string[];
+  fadeOutTimeoutId: number | null;
+}
+
 // pointHover doubles as the selected-pin ring, and geometryHover doubles as
 // the selected line/polygon border: both get the same contrast-aware
 // highlight color (see applyContrastColor) for a hovered feature and a
@@ -85,23 +113,48 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
 // Mapbox's own official transition example uses setPaintProperty directly,
 // never feature-state). So the fade is done at the *layer* level instead:
 // opacity toggles between 0 and its visible value via setPaintProperty
-// whenever highlighted-ness flips between "nothing" and "something", which
-// *is* a supported, reliably-animating combination. The one tradeoff is that
-// swapping the highlight directly from one feature to another (both already
-// highlighted) won't itself fade, since the opacity value doesn't change —
-// only entering/leaving the "nothing highlighted" state does.
-function applyHighlight(map: mapboxgl.Map, hoveredFeatureId: string | null, selectedFeatureId: string | null) {
+// whenever highlighted-ness flips between "nothing" and "something".
+//
+// Fading in is simple: the filter and the opacity ramp can change together,
+// since the newly-shown feature has nothing to visually jump from. Fading
+// out is the opposite problem — setFilter takes effect instantly, so
+// dropping a feature from the filter at the same moment as starting the
+// opacity ramp would erase it before the transition ever gets a frame to
+// play. So on the way out, the feature is kept in the filter (fadeState
+// tracks it as `renderedIds`) while opacity ramps down, and only removed
+// from the filter once the transition has had time to finish. Swapping the
+// highlight directly from one feature to another (without passing through
+// "nothing highlighted") still doesn't itself fade, since the opacity value
+// never changes in that case — only entering/leaving "nothing highlighted"
+// does.
+function applyHighlight(
+  map: mapboxgl.Map,
+  hoveredFeatureId: string | null,
+  selectedFeatureId: string | null,
+  fadeState: HighlightFadeState,
+) {
   const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
   const visible = highlightedIds.length > 0;
-  if (map.getLayer(LAYER_IDS.pointHover)) {
-    map.setFilter(LAYER_IDS.pointHover, highlightFilter(highlightedIds, ['Point']));
-    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-opacity', visible ? POINT_HOVER_OPACITY : 0);
-    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-opacity', visible ? 1 : 0);
+
+  if (fadeState.fadeOutTimeoutId !== null) {
+    window.clearTimeout(fadeState.fadeOutTimeoutId);
+    fadeState.fadeOutTimeoutId = null;
   }
-  if (map.getLayer(LAYER_IDS.geometryHover)) {
-    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(highlightedIds, ['LineString', 'Polygon']));
-    map.setPaintProperty(LAYER_IDS.geometryHover, 'line-opacity', visible ? 1 : 0);
+
+  if (visible) {
+    fadeState.renderedIds = highlightedIds;
+    setHighlightFilters(map, highlightedIds);
+    setHighlightOpacity(map, true);
+    return;
   }
+
+  setHighlightFilters(map, fadeState.renderedIds);
+  setHighlightOpacity(map, false);
+  fadeState.fadeOutTimeoutId = window.setTimeout(() => {
+    fadeState.renderedIds = [];
+    fadeState.fadeOutTimeoutId = null;
+    setHighlightFilters(map, []);
+  }, HIGHLIGHT_FADE_DURATION_MS);
 }
 
 interface FeatureLayerProps {
@@ -298,10 +351,15 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
   moveFeatureMutationRef.current = moveFeatureMutation;
   const editingFeatureIdRef = useRef(editingFeatureId);
   editingFeatureIdRef.current = editingFeatureId;
+  const highlightFadeStateRef = useRef<HighlightFadeState>({ renderedIds: [], fadeOutTimeoutId: null });
 
   useEffect(() => {
     if (!map) return;
-    applyHighlight(map, hoveredFeatureId, selectedFeatureId);
+    applyHighlight(map, hoveredFeatureId, selectedFeatureId, highlightFadeStateRef.current);
+    return () => {
+      const timeoutId = highlightFadeStateRef.current.fadeOutTimeoutId;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, [map, hoveredFeatureId, selectedFeatureId]);
 
   useEffect(() => {
@@ -358,7 +416,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
-      applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current);
+      applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current, highlightFadeStateRef.current);
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
