@@ -19,12 +19,19 @@ interface EditorState {
   selectedLayerId: string | null;
   isLayerPanelOpen: boolean;
   hoveredFeatureId: string | null;
+  // Icon-by-value URLs that RemoteLayer failed to load onto the map (404,
+  // no CORS support, etc). Lives here rather than as local state because
+  // RemoteLayer (which does the loading) and LayerPropertiesPanel (which
+  // needs to warn the user about it) are unrelated siblings under
+  // MapEditorPage — see RemoteLayer.tsx and LayerPropertiesPanel.tsx.
+  failedIconUrls: Set<string>;
   setActiveLayerId: (layerId: string | null) => void;
   setDrawMode: (mode: DrawMode) => void;
   setSelection: (selection: FeatureSelection | null) => void;
   setSelectedLayerId: (layerId: string | null) => void;
   toggleLayerPanel: () => void;
   setHoveredFeatureId: (featureId: string | null) => void;
+  setFailedIconUrls: (urls: Set<string>) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -34,10 +41,12 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedLayerId: null,
   isLayerPanelOpen: true,
   hoveredFeatureId: null,
+  failedIconUrls: new Set(),
   setActiveLayerId: (layerId) => set({ activeLayerId: layerId }),
   setDrawMode: (mode) => set({ drawMode: mode }),
   setSelection: (selection) => set({ selection }),
   setSelectedLayerId: (layerId) => set({ selectedLayerId: layerId }),
   toggleLayerPanel: () => set((state) => ({ isLayerPanelOpen: !state.isLayerPanelOpen })),
   setHoveredFeatureId: (featureId) => set({ hoveredFeatureId: featureId }),
+  setFailedIconUrls: (urls) => set({ failedIconUrls: urls }),
 }));

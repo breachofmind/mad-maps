@@ -1,10 +1,11 @@
-import type { LayerDTO } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
 import { apiClient } from '../../lib/apiClient';
 
 export interface UpdateLayerInput {
   name?: string;
   visible?: boolean;
   color?: string;
+  styleConfig?: LayerStyleConfig | null;
 }
 
 export function layersQueryKey(mapId: string) {

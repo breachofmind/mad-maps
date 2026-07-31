@@ -23,6 +23,24 @@ export interface MapDTO {
 
 export type LayerSourceType = 'local' | 'geojson-url';
 
+export interface LayerColorStop {
+  value: number;
+  color: string;
+}
+
+export interface LayerIconRule {
+  value: string;
+  iconUrl: string;
+}
+
+export interface LayerStyleConfig {
+  labelProperty: string | null;
+  colorProperty: string | null;
+  colorStops: LayerColorStop[];
+  iconProperty: string | null;
+  iconRules: LayerIconRule[];
+}
+
 export interface LayerDTO {
   id: string;
   mapId: string;
@@ -32,6 +50,7 @@ export interface LayerDTO {
   color: string;
   sourceType: LayerSourceType;
   sourceUrl: string | null;
+  styleConfig: LayerStyleConfig | null;
   createdAt: string;
   updatedAt: string;
 }

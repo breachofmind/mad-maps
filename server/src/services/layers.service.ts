@@ -1,13 +1,14 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { LayerDTO } from '@mapinski/shared';
 import { db } from '../db/client';
-import { layers, maps, type Layer } from '../db/schema';
+import { layers, maps, type Layer, type LayerStyleConfig } from '../db/schema';
 import { getMapForOwner } from './maps.service';
 
 export interface UpdateLayerInput {
   name?: string;
   visible?: boolean;
   color?: string;
+  styleConfig?: LayerStyleConfig | null;
 }
 
 export async function listLayersForMap(mapId: string, ownerId: string): Promise<Layer[] | null> {
@@ -109,6 +110,7 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     color: layer.color,
     sourceType: layer.sourceType === 'geojson-url' ? 'geojson-url' : 'local',
     sourceUrl: layer.sourceUrl,
+    styleConfig: layer.styleConfig ?? null,
     createdAt: layer.createdAt.toISOString(),
     updatedAt: layer.updatedAt.toISOString(),
   };

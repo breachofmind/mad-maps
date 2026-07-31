@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
+import { useEditorStore } from '../../state/editorStore';
 import { externalLayerDataQueryKey, fetchExternalLayerData } from '../layers/api';
+import { ensureExternalIconImages, externalIconImageId } from './externalIconImages';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -12,6 +14,18 @@ const OUTLINE_WIDTH = 2;
 const POINT_RADIUS = 6;
 const POINT_STROKE_WIDTH = 1.5;
 const POINT_STROKE_COLOR = '#ffffff';
+const LABEL_TEXT_SIZE = 12;
+const LABEL_OFFSET_EM = 1.4;
+const ICON_SIZE = 0.5;
+
+// mapbox-gl doesn't export its `ExpressionSpecification` type, so this is a
+// minimal structural stand-in (a tuple with a string operator head) that's
+// still assignable to the paint/filter spec's expression types.
+type MapboxExpression = [string, ...unknown[]];
+// Always evaluates false — used as a sentinel filter for the icon sub-layer
+// when no icon rule is active, so the layer exists (for style-load
+// resilience) but renders nothing.
+const NEVER_FILTER: MapboxExpression = ['literal', false];
 
 function sourceId(layerId: string) {
   return `mapinski-remote-${layerId}`;
@@ -24,23 +38,106 @@ function subLayerIds(layerId: string) {
     outline: `${base}-outline`,
     line: `${base}-line`,
     point: `${base}-point`,
+    label: `${base}-label`,
+    icon: `${base}-icon`,
   };
+}
+
+// Falls back to the flat layer color unless a numeric colorProperty with two
+// valid (ascending) stops is configured, in which case features are
+// colorized by interpolating between the low/high stops. `to-number` guards
+// against a property that's a string in some features (mixed-quality feeds).
+function buildColorExpression(flatColor: string, styleConfig: LayerStyleConfig | null): string | MapboxExpression {
+  const colorProperty = styleConfig?.colorProperty;
+  const stops = styleConfig?.colorStops;
+  if (!colorProperty || !stops || stops.length < 2) return flatColor;
+  const [low, high] = stops;
+  if (!(low.value < high.value)) return flatColor;
+  return [
+    'interpolate',
+    ['linear'],
+    ['to-number', ['get', colorProperty], 0],
+    low.value,
+    low.color,
+    high.value,
+    high.color,
+  ];
+}
+
+function labelTextField(labelProperty: string | null | undefined): string | MapboxExpression {
+  return labelProperty ? ['to-string', ['get', labelProperty]] : '';
+}
+
+// Only rules whose image actually loaded onto the map are usable — a rule
+// referencing a url that 404'd or lacks CORS support falls back to the
+// default circle marker rather than rendering nothing.
+function usableIconRules(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>) {
+  if (!styleConfig?.iconProperty) return [];
+  return (styleConfig.iconRules ?? []).filter((rule) => rule.iconUrl && loadedIconUrls.has(rule.iconUrl));
+}
+
+// A point matches the icon layer when its iconProperty value is one of the
+// usable rules' values; every other point (no rule, or a rule whose image
+// failed to load) falls through to the plain circle layer instead.
+function iconValuesFilter(
+  styleConfig: LayerStyleConfig | null,
+  loadedIconUrls: ReadonlySet<string>,
+): MapboxExpression | null {
+  const rules = usableIconRules(styleConfig, loadedIconUrls);
+  if (rules.length === 0) return null;
+  return ['in', ['get', styleConfig!.iconProperty], ['literal', rules.map((r) => r.value)]];
+}
+
+function iconImageExpression(
+  styleConfig: LayerStyleConfig | null,
+  loadedIconUrls: ReadonlySet<string>,
+): string | MapboxExpression {
+  const rules = usableIconRules(styleConfig, loadedIconUrls);
+  if (rules.length === 0) return '';
+  const match: unknown[] = ['match', ['get', styleConfig!.iconProperty]];
+  for (const rule of rules) match.push(rule.value, externalIconImageId(rule.iconUrl));
+  match.push(''); // unmatched values: no icon (they're excluded by the point layer's own filter anyway)
+  return match as MapboxExpression;
+}
+
+function pointFilter(iconFilter: MapboxExpression | null): MapboxExpression {
+  const base: MapboxExpression = ['==', ['geometry-type'], 'Point'];
+  return iconFilter ? (['all', base, ['!', iconFilter]] as MapboxExpression) : base;
 }
 
 // Mapbox's `geometry-type` expression already collapses Multi* geometries
 // into their singular counterpart (MultiPolygon -> 'Polygon', etc.), so no
 // separate handling is needed for them here — see FeatureLayer.tsx's own
 // use of the same expression for local features.
-function ensureRemoteLayerAdded(map: mapboxgl.Map, layerId: string, color: string, data: GeoJSON.FeatureCollection) {
+function ensureRemoteLayerAdded(
+  map: mapboxgl.Map,
+  layerId: string,
+  color: string,
+  styleConfig: LayerStyleConfig | null,
+  loadedIconUrls: ReadonlySet<string>,
+  data: GeoJSON.FeatureCollection,
+) {
   const id = sourceId(layerId);
   const ids = subLayerIds(layerId);
+  const colorExpression = buildColorExpression(color, styleConfig);
+  const iconFilter = iconValuesFilter(styleConfig, loadedIconUrls);
   const existing = map.getSource(id) as mapboxgl.GeoJSONSource | undefined;
   if (existing) {
     existing.setData(data);
-    if (map.getLayer(ids.fill)) map.setPaintProperty(ids.fill, 'fill-color', color);
-    if (map.getLayer(ids.outline)) map.setPaintProperty(ids.outline, 'line-color', color);
-    if (map.getLayer(ids.line)) map.setPaintProperty(ids.line, 'line-color', color);
-    if (map.getLayer(ids.point)) map.setPaintProperty(ids.point, 'circle-color', color);
+    if (map.getLayer(ids.fill)) map.setPaintProperty(ids.fill, 'fill-color', colorExpression);
+    if (map.getLayer(ids.outline)) map.setPaintProperty(ids.outline, 'line-color', colorExpression);
+    if (map.getLayer(ids.line)) map.setPaintProperty(ids.line, 'line-color', colorExpression);
+    if (map.getLayer(ids.point)) {
+      map.setPaintProperty(ids.point, 'circle-color', colorExpression);
+      map.setFilter(ids.point, pointFilter(iconFilter));
+    }
+    if (map.getLayer(ids.label)) {
+      map.setLayoutProperty(ids.label, 'text-field', labelTextField(styleConfig?.labelProperty));
+    }
+    if (map.getLayer(ids.icon)) {
+      map.setFilter(ids.icon, iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER);
+      map.setLayoutProperty(ids.icon, 'icon-image', iconImageExpression(styleConfig, loadedIconUrls));
+    }
     return;
   }
 
@@ -50,7 +147,7 @@ function ensureRemoteLayerAdded(map: mapboxgl.Map, layerId: string, color: strin
     type: 'fill',
     source: id,
     filter: ['==', ['geometry-type'], 'Polygon'],
-    paint: { 'fill-color': color, 'fill-opacity': FILL_OPACITY },
+    paint: { 'fill-color': colorExpression, 'fill-opacity': FILL_OPACITY },
   });
   map.addLayer({
     id: ids.outline,
@@ -58,7 +155,7 @@ function ensureRemoteLayerAdded(map: mapboxgl.Map, layerId: string, color: strin
     source: id,
     filter: ['==', ['geometry-type'], 'Polygon'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': color, 'line-width': OUTLINE_WIDTH },
+    paint: { 'line-color': colorExpression, 'line-width': OUTLINE_WIDTH },
   });
   map.addLayer({
     id: ids.line,
@@ -66,18 +163,52 @@ function ensureRemoteLayerAdded(map: mapboxgl.Map, layerId: string, color: strin
     source: id,
     filter: ['==', ['geometry-type'], 'LineString'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': color, 'line-width': LINE_WIDTH },
+    paint: { 'line-color': colorExpression, 'line-width': LINE_WIDTH },
   });
   map.addLayer({
     id: ids.point,
     type: 'circle',
     source: id,
-    filter: ['==', ['geometry-type'], 'Point'],
+    filter: pointFilter(iconFilter),
     paint: {
-      'circle-color': color,
+      'circle-color': colorExpression,
       'circle-radius': POINT_RADIUS,
       'circle-stroke-color': POINT_STROKE_COLOR,
       'circle-stroke-width': POINT_STROKE_WIDTH,
+    },
+  });
+  // Points whose iconProperty value matches a loaded icon rule render here
+  // instead of on the circle layer above (see pointFilter/iconValuesFilter).
+  map.addLayer({
+    id: ids.icon,
+    type: 'symbol',
+    source: id,
+    filter: iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER,
+    layout: {
+      'icon-image': iconImageExpression(styleConfig, loadedIconUrls),
+      'icon-size': ICON_SIZE,
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+  });
+  // No geometry-type filter: unlike the layers above, labels apply across
+  // Points, LineStrings, and Polygons alike, using Mapbox's default symbol
+  // placement to pick a representative anchor per geometry (e.g. a
+  // polygon's interior point).
+  map.addLayer({
+    id: ids.label,
+    type: 'symbol',
+    source: id,
+    layout: {
+      'text-field': labelTextField(styleConfig?.labelProperty),
+      'text-size': LABEL_TEXT_SIZE,
+      'text-anchor': 'top',
+      'text-offset': [0, LABEL_OFFSET_EM],
+    },
+    paint: {
+      'text-color': '#1a1a1a',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
     },
   });
 }
@@ -125,10 +256,15 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
   const layerMetaBySubLayerRef = useRef<Map<string, { layerId: string; layerName: string; layerColor: string }>>(
     new Map(),
   );
+  // Which icon urls have successfully loaded onto the *current* map style —
+  // starts empty each style load since runtime images don't survive a style
+  // change, then fills in as ensureExternalIconImages resolves (see below).
+  const loadedIconUrlsRef = useRef<Set<string>>(new Set());
   const [selection, setSelection] = useState<RemoteFeatureSelection | null>(null);
 
   useEffect(() => {
     if (!map) return;
+    let cancelled = false;
 
     function syncLayers() {
       if (!map) return;
@@ -143,24 +279,39 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       const meta = new Map<string, { layerId: string; layerName: string; layerColor: string }>();
       currentLayers.forEach((layer, index) => {
         const data = currentQueries[index]?.data ?? EMPTY_COLLECTION;
-        ensureRemoteLayerAdded(map, layer.id, layer.color, data);
+        ensureRemoteLayerAdded(map, layer.id, layer.color, layer.styleConfig, loadedIconUrlsRef.current, data);
         setRemoteLayerVisibility(map, layer.id, layer.visible);
         for (const subLayerId of Object.values(subLayerIds(layer.id))) {
           meta.set(subLayerId, { layerId: layer.id, layerName: layer.name, layerColor: layer.color });
         }
       });
       layerMetaBySubLayerRef.current = meta;
+
+      const iconUrls = currentLayers.flatMap((l) => (l.styleConfig?.iconRules ?? []).map((r) => r.iconUrl));
+      if (iconUrls.length === 0) return;
+      ensureExternalIconImages(map, iconUrls).then(({ loaded, failed }) => {
+        if (cancelled) return;
+        useEditorStore.getState().setFailedIconUrls(failed);
+        const prev = loadedIconUrlsRef.current;
+        const changed = loaded.size !== prev.size || [...loaded].some((url) => !prev.has(url));
+        loadedIconUrlsRef.current = loaded;
+        // Re-run only once newly-loaded images actually change which points
+        // qualify for the icon layer — loadCached's cache means repeat
+        // calls resolve near-instantly once everything's warm.
+        if (changed) syncLayers();
+      });
     }
 
     syncLayers();
     map.on('style.load', syncLayers);
     return () => {
+      cancelled = true;
       map.off('style.load', syncLayers);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     map,
-    remoteLayers.map((l) => `${l.id}:${l.name}:${l.color}:${l.visible}`).join(','),
+    remoteLayers.map((l) => `${l.id}:${l.name}:${l.color}:${l.visible}:${JSON.stringify(l.styleConfig)}`).join(','),
     dataQueries.map((q) => q.dataUpdatedAt).join(','),
   ]);
 

@@ -94,6 +94,60 @@ describe('layer routes', () => {
       .expect(400);
   });
 
+  it('sets and clears a layer styleConfig', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Weather Route' }).expect(201);
+    expect(created.body.styleConfig).toBeNull();
+
+    const styleConfig = {
+      labelProperty: 'temp',
+      colorProperty: 'temp',
+      colorStops: [
+        { value: 0, color: '#1976d2' },
+        { value: 100, color: '#d32f2f' },
+      ],
+      iconProperty: 'cover',
+      iconRules: [
+        { value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' },
+        { value: 'OVC', iconUrl: '' },
+      ],
+    };
+    const patched = await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({ styleConfig })
+      .expect(200);
+    expect(patched.body.styleConfig).toEqual(styleConfig);
+
+    const cleared = await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({ styleConfig: null })
+      .expect(200);
+    expect(cleared.body.styleConfig).toBeNull();
+  });
+
+  it('rejects an invalid styleConfig payload', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Bad Style' }).expect(201);
+    await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({ styleConfig: { labelProperty: 'temp', colorProperty: 'temp', colorStops: [{ value: 'nope' }] } })
+      .expect(400);
+  });
+
+  it('rejects a non-empty iconUrl that is not a valid URL', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Bad Icon' }).expect(201);
+    await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({
+        styleConfig: {
+          labelProperty: null,
+          colorProperty: null,
+          colorStops: [],
+          iconProperty: 'cover',
+          iconRules: [{ value: 'CLR', iconUrl: 'not-a-url' }],
+        },
+      })
+      .expect(400);
+  });
+
   describe('external data', () => {
     afterEach(() => jest.restoreAllMocks());
 

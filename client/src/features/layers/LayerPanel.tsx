@@ -607,7 +607,11 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           }
           onMoveUp={() => move(selectedIndex, -1)}
           onMoveDown={() => move(selectedIndex, 1)}
+          externalData={externalDataQueries[selectedIndex]?.data}
           onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
+          onStyleConfigChange={(styleConfig) =>
+            updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
+          }
           onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
           onDelete={() => {
             deleteMutation.mutate(selectedLayer.id);

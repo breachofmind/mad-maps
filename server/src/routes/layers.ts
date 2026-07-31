@@ -22,10 +22,30 @@ const createLayerSchema = z.object({
   sourceUrl: z.string().trim().url().max(2000).optional(),
 });
 
+const styleConfigSchema = z
+  .object({
+    labelProperty: z.string().max(200).nullable(),
+    colorProperty: z.string().max(200).nullable(),
+    colorStops: z.array(z.object({ value: z.number(), color: z.string().min(1).max(32) })).max(8),
+    iconProperty: z.string().max(200).nullable(),
+    iconRules: z
+      .array(
+        z.object({
+          value: z.string().max(200),
+          // Empty string is a valid in-progress state (a value added before its
+          // icon URL is filled in) — anything non-empty must be a real URL.
+          iconUrl: z.union([z.literal(''), z.string().max(2000).url()]),
+        }),
+      )
+      .max(30),
+  })
+  .nullable();
+
 const updateLayerSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   visible: z.boolean().optional(),
   color: z.string().min(1).max(32).optional(),
+  styleConfig: styleConfigSchema.optional(),
 });
 
 const reorderSchema = z.object({

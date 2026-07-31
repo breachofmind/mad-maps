@@ -47,6 +47,24 @@ export const maps = pgTable('maps', {
 export type Map = typeof maps.$inferSelect;
 export type NewMap = typeof maps.$inferInsert;
 
+export interface LayerColorStop {
+  value: number;
+  color: string;
+}
+
+export interface LayerIconRule {
+  value: string;
+  iconUrl: string;
+}
+
+export interface LayerStyleConfig {
+  labelProperty: string | null;
+  colorProperty: string | null;
+  colorStops: LayerColorStop[];
+  iconProperty: string | null;
+  iconRules: LayerIconRule[];
+}
+
 export const layers = pgTable('layers', {
   id: uuid('id').primaryKey().defaultRandom(),
   mapId: uuid('map_id')
@@ -58,6 +76,7 @@ export const layers = pgTable('layers', {
   color: text('color').notNull().default('#1976d2'),
   sourceType: text('source_type').notNull().default('local'),
   sourceUrl: text('source_url'),
+  styleConfig: jsonb('style_config').$type<LayerStyleConfig>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

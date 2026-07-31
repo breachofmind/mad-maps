@@ -106,4 +106,25 @@ describe('layers.service', () => {
     expect(remote?.sourceType).toBe('geojson-url');
     expect(remote?.sourceUrl).toBe('https://example.com/data.geojson');
   });
+
+  it('defaults styleConfig to null, sets it, and clears it back to null', async () => {
+    const created = await createLayer(mapId, ownerId, 'Weather');
+    expect(created?.styleConfig).toBeNull();
+
+    const styleConfig = {
+      labelProperty: 'temp',
+      colorProperty: 'temp',
+      colorStops: [
+        { value: 0, color: '#1976d2' },
+        { value: 100, color: '#d32f2f' },
+      ],
+      iconProperty: 'cover',
+      iconRules: [{ value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' }],
+    };
+    const updated = await updateLayerForOwner(created!.id, ownerId, { styleConfig });
+    expect(updated?.styleConfig).toEqual(styleConfig);
+
+    const cleared = await updateLayerForOwner(created!.id, ownerId, { styleConfig: null });
+    expect(cleared?.styleConfig).toBeNull();
+  });
 });
