@@ -56,19 +56,20 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
   ];
 }
 
-// pointHover doubles as the selected-pin ring: a selected point gets the
-// same white circle a hovered one does, so this drives the filter off
-// whichever feature ids are hovered and/or currently selected (points
-// only — lines/polygons show selection via their own vertex-edit mode
-// instead, so geometryHover stays hover-only).
+// pointHover doubles as the selected-pin ring, and geometryHover doubles as
+// the selected line/polygon border: both get the same white highlight for a
+// hovered feature and a selected one, driven off whichever feature ids are
+// hovered and/or currently selected. (While a line/polygon is being
+// vertex-edited it's excluded from this layer's data entirely — see
+// buildFeatureCollection's editingFeatureId check — so there's nothing here
+// to highlight in that case; mapbox-gl-draw renders its own overlay.)
 function applyHighlightFilters(map: mapboxgl.Map, hoveredFeatureId: string | null, selectedFeatureId: string | null) {
-  const pointIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
+  const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
   if (map.getLayer(LAYER_IDS.pointHover)) {
-    map.setFilter(LAYER_IDS.pointHover, highlightFilter(pointIds, ['Point']));
+    map.setFilter(LAYER_IDS.pointHover, highlightFilter(highlightedIds, ['Point']));
   }
   if (map.getLayer(LAYER_IDS.geometryHover)) {
-    const hoverIds = hoveredFeatureId !== null ? [hoveredFeatureId] : [];
-    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(hoverIds, ['LineString', 'Polygon']));
+    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(highlightedIds, ['LineString', 'Polygon']));
   }
 }
 
