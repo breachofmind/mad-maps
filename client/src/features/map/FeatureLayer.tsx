@@ -17,6 +17,7 @@ const LAYER_IDS = {
   point: FEATURE_POINT_LAYER_ID,
   pointHover: 'mapinski-features-point-hover',
   geometryHover: 'mapinski-features-geometry-hover',
+  hoverLabel: 'mapinski-features-hover-label',
 };
 // Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
 // instead of the visible line layer, since a thin rendered line is a hard
@@ -33,6 +34,10 @@ const POINT_HOVER_OPACITY = 0.3;
 const DEFAULT_STROKE_WIDTH = 3;
 const LINE_HIT_AREA_PADDING = 18;
 const HIGHLIGHT_FADE_DURATION_MS = 200;
+const HOVER_LABEL_TEXT_SIZE = 12;
+// Lifts the label clear of the point icon/line/polygon it's labeling — text
+// offset is in ems, so negative-y moves it up regardless of text-size.
+const HOVER_LABEL_OFFSET_EM = -1.8;
 // mapbox-gl-draw registers each theme layer under both a "hot" (actively
 // changing) and "cold" (static) source, appending that suffix to the style
 // id — see drawTheme.ts / mapbox-gl-draw's options.js addSources(). These
@@ -69,6 +74,12 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
     ['in', ['geometry-type'], ['literal', geometryTypes]],
     ['in', ['get', 'featureId'], ['literal', featureIds]],
   ];
+}
+
+// '' never matches a real featureId, so this renders nothing when nothing's
+// hovered rather than needing a separate "none hovered" branch.
+function hoverLabelFilter(hoveredFeatureId: string | null): mapboxgl.FilterSpecification {
+  return ['all', ['==', ['get', 'featureId'], hoveredFeatureId ?? ''], ['!=', ['get', 'title'], '']];
 }
 
 function setHighlightFilters(map: mapboxgl.Map, featureIds: string[]) {
@@ -299,6 +310,28 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       'circle-stroke-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
     },
   });
+  // Added last so it draws above icons/lines/polygons and their hover rings.
+  // No background/box by design — just text with a halo for legibility,
+  // per the "not an obstructive tooltip" ask this replaces.
+  map.addLayer({
+    id: LAYER_IDS.hoverLabel,
+    type: 'symbol',
+    source: SOURCE_ID,
+    filter: hoverLabelFilter(null),
+    layout: {
+      'text-field': ['get', 'title'],
+      'text-size': HOVER_LABEL_TEXT_SIZE,
+      'text-anchor': 'bottom',
+      'text-offset': [0, HOVER_LABEL_OFFSET_EM],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': '#1a1a1a',
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.5,
+    },
+  });
 }
 
 interface PointDragState {
@@ -364,6 +397,14 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     };
   }, [map, hoveredFeatureId, selectedFeatureId]);
 
+  // Tied to hover alone (not selection, unlike the ring/border highlight
+  // above) since the label is meant as an at-a-glance hover cue, not a
+  // lingering indicator of what's selected.
+  useEffect(() => {
+    if (!map || !map.getLayer(LAYER_IDS.hoverLabel)) return;
+    map.setFilter(LAYER_IDS.hoverLabel, hoverLabelFilter(hoveredFeatureId));
+  }, [map, hoveredFeatureId]);
+
   useEffect(() => {
     if (!map) return;
 
@@ -419,6 +460,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
       applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current, highlightFadeStateRef.current);
+      map.setFilter(LAYER_IDS.hoverLabel, hoverLabelFilter(hoveredFeatureIdRef.current));
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
