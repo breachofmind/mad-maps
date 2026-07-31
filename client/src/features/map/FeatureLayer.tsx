@@ -28,6 +28,7 @@ const GEOMETRY_HOVER_WIDTH = 11;
 // Placeholder used only until the contrast-sampling effect below picks a
 // color for the actual rendered basemap (see applyContrastColor).
 const DEFAULT_HOVER_COLOR = DEFAULT_HIGHLIGHT_COLOR;
+const POINT_HOVER_OPACITY = 0.3;
 const DEFAULT_STROKE_WIDTH = 3;
 const LINE_HIT_AREA_PADDING = 18;
 const HIGHLIGHT_FADE_DURATION_MS = 200;
@@ -61,22 +62,45 @@ function setMapCursor(map: mapboxgl.Map, cursor: string) {
   if (canvas) canvas.style.cursor = cursor;
 }
 
+function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxgl.FilterSpecification {
+  return [
+    'all',
+    ['in', ['geometry-type'], ['literal', geometryTypes]],
+    ['in', ['get', 'featureId'], ['literal', featureIds]],
+  ];
+}
+
 // pointHover doubles as the selected-pin ring, and geometryHover doubles as
-// the selected line/polygon border: both fade in via feature-state-driven
-// opacity (see the *-opacity-transition paint properties in
-// ensureLayersAdded) for a hovered feature and a selected one, driven off
-// whichever feature ids are hovered and/or currently selected. (While a
-// line/polygon is being vertex-edited it's excluded from this layer's data
-// entirely — see buildFeatureCollection's editingFeatureId check — so
-// there's nothing here to highlight in that case; mapbox-gl-draw renders its
-// own overlay.)
+// the selected line/polygon border: both get the same contrast-aware
+// highlight color (see applyContrastColor) for a hovered feature and a
+// selected one, driven off whichever feature ids are hovered and/or
+// currently selected. (While a line/polygon is being vertex-edited it's
+// excluded from this layer's data entirely — see buildFeatureCollection's
+// editingFeatureId check — so there's nothing here to highlight in that
+// case; mapbox-gl-draw renders its own overlay.)
 //
-// map.getSource guard mirrors setMapCursor's canvas-null guard above — both
-// protect calls that can race the map being torn down.
-function setHighlightedState(map: mapboxgl.Map, featureIds: string[], highlighted: boolean) {
-  if (!map.getSource(SOURCE_ID)) return;
-  for (const id of featureIds) {
-    map.setFeatureState({ source: SOURCE_ID, id }, { highlighted });
+// Membership (which features these layers render) is still filter-based —
+// mapbox-gl-js's *-transition paint properties don't reliably animate when
+// driven by feature-state (confirmed open bug, mapbox/mapbox-gl-js#12685;
+// Mapbox's own official transition example uses setPaintProperty directly,
+// never feature-state). So the fade is done at the *layer* level instead:
+// opacity toggles between 0 and its visible value via setPaintProperty
+// whenever highlighted-ness flips between "nothing" and "something", which
+// *is* a supported, reliably-animating combination. The one tradeoff is that
+// swapping the highlight directly from one feature to another (both already
+// highlighted) won't itself fade, since the opacity value doesn't change —
+// only entering/leaving the "nothing highlighted" state does.
+function applyHighlight(map: mapboxgl.Map, hoveredFeatureId: string | null, selectedFeatureId: string | null) {
+  const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
+  const visible = highlightedIds.length > 0;
+  if (map.getLayer(LAYER_IDS.pointHover)) {
+    map.setFilter(LAYER_IDS.pointHover, highlightFilter(highlightedIds, ['Point']));
+    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-opacity', visible ? POINT_HOVER_OPACITY : 0);
+    map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-opacity', visible ? 1 : 0);
+  }
+  if (map.getLayer(LAYER_IDS.geometryHover)) {
+    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(highlightedIds, ['LineString', 'Polygon']));
+    map.setPaintProperty(LAYER_IDS.geometryHover, 'line-opacity', visible ? 1 : 0);
   }
 }
 
@@ -158,12 +182,12 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       id: LAYER_IDS.geometryHover,
       type: 'line',
       source: SOURCE_ID,
-      filter: ['in', ['geometry-type'], ['literal', ['LineString', 'Polygon']]],
+      filter: highlightFilter([], ['LineString', 'Polygon']),
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': DEFAULT_HOVER_COLOR,
         'line-width': GEOMETRY_HOVER_WIDTH,
-        'line-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 1, 0],
+        'line-opacity': 0,
         'line-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
       },
     },
@@ -209,15 +233,15 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     id: LAYER_IDS.pointHover,
     type: 'circle',
     source: SOURCE_ID,
-    filter: ['==', ['geometry-type'], 'Point'],
+    filter: highlightFilter([], ['Point']),
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
       'circle-color': DEFAULT_HOVER_COLOR,
-      'circle-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 0.3, 0],
+      'circle-opacity': 0,
       'circle-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
       'circle-stroke-width': POINT_HOVER_STROKE_WIDTH,
       'circle-stroke-color': DEFAULT_HOVER_COLOR,
-      'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 1, 0],
+      'circle-stroke-opacity': 0,
       'circle-stroke-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
     },
   });
@@ -277,9 +301,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
 
   useEffect(() => {
     if (!map) return;
-    const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
-    setHighlightedState(map, highlightedIds, true);
-    return () => setHighlightedState(map, highlightedIds, false);
+    applyHighlight(map, hoveredFeatureId, selectedFeatureId);
   }, [map, hoveredFeatureId, selectedFeatureId]);
 
   useEffect(() => {
@@ -336,13 +358,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
-      // A basemap switch recreates the source (see ensureLayersAdded), which
-      // drops any previously-set feature-state — reapply whatever was
-      // already hovered/selected so it doesn't visually un-highlight.
-      const highlightedIds = [hoveredFeatureIdRef.current, selectedFeatureIdRef.current].filter(
-        (id): id is string => id !== null,
-      );
-      setHighlightedState(map, highlightedIds, true);
+      applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current);
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
