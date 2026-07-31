@@ -30,6 +30,7 @@ const GEOMETRY_HOVER_WIDTH = 11;
 const DEFAULT_HOVER_COLOR = DEFAULT_HIGHLIGHT_COLOR;
 const DEFAULT_STROKE_WIDTH = 3;
 const LINE_HIT_AREA_PADDING = 18;
+const HIGHLIGHT_FADE_DURATION_MS = 200;
 // mapbox-gl-draw registers each theme layer under both a "hot" (actively
 // changing) and "cold" (static) source, appending that suffix to the style
 // id — see drawTheme.ts / mapbox-gl-draw's options.js addSources(). These
@@ -60,29 +61,22 @@ function setMapCursor(map: mapboxgl.Map, cursor: string) {
   if (canvas) canvas.style.cursor = cursor;
 }
 
-function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxgl.FilterSpecification {
-  return [
-    'all',
-    ['in', ['geometry-type'], ['literal', geometryTypes]],
-    ['in', ['get', 'featureId'], ['literal', featureIds]],
-  ];
-}
-
 // pointHover doubles as the selected-pin ring, and geometryHover doubles as
-// the selected line/polygon border: both get the same contrast-aware
-// highlight color (see applyContrastColor) for a hovered feature and a
-// selected one, driven off whichever feature ids are hovered and/or
-// currently selected. (While a line/polygon is being
-// vertex-edited it's excluded from this layer's data entirely — see
-// buildFeatureCollection's editingFeatureId check — so there's nothing here
-// to highlight in that case; mapbox-gl-draw renders its own overlay.)
-function applyHighlightFilters(map: mapboxgl.Map, hoveredFeatureId: string | null, selectedFeatureId: string | null) {
-  const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
-  if (map.getLayer(LAYER_IDS.pointHover)) {
-    map.setFilter(LAYER_IDS.pointHover, highlightFilter(highlightedIds, ['Point']));
-  }
-  if (map.getLayer(LAYER_IDS.geometryHover)) {
-    map.setFilter(LAYER_IDS.geometryHover, highlightFilter(highlightedIds, ['LineString', 'Polygon']));
+// the selected line/polygon border: both fade in via feature-state-driven
+// opacity (see the *-opacity-transition paint properties in
+// ensureLayersAdded) for a hovered feature and a selected one, driven off
+// whichever feature ids are hovered and/or currently selected. (While a
+// line/polygon is being vertex-edited it's excluded from this layer's data
+// entirely — see buildFeatureCollection's editingFeatureId check — so
+// there's nothing here to highlight in that case; mapbox-gl-draw renders its
+// own overlay.)
+//
+// map.getSource guard mirrors setMapCursor's canvas-null guard above — both
+// protect calls that can race the map being torn down.
+function setHighlightedState(map: mapboxgl.Map, featureIds: string[], highlighted: boolean) {
+  if (!map.getSource(SOURCE_ID)) return;
+  for (const id of featureIds) {
+    map.setFeatureState({ source: SOURCE_ID, id }, { highlighted });
   }
 }
 
@@ -164,9 +158,14 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       id: LAYER_IDS.geometryHover,
       type: 'line',
       source: SOURCE_ID,
-      filter: highlightFilter([], ['LineString', 'Polygon']),
+      filter: ['in', ['geometry-type'], ['literal', ['LineString', 'Polygon']]],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': DEFAULT_HOVER_COLOR, 'line-width': GEOMETRY_HOVER_WIDTH },
+      paint: {
+        'line-color': DEFAULT_HOVER_COLOR,
+        'line-width': GEOMETRY_HOVER_WIDTH,
+        'line-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 1, 0],
+        'line-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
+      },
     },
     LAYER_IDS.polygonOutline,
   );
@@ -210,13 +209,16 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     id: LAYER_IDS.pointHover,
     type: 'circle',
     source: SOURCE_ID,
-    filter: highlightFilter([], ['Point']),
+    filter: ['==', ['geometry-type'], 'Point'],
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
       'circle-color': DEFAULT_HOVER_COLOR,
-      'circle-opacity': 0.3,
+      'circle-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 0.3, 0],
+      'circle-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
       'circle-stroke-width': POINT_HOVER_STROKE_WIDTH,
       'circle-stroke-color': DEFAULT_HOVER_COLOR,
+      'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'highlighted'], false], 1, 0],
+      'circle-stroke-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
     },
   });
 }
@@ -275,7 +277,9 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
 
   useEffect(() => {
     if (!map) return;
-    applyHighlightFilters(map, hoveredFeatureId, selectedFeatureId);
+    const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
+    setHighlightedState(map, highlightedIds, true);
+    return () => setHighlightedState(map, highlightedIds, false);
   }, [map, hoveredFeatureId, selectedFeatureId]);
 
   useEffect(() => {
@@ -332,7 +336,13 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     function handleStyleLoad() {
       if (!map) return;
       ensureLayersAdded(map, dataRef.current);
-      applyHighlightFilters(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current);
+      // A basemap switch recreates the source (see ensureLayersAdded), which
+      // drops any previously-set feature-state — reapply whatever was
+      // already hovered/selected so it doesn't visually un-highlight.
+      const highlightedIds = [hoveredFeatureIdRef.current, selectedFeatureIdRef.current].filter(
+        (id): id is string => id !== null,
+      );
+      setHighlightedState(map, highlightedIds, true);
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
       );
