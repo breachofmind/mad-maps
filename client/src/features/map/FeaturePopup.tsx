@@ -11,6 +11,7 @@ import type { MapFeatureDTO } from '@mapinski/shared';
 import { mapboxgl } from './mapbox';
 import { geometryAnchor } from './geometryAnchor';
 import { FEATURE_ICONS, type FeatureIconName } from '../mapFeatures/icons';
+import { formatCoordinates } from '../mapFeatures/geometryMeasurements';
 import { SANITIZE_CONFIG } from '../mapFeatures/sanitizeConfig';
 
 interface FeaturePopupProps {
@@ -31,6 +32,7 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
 
     const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
     const sanitizedDescription = DOMPurify.sanitize(feature.properties.descriptionHtml, SANITIZE_CONFIG);
+    const coordinates = feature.geometry.type === 'Point' ? formatCoordinates(feature.geometry.coordinates) : null;
 
     root.render(
       <Stack spacing={0.5} sx={{ maxWidth: 240 }}>
@@ -45,6 +47,11 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
             </IconButton>
           </Tooltip>
         </Stack>
+        {coordinates && (
+          <Typography variant="caption" color="text.secondary">
+            {coordinates}
+          </Typography>
+        )}
         {sanitizedDescription && (
           <Box
             sx={{ fontSize: 13, color: 'text.secondary', '& p': { m: 0 } }}

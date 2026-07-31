@@ -31,6 +31,7 @@ import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
   formatArea,
+  formatCoordinates,
   formatDistance,
   lineLengthMeters,
   polygonAreaSquareMeters,
@@ -127,6 +128,8 @@ export function FeaturePropertiesPanel({
     return null;
   }, [feature.geometry]);
 
+  const coordinates = feature.geometry.type === 'Point' ? formatCoordinates(feature.geometry.coordinates) : null;
+
   const updateMutation = useMutation({
     mutationFn: (input: UpdateFeatureInput) => updateFeature(feature.id, input),
     onSuccess: () => {
@@ -222,6 +225,8 @@ export function FeaturePropertiesPanel({
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
         />
+
+        {coordinates && <MeasurementStat label="Coordinates" value={coordinates} />}
 
         {measurements && (
           <Box>

@@ -52,6 +52,13 @@ export function polygonPerimeterMeters(rings: GeoJSON.Position[][]): number {
   return rings.reduce((total, ring) => total + lineLengthMeters(ring), 0);
 }
 
+// Displayed in conventional lat, lng order even though GeoJSON positions are
+// stored lng, lat. Six decimal places is sub-meter precision — plenty for
+// display without implying more accuracy than the underlying data has.
+export function formatCoordinates([lng, lat]: GeoJSON.Position): string {
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+}
+
 const FEET_PER_METER = 1 / 0.3048;
 const METERS_PER_MILE = 1609.344;
 const SQUARE_FEET_PER_SQUARE_METER = 1 / (0.3048 * 0.3048);
