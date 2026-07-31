@@ -56,6 +56,8 @@ export const layers = pgTable('layers', {
   orderIndex: integer('order_index').notNull().default(0),
   visible: boolean('visible').notNull().default(true),
   color: text('color').notNull().default('#1976d2'),
+  sourceType: text('source_type').notNull().default('local'),
+  sourceUrl: text('source_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

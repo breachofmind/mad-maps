@@ -57,3 +57,50 @@ export function geometryToFeatureType(geometry: Geometry): 'point' | 'line' | 'p
       return 'polygon';
   }
 }
+
+// A more permissive schema for GeoJSON pulled from external/public data
+// sources (e.g. a wildfire perimeter feed). Unlike geometrySchema above —
+// which backs individually user-editable map_features rows and is
+// deliberately narrow — real-world datasets commonly use Multi* geometry
+// types, so those are accepted here. GeometryCollection is still rejected
+// (rendered inconsistently across the layer styling below) and the feature
+// count is capped to keep an arbitrary external payload from overwhelming
+// the map renderer.
+export const multiPointGeometrySchema = z.object({
+  type: z.literal('MultiPoint'),
+  coordinates: z.array(position),
+});
+
+export const multiLineStringGeometrySchema = z.object({
+  type: z.literal('MultiLineString'),
+  coordinates: z.array(z.array(position).min(2)),
+});
+
+export const multiPolygonGeometrySchema = z.object({
+  type: z.literal('MultiPolygon'),
+  coordinates: z.array(z.array(z.array(position).min(4)).min(1)),
+});
+
+export const externalGeometrySchema = z.discriminatedUnion('type', [
+  pointGeometrySchema,
+  lineStringGeometrySchema,
+  polygonGeometrySchema,
+  multiPointGeometrySchema,
+  multiLineStringGeometrySchema,
+  multiPolygonGeometrySchema,
+]);
+
+export type ExternalGeometry = z.infer<typeof externalGeometrySchema>;
+
+export const EXTERNAL_GEOJSON_MAX_FEATURES = 20_000;
+
+export const externalGeoJsonFeatureSchema = z.object({
+  type: z.literal('Feature'),
+  geometry: externalGeometrySchema,
+  properties: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export const externalGeoJsonFeatureCollectionSchema = z.object({
+  type: z.literal('FeatureCollection'),
+  features: z.array(externalGeoJsonFeatureSchema).max(EXTERNAL_GEOJSON_MAX_FEATURES),
+});

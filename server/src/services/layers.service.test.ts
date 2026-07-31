@@ -96,4 +96,14 @@ describe('layers.service', () => {
     expect(await deleteLayerForOwner(created!.id, ownerId)).toBe(true);
     expect(await deleteLayerForOwner(created!.id, ownerId)).toBe(false);
   });
+
+  it('defaults to a local layer, and marks a layer with a sourceUrl as geojson-url', async () => {
+    const local = await createLayer(mapId, ownerId, 'Local Layer');
+    expect(local?.sourceType).toBe('local');
+    expect(local?.sourceUrl).toBeNull();
+
+    const remote = await createLayer(mapId, ownerId, 'Remote Layer', 'https://example.com/data.geojson');
+    expect(remote?.sourceType).toBe('geojson-url');
+    expect(remote?.sourceUrl).toBe('https://example.com/data.geojson');
+  });
 });

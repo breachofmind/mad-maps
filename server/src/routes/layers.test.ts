@@ -4,6 +4,7 @@ import { createApp } from '../app';
 import { db, pool } from '../db/client';
 import { users, maps } from '../db/schema';
 import { createMap } from '../services/maps.service';
+import * as externalLayerDataService from '../services/externalLayerData.service';
 
 const app = createApp();
 
@@ -84,5 +85,52 @@ describe('layer routes', () => {
 
   it('rejects an invalid create payload with 400', async () => {
     await agent.post(`/api/maps/${mapId}/layers`).send({ name: '' }).expect(400);
+  });
+
+  it('rejects a sourceUrl that is not a valid URL', async () => {
+    await agent
+      .post(`/api/maps/${mapId}/layers`)
+      .send({ name: 'Bad Source', sourceUrl: 'not-a-url' })
+      .expect(400);
+  });
+
+  describe('external data', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('creates a layer with sourceType geojson-url when a sourceUrl is given', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({ name: 'Wildfires', sourceUrl: 'https://example.com/fires.geojson' })
+        .expect(201);
+
+      expect(created.body.sourceType).toBe('geojson-url');
+      expect(created.body.sourceUrl).toBe('https://example.com/fires.geojson');
+    });
+
+    it('proxies external data for a geojson-url layer', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({ name: 'Wildfires 2', sourceUrl: 'https://example.com/fires-2.geojson' })
+        .expect(201);
+
+      const collection = { type: 'FeatureCollection', features: [] };
+      jest.spyOn(externalLayerDataService, 'getExternalLayerData').mockResolvedValue(collection as never);
+
+      const res = await agent.get(`/api/layers/${created.body.id}/external-data`).expect(200);
+      expect(res.body).toEqual(collection);
+      expect(externalLayerDataService.getExternalLayerData).toHaveBeenCalledWith(
+        'https://example.com/fires-2.geojson',
+        { force: false },
+      );
+    });
+
+    it('returns 400 for a local (non-remote) layer', async () => {
+      const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Local Only' }).expect(201);
+      await agent.get(`/api/layers/${created.body.id}/external-data`).expect(400);
+    });
+
+    it('returns 404 for a layer not owned by the requester', async () => {
+      await agent.get('/api/layers/00000000-0000-0000-0000-000000000000/external-data').expect(404);
+    });
   });
 });

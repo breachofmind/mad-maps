@@ -12,6 +12,10 @@ import TextField from '@mui/material/TextField';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -26,6 +30,10 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
+import PublicIcon from '@mui/icons-material/Public';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../state/editorStore';
 import { geometryAnchor } from '../map/geometryAnchor';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../mapFeatures/api';
@@ -33,12 +41,15 @@ import { FEATURE_ICONS, type FeatureIconName } from '../mapFeatures/icons';
 import {
   createLayer,
   deleteLayer,
+  externalLayerDataQueryKey,
+  fetchExternalLayerData,
   fetchLayers,
   layersQueryKey,
   reorderLayers,
   updateLayer,
   type UpdateLayerInput,
 } from './api';
+import { AddExternalLayerDialog } from './AddExternalLayerDialog';
 
 interface LayerPanelProps {
   mapId: string;
@@ -95,6 +106,8 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const [newLayerName, setNewLayerName] = useState('');
   const [addingLayer, setAddingLayer] = useState(false);
+  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [addExternalDialogOpen, setAddExternalDialogOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
@@ -108,7 +121,24 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     queries: (layers ?? []).map((layer) => ({
       queryKey: featuresQueryKey(layer.id),
       queryFn: () => fetchFeatures(layer.id),
+      enabled: layer.sourceType !== 'geojson-url',
     })),
+  });
+
+  const externalDataQueries = useQueries({
+    queries: (layers ?? []).map((layer) => ({
+      queryKey: externalLayerDataQueryKey(layer.id),
+      queryFn: () => fetchExternalLayerData(layer.id),
+      enabled: layer.sourceType === 'geojson-url',
+      staleTime: Infinity,
+    })),
+  });
+
+  const refreshExternalLayerMutation = useMutation({
+    mutationFn: (layerId: string) => fetchExternalLayerData(layerId, { force: true }),
+    onSuccess: (data, layerId) => {
+      queryClient.setQueryData(externalLayerDataQueryKey(layerId), data);
+    },
   });
 
   function toggleLayerCollapsed(layerId: string) {
@@ -327,6 +357,16 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     createMutation.mutate(trimmed);
   }
 
+  function handleBlankLayerClick() {
+    setAddMenuAnchorEl(null);
+    setAddingLayer(true);
+  }
+
+  function handleAddDataLayerClick() {
+    setAddMenuAnchorEl(null);
+    setAddExternalDialogOpen(true);
+  }
+
   return (
     <Paper
       elevation={3}
@@ -354,10 +394,28 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
       <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5}>
         <Typography variant="subtitle1">Layers</Typography>
         <Tooltip title="Add layer">
-          <IconButton size="small" onClick={() => setAddingLayer(true)} aria-label="Add layer">
+          <IconButton
+            size="small"
+            onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
+            aria-label="Add layer"
+          >
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
+          <MenuItem onClick={handleBlankLayerClick}>
+            <ListItemIcon>
+              <CreateNewFolderIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Blank layer</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleAddDataLayerClick}>
+            <ListItemIcon>
+              <CloudDownloadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Add data layer…</ListItemText>
+          </MenuItem>
+        </Menu>
       </Stack>
 
       {isLoading ? (
@@ -367,7 +425,9 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
       ) : (
         <List dense disablePadding sx={{ pb: 1.5 }}>
           {layers?.map((layer, index) => {
+            const isRemote = layer.sourceType === 'geojson-url';
             const features = featureQueries[index]?.data ?? [];
+            const externalQuery = externalDataQueries[index];
             const collapsed = collapsedLayerIds.has(layer.id);
             return (
               <Box key={layer.id}>
@@ -436,6 +496,49 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                     </IconButton>
                   </Tooltip>
 
+                  {isRemote && (
+                    <Tooltip title="Layer color">
+                      <Box
+                        component="input"
+                        type="color"
+                        value={layer.color}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          updateMutation.mutate({ layerId: layer.id, input: { color: e.target.value } })
+                        }
+                        aria-label={`Change ${layer.name} color`}
+                        sx={{
+                          width: 18,
+                          height: 18,
+                          p: 0,
+                          border: 'none',
+                          borderRadius: '50%',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          '&::-webkit-color-swatch-wrapper': { p: 0 },
+                          '&::-webkit-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
+                          '&::-moz-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+
+                  {isRemote && (
+                    <Tooltip
+                      title={
+                        externalQuery?.isError
+                          ? 'Failed to load this data source'
+                          : `External data source: ${layer.sourceUrl ?? ''}`
+                      }
+                    >
+                      <PublicIcon
+                        fontSize="small"
+                        sx={{ color: externalQuery?.isError ? 'error.main' : 'text.disabled', flexShrink: 0 }}
+                      />
+                    </Tooltip>
+                  )}
+
                   {renamingId === layer.id ? (
                     <TextField
                       autoFocus
@@ -495,6 +598,23 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                       </IconButton>
                     </span>
                   </Tooltip>
+                  {isRemote && (
+                    <Tooltip title="Refresh data">
+                      <span>
+                        <IconButton
+                          size="small"
+                          aria-label={`Refresh ${layer.name}`}
+                          disabled={refreshExternalLayerMutation.isPending}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            refreshExternalLayerMutation.mutate(layer.id);
+                          }}
+                        >
+                          <RefreshIcon fontSize="inherit" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  )}
                   <Tooltip title="Delete layer">
                     <IconButton
                       size="small"
@@ -588,6 +708,11 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           />
         </Box>
       )}
+      <AddExternalLayerDialog
+        open={addExternalDialogOpen}
+        onClose={() => setAddExternalDialogOpen(false)}
+        mapId={mapId}
+      />
     </Paper>
   );
 }

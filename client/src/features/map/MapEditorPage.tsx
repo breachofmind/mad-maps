@@ -26,6 +26,7 @@ import { useSelectedFeature } from '../mapFeatures/useSelectedFeature';
 import { SearchBox } from '../search/SearchBox';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
+import { RemoteLayer } from './RemoteLayer';
 import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
 
@@ -186,6 +187,7 @@ export function MapEditorPage() {
         onStyleChange={persistStyle}
         onMapReady={setMapInstance}
       />
+      <RemoteLayer map={mapInstance} layers={layers ?? []} />
       <FeatureLayer
         map={mapInstance}
         layers={layers ?? []}

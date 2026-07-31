@@ -16,8 +16,22 @@ export async function fetchLayers(mapId: string): Promise<LayerDTO[]> {
   return data;
 }
 
-export async function createLayer(mapId: string, name: string): Promise<LayerDTO> {
-  const { data } = await apiClient.post<LayerDTO>(`/api/maps/${mapId}/layers`, { name });
+export async function createLayer(mapId: string, name: string, sourceUrl?: string): Promise<LayerDTO> {
+  const { data } = await apiClient.post<LayerDTO>(`/api/maps/${mapId}/layers`, { name, sourceUrl });
+  return data;
+}
+
+export function externalLayerDataQueryKey(layerId: string) {
+  return ['layers', layerId, 'external-data'];
+}
+
+export async function fetchExternalLayerData(
+  layerId: string,
+  options?: { force?: boolean },
+): Promise<GeoJSON.FeatureCollection> {
+  const { data } = await apiClient.get<GeoJSON.FeatureCollection>(`/api/layers/${layerId}/external-data`, {
+    params: options?.force ? { refresh: 'true' } : undefined,
+  });
   return data;
 }
 

@@ -21,6 +21,8 @@ export interface MapDTO {
   updatedAt: string;
 }
 
+export type LayerSourceType = 'local' | 'geojson-url';
+
 export interface LayerDTO {
   id: string;
   mapId: string;
@@ -28,6 +30,8 @@ export interface LayerDTO {
   orderIndex: number;
   visible: boolean;
   color: string;
+  sourceType: LayerSourceType;
+  sourceUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

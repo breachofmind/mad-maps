@@ -16,7 +16,12 @@ export async function listLayersForMap(mapId: string, ownerId: string): Promise<
   return db.select().from(layers).where(eq(layers.mapId, mapId)).orderBy(asc(layers.orderIndex));
 }
 
-export async function createLayer(mapId: string, ownerId: string, name: string): Promise<Layer | null> {
+export async function createLayer(
+  mapId: string,
+  ownerId: string,
+  name: string,
+  sourceUrl?: string,
+): Promise<Layer | null> {
   const map = await getMapForOwner(mapId, ownerId);
   if (!map) return null;
 
@@ -25,7 +30,16 @@ export async function createLayer(mapId: string, ownerId: string, name: string):
     .from(layers)
     .where(eq(layers.mapId, mapId));
 
-  const [created] = await db.insert(layers).values({ mapId, name, orderIndex: count }).returning();
+  const [created] = await db
+    .insert(layers)
+    .values({
+      mapId,
+      name,
+      orderIndex: count,
+      sourceType: sourceUrl ? 'geojson-url' : 'local',
+      sourceUrl: sourceUrl ?? null,
+    })
+    .returning();
   return created;
 }
 
@@ -93,6 +107,8 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     orderIndex: layer.orderIndex,
     visible: layer.visible,
     color: layer.color,
+    sourceType: layer.sourceType === 'geojson-url' ? 'geojson-url' : 'local',
+    sourceUrl: layer.sourceUrl,
     createdAt: layer.createdAt.toISOString(),
     updatedAt: layer.updatedAt.toISOString(),
   };
