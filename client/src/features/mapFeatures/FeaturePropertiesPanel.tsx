@@ -297,8 +297,8 @@ export function FeaturePropertiesPanel({
                 value={customColorValue}
                 onChange={(e) => selectColor(e.target.value)}
                 sx={{
-                  width: 24,
-                  height: 24,
+                  width: 32,
+                  height: 32,
                   p: 0,
                   border: 'none',
                   borderRadius: '50%',
@@ -319,7 +319,7 @@ export function FeaturePropertiesPanel({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') commitColorText();
               }}
-              sx={{ width: 84 }}
+              sx={{ width: 84, mt: 1 }}
               inputProps={{ 'aria-label': 'Custom color hex value' }}
             />
           </Stack>
