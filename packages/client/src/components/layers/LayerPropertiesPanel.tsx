@@ -424,10 +424,6 @@ export function LayerPropertiesPanel({
                     </Select>
                   </FormControl>
                 )}
-                <Typography variant="caption" color="text.secondary">
-                  Values left without an icon keep the default marker. Images must be publicly reachable and allow
-                  cross-origin use (CORS) to display on the map.
-                </Typography>
               </Stack>
             )}
           </Box>
