@@ -1,8 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { ProtectedRoute } from './features/auth/ProtectedRoute';
-import { LoginPage } from './features/auth/LoginPage';
-import { MapsListPage } from './features/maps/MapsListPage';
-import { MapEditorPage } from './features/map/MapEditorPage';
+import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
+import { LoginPage } from './features/auth/components/LoginPage';
+import { MapsListPage } from './features/maps/components/MapsListPage';
+import { MapEditorPage } from './features/map/components/MapEditorPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },

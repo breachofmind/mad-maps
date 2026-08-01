@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AreaUnit, DistanceUnit } from '../features/mapFeatures/geometryMeasurements';
+import type { AreaUnit, DistanceUnit } from '../features/mapFeatures/lib/geometryMeasurements';
 
 interface UnitsState {
   distanceUnit: DistanceUnit;
