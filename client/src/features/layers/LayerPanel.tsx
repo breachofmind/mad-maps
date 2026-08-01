@@ -100,6 +100,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const setSelectedLayerId = useEditorStore((s) => s.setSelectedLayerId);
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const [newLayerName, setNewLayerName] = useState('');
   const [addingLayer, setAddingLayer] = useState(false);
@@ -517,6 +518,11 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                       {features.map((feature, featureIndex) => {
                         const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
                         const isSelected = selection?.featureId === feature.id;
+                        // Also true when the feature is hovered on the map itself (see
+                        // FeatureLayer.tsx's handleMouseMove), not just this row —
+                        // action.hover matches the same background a native :hover on
+                        // this row would already show, so both triggers read the same.
+                        const isHovered = !isSelected && hoveredFeatureId === feature.id;
                         return (
                           <Box key={feature.id}>
                             <DropIndicatorLine
@@ -533,7 +539,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                               onMouseLeave={() => {
                                 if (useEditorStore.getState().hoveredFeatureId === feature.id) setHoveredFeatureId(null);
                               }}
-                              sx={{ pl: 5, py: 0.5, gap: 1 }}
+                              sx={{ pl: 5, py: 0.5, gap: 1, bgcolor: isHovered ? 'action.hover' : undefined }}
                             >
                               <Box
                                 draggable
