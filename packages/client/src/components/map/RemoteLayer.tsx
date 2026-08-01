@@ -11,6 +11,7 @@ import {
   type LabelColors,
 } from '../../lib/map/basemapContrast';
 import { ensureExternalIconImages, externalIconImageId } from '../../lib/map/externalIconImages';
+import { REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -34,7 +35,7 @@ type MapboxExpression = [string, ...unknown[]];
 const NEVER_FILTER: MapboxExpression = ['literal', false];
 
 function sourceId(layerId: string) {
-  return `mapinski-remote-${layerId}`;
+  return `${REMOTE_LAYER_ID_PREFIX}${layerId}`;
 }
 
 function subLayerIds(layerId: string) {

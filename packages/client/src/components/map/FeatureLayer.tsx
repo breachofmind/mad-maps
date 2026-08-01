@@ -11,7 +11,7 @@ import {
   labelColorsForHighlight,
   sampleBasemapHighlightColor,
 } from '../../lib/map/basemapContrast';
-import { FEATURE_POINT_LAYER_ID } from '../../lib/map/featureLayerIds';
+import { FEATURE_POINT_LAYER_ID, REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
 
 const SOURCE_ID = 'mapinski-features';
 // Separate single-feature source the cursor-following label (see
@@ -82,6 +82,19 @@ const LINE_DASH_ARRAYS: Record<LineStyle, number[]> = {
 function setMapCursor(map: mapboxgl.Map, cursor: string) {
   const canvas = map.getCanvas();
   if (canvas) canvas.style.cursor = cursor;
+}
+
+// This component's own mousemove handler below runs last among the map's
+// listeners (RemoteLayer mounts first — see its own comment), so it has the
+// final say on the cursor every move; it must account for a hit on an
+// external-data feature itself rather than blindly clearing back to the
+// default arrow over what RemoteLayer already marked as clickable.
+function hoveringRemoteFeature(map: mapboxgl.Map, point: mapboxgl.Point): boolean {
+  const remoteLayerIds = (map.getStyle()?.layers ?? [])
+    .map((layer) => layer.id)
+    .filter((id) => id.startsWith(REMOTE_LAYER_ID_PREFIX));
+  if (remoteLayerIds.length === 0) return false;
+  return map.queryRenderedFeatures(point, { layers: remoteLayerIds }).length > 0;
 }
 
 function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxgl.FilterSpecification {
@@ -641,7 +654,11 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         ? map.queryRenderedFeatures(e.point, { layers: existingLayers })
         : [];
       const hit = hits[0];
-      setMapCursor(map, hit ? (hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer') : '');
+      if (hit) {
+        setMapCursor(map, hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer');
+      } else {
+        setMapCursor(map, hoveringRemoteFeature(map, e.point) ? 'pointer' : '');
+      }
       const featureId = hit?.properties?.featureId;
       const nextHoveredId = typeof featureId === 'string' ? featureId : null;
       if (useEditorStore.getState().hoveredFeatureId !== nextHoveredId) {
