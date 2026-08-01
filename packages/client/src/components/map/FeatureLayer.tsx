@@ -399,6 +399,7 @@ interface PointDragState {
   featureId: string;
   layerId: string;
   moved: boolean;
+  previousGeometry: GeoJSON.Geometry;
 }
 
 export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLayerProps) {
@@ -599,9 +600,11 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       const featureId = hit?.properties?.featureId;
       const layerId = hit?.properties?.layerId;
       if (typeof featureId !== 'string' || typeof layerId !== 'string') return;
+      const currentFeature = dataRef.current.features.find((f) => f.properties?.featureId === featureId);
+      if (!currentFeature?.geometry) return;
 
       e.preventDefault();
-      dragStateRef.current = { featureId, layerId, moved: false };
+      dragStateRef.current = { featureId, layerId, moved: false, previousGeometry: currentFeature.geometry };
       setMapCursor(map, 'grabbing');
     }
 
@@ -683,6 +686,11 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       dragStateRef.current = null;
       setMapCursor(map, 'grab');
       if (dragState.moved) {
+        useEditorStore.getState().pushMoveHistory({
+          featureId: dragState.featureId,
+          layerId: dragState.layerId,
+          previousGeometry: dragState.previousGeometry,
+        });
         moveFeatureMutationRef.current.mutate({
           featureId: dragState.featureId,
           layerId: dragState.layerId,

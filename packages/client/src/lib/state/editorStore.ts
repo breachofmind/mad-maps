@@ -7,6 +7,15 @@ export interface FeatureSelection {
   featureId: string;
 }
 
+export interface MoveHistoryEntry {
+  featureId: string;
+  layerId: string;
+  previousGeometry: GeoJSON.Geometry;
+}
+
+// Cap so a long editing session can't grow this unboundedly.
+const MAX_MOVE_HISTORY = 50;
+
 interface EditorState {
   activeLayerId: string | null;
   drawMode: DrawMode;
@@ -25,6 +34,10 @@ interface EditorState {
   // needs to warn the user about it) are unrelated siblings under
   // MapEditorPage — see RemoteLayer.tsx and LayerPropertiesPanel.tsx.
   failedIconUrls: Set<string>;
+  // Undo stack for feature drags (pin moves and line/polygon vertex drags) — see
+  // pushMoveHistory/popMoveHistory. Read imperatively via getState() from the Ctrl+Z
+  // keydown handler rather than subscribed to, so it doesn't need to trigger re-renders.
+  moveHistory: MoveHistoryEntry[];
   setActiveLayerId: (layerId: string | null) => void;
   setDrawMode: (mode: DrawMode) => void;
   setSelection: (selection: FeatureSelection | null) => void;
@@ -32,9 +45,11 @@ interface EditorState {
   toggleLayerPanel: () => void;
   setHoveredFeatureId: (featureId: string | null) => void;
   setFailedIconUrls: (urls: Set<string>) => void;
+  pushMoveHistory: (entry: MoveHistoryEntry) => void;
+  popMoveHistory: () => MoveHistoryEntry | undefined;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   activeLayerId: null,
   drawMode: 'none',
   selection: null,
@@ -42,6 +57,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isLayerPanelOpen: true,
   hoveredFeatureId: null,
   failedIconUrls: new Set(),
+  moveHistory: [],
   setActiveLayerId: (layerId) => set({ activeLayerId: layerId }),
   setDrawMode: (mode) => set({ drawMode: mode }),
   setSelection: (selection) => set({ selection }),
@@ -49,4 +65,13 @@ export const useEditorStore = create<EditorState>((set) => ({
   toggleLayerPanel: () => set((state) => ({ isLayerPanelOpen: !state.isLayerPanelOpen })),
   setHoveredFeatureId: (featureId) => set({ hoveredFeatureId: featureId }),
   setFailedIconUrls: (urls) => set({ failedIconUrls: urls }),
+  pushMoveHistory: (entry) =>
+    set((state) => ({ moveHistory: [...state.moveHistory, entry].slice(-MAX_MOVE_HISTORY) })),
+  popMoveHistory: () => {
+    const history = get().moveHistory;
+    if (history.length === 0) return undefined;
+    const entry = history[history.length - 1];
+    set({ moveHistory: history.slice(0, -1) });
+    return entry;
+  },
 }));

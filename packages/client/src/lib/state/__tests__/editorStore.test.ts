@@ -53,4 +53,40 @@ describe('editorStore', () => {
     useEditorStore.getState().toggleLayerPanel();
     expect(useEditorStore.getState().isLayerPanelOpen).toBe(true);
   });
+
+  it('pops move history entries in LIFO order and returns undefined once empty', () => {
+    expect(useEditorStore.getState().moveHistory).toEqual([]);
+
+    const first = {
+      featureId: 'feature-1',
+      layerId: 'layer-1',
+      previousGeometry: { type: 'Point', coordinates: [0, 0] } as GeoJSON.Geometry,
+    };
+    const second = {
+      featureId: 'feature-2',
+      layerId: 'layer-1',
+      previousGeometry: { type: 'Point', coordinates: [1, 1] } as GeoJSON.Geometry,
+    };
+    useEditorStore.getState().pushMoveHistory(first);
+    useEditorStore.getState().pushMoveHistory(second);
+    expect(useEditorStore.getState().moveHistory).toEqual([first, second]);
+
+    expect(useEditorStore.getState().popMoveHistory()).toEqual(second);
+    expect(useEditorStore.getState().popMoveHistory()).toEqual(first);
+    expect(useEditorStore.getState().popMoveHistory()).toBeUndefined();
+  });
+
+  it('caps move history at 50 entries, dropping the oldest', () => {
+    for (let i = 0; i < 55; i++) {
+      useEditorStore.getState().pushMoveHistory({
+        featureId: `feature-${i}`,
+        layerId: 'layer-1',
+        previousGeometry: { type: 'Point', coordinates: [i, i] },
+      });
+    }
+    const history = useEditorStore.getState().moveHistory;
+    expect(history).toHaveLength(50);
+    expect(history[0].featureId).toBe('feature-5');
+    expect(history[49].featureId).toBe('feature-54');
+  });
 });

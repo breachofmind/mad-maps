@@ -87,6 +87,8 @@ export function MapEditorPage() {
       queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
     },
   });
+  const updateGeometryMutationRef = useRef(updateGeometryMutation);
+  updateGeometryMutationRef.current = updateGeometryMutation;
 
   const { setMode, editFeature, stopEditing } = useMapboxDraw({
     map: mapInstance,
@@ -101,7 +103,8 @@ export function MapEditorPage() {
       if (useEditorStore.getState().drawMode === 'route') return;
       setDrawMode(DRAW_MODE_TO_EDITOR_MODE[mode] ?? 'none');
     },
-    onUpdateGeometry: (layerId, featureId, geometry) => {
+    onUpdateGeometry: (layerId, featureId, geometry, previousGeometry) => {
+      useEditorStore.getState().pushMoveHistory({ featureId, layerId, previousGeometry });
       updateGeometryMutation.mutate({ featureId, layerId, geometry });
     },
   });
@@ -153,6 +156,39 @@ export function MapEditorPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFeature?.feature.id, selectedFeature?.feature.featureType, isEditingVertices]);
+
+  // Ctrl+Z undoes the most recent pin move or vertex drag, popping
+  // editorStore's moveHistory stack (pushed by FeatureLayer on pin drag and by
+  // onUpdateGeometry above on vertex drag) and replaying it through the same
+  // PATCH used for a live drag. Skipped while actively drawing a new line —
+  // that mode already binds Ctrl+Z to undoing the last placed vertex (see
+  // useMapboxDraw's own handleKeyDown), and 'line' is the only DrawMode that
+  // maps to that in-progress-drawing case (direct_select vertex-editing an
+  // existing feature maps to 'none', so undo still works there).
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z';
+      if (!isUndo || useEditorStore.getState().drawMode === 'line') return;
+
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      const entry = useEditorStore.getState().popMoveHistory();
+      if (!entry) return;
+
+      e.preventDefault();
+      updateGeometryMutationRef.current.mutate({
+        featureId: entry.featureId,
+        layerId: entry.layerId,
+        geometry: entry.previousGeometry,
+      });
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const persistViewport = useDebouncedCallback((change: MapViewChange) => {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });

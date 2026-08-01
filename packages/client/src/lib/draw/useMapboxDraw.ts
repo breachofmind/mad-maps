@@ -10,6 +10,11 @@ export type DrawToolMode = 'simple_select' | 'draw_point' | 'draw_line_string' |
 interface EditingState {
   featureId: string;
   layerId: string;
+  // The feature's geometry before its most recent vertex drag (or, if none has
+  // happened yet this edit session, when editFeature() was first called) — lets
+  // callers push an accurate undo entry per drag rather than always reverting to
+  // the state at the start of the whole edit session.
+  initialGeometry: GeoJSON.Geometry;
 }
 
 interface UseMapboxDrawOptions {
@@ -17,8 +22,14 @@ interface UseMapboxDrawOptions {
   onCreate: (feature: GeoJSON.Feature) => void;
   onModeChange?: (mode: DrawToolMode) => void;
   // Fired when dragging a vertex of a feature currently being edited via
-  // editFeature() finishes (mapbox-gl-draw's direct_select mode).
-  onUpdateGeometry?: (layerId: string, featureId: string, geometry: GeoJSON.Geometry) => void;
+  // editFeature() finishes (mapbox-gl-draw's direct_select mode). previousGeometry
+  // is the feature's geometry immediately before this particular drag.
+  onUpdateGeometry?: (
+    layerId: string,
+    featureId: string,
+    geometry: GeoJSON.Geometry,
+    previousGeometry: GeoJSON.Geometry,
+  ) => void;
 }
 
 export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }: UseMapboxDrawOptions) {
@@ -60,7 +71,8 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
       if (!editing) return;
       for (const feature of e.features) {
         if (feature.id !== undefined && String(feature.id) === editing.featureId && feature.geometry) {
-          onUpdateGeometryRef.current?.(editing.layerId, editing.featureId, feature.geometry);
+          onUpdateGeometryRef.current?.(editing.layerId, editing.featureId, feature.geometry, editing.initialGeometry);
+          editingRef.current = { ...editing, initialGeometry: feature.geometry };
         }
       }
     }
@@ -188,7 +200,7 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
     restoreDragPan();
     draw.add(feature);
     draw.changeMode('direct_select', { featureId: feature.id });
-    editingRef.current = { featureId: feature.id, layerId };
+    editingRef.current = { featureId: feature.id, layerId, initialGeometry: feature.geometry };
   }
 
   function stopEditing() {
