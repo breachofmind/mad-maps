@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
 import { mapboxgl } from '../../lib/map/mapbox';
 
 const MAX_PROPERTIES_SHOWN = 15;
@@ -13,6 +14,7 @@ const MAX_VALUE_LENGTH = 200;
 
 export interface RemoteFeatureSelection {
   feature: GeoJSON.Feature;
+  layerId: string;
   layerName: string;
   layerColor: string;
   lngLat: [number, number];
@@ -22,6 +24,13 @@ interface RemoteFeaturePopupProps {
   map: mapboxgl.Map | null;
   selection: RemoteFeatureSelection | null;
   onClose: () => void;
+  // Null activeLayerName always pairs with a non-null addDisabledReason (see
+  // RemoteLayer's gating) — the button is only actionable once both a
+  // target layer and a copyable geometry are confirmed.
+  activeLayerName: string | null;
+  addDisabledReason: string | null;
+  isAdding: boolean;
+  onAddToActiveLayer: () => void;
 }
 
 function formatPropertyValue(value: unknown): string {
@@ -34,9 +43,19 @@ function formatPropertyValue(value: unknown): string {
 // text via JSX (not dangerouslySetInnerHTML), so React already escapes
 // them — no DOMPurify sanitization needed here, unlike FeaturePopup's
 // descriptionHtml, which is rendered as HTML.
-export function RemoteFeaturePopup({ map, selection, onClose }: RemoteFeaturePopupProps) {
+export function RemoteFeaturePopup({
+  map,
+  selection,
+  onClose,
+  activeLayerName,
+  addDisabledReason,
+  isAdding,
+  onAddToActiveLayer,
+}: RemoteFeaturePopupProps) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onAddToActiveLayerRef = useRef(onAddToActiveLayer);
+  onAddToActiveLayerRef.current = onAddToActiveLayer;
 
   useEffect(() => {
     if (!map || !selection) return;
@@ -52,11 +71,25 @@ export function RemoteFeaturePopup({ map, selection, onClose }: RemoteFeaturePop
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: selection.layerColor, flexShrink: 0 }} />
             <Typography variant="subtitle2">{selection.layerName}</Typography>
           </Stack>
-          <Tooltip title="Close">
-            <IconButton size="small" onClick={() => onCloseRef.current()} aria-label="Close popup">
-              <CloseIcon fontSize="inherit" />
-            </IconButton>
-          </Tooltip>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title={addDisabledReason ?? `Add to ${activeLayerName}`}>
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={Boolean(addDisabledReason) || isAdding}
+                  onClick={() => onAddToActiveLayerRef.current()}
+                  aria-label="Add to my layer"
+                >
+                  <AddIcon fontSize="inherit" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Close">
+              <IconButton size="small" onClick={() => onCloseRef.current()} aria-label="Close popup">
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Stack>
         {entries.length > 0 ? (
           <Stack spacing={0.25}>
@@ -88,7 +121,7 @@ export function RemoteFeaturePopup({ map, selection, onClose }: RemoteFeaturePop
       popup.remove();
       root.unmount();
     };
-  }, [map, selection]);
+  }, [map, selection, activeLayerName, addDisabledReason, isAdding]);
 
   return null;
 }

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig, MapFeaturePropertiesDTO } from '@mapinski/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { externalLayerDataQueryKey, fetchExternalLayerData } from '../../lib/layers/api';
+import { createFeature, featuresQueryKey } from '../../lib/mapFeatures/api';
+import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 import {
   DEFAULT_LABEL_COLORS,
   labelColorsForHighlight,
@@ -13,6 +16,38 @@ import {
 import { ensureExternalIconImages, externalIconImageId } from '../../lib/map/externalIconImages';
 import { REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
+
+// Local features have no arbitrary property bag (MapFeaturePropertiesDTO is a
+// fixed set of fields), so copying a remote feature folds its raw properties
+// into the new feature's description instead of silently discarding them.
+const MAX_COPIED_PROPERTIES = 20;
+// Local map_features geometry is deliberately narrower than what external
+// feeds can contain (see geometrySchema vs externalGeometrySchema in
+// packages/shared/src/geojson.ts) — Multi* geometries can't be copied in.
+const COPYABLE_GEOMETRY_TYPES = new Set(['Point', 'LineString', 'Polygon']);
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function formatCopiedPropertyValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+function buildCopiedDescriptionHtml(properties: GeoJSON.GeoJsonProperties, skipKey: string | null): string {
+  const entries = Object.entries(properties ?? {})
+    .filter(([key, value]) => key !== skipKey && value !== null && value !== undefined && value !== '')
+    .slice(0, MAX_COPIED_PROPERTIES);
+  if (entries.length === 0) return '';
+  const items = entries
+    .map(
+      ([key, value]) =>
+        `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(formatCopiedPropertyValue(value))}</li>`,
+    )
+    .join('');
+  return `<ul>${items}</ul>`;
+}
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 const FILL_OPACITY = 0.25;
@@ -252,6 +287,9 @@ interface RemoteLayerProps {
 // beneath the user's own local layers.
 export function RemoteLayer({ map, layers }: RemoteLayerProps) {
   const remoteLayers = layers.filter((layer) => layer.sourceType === 'geojson-url');
+  const queryClient = useQueryClient();
+  const activeLayerId = useEditorStore((s) => s.activeLayerId);
+  const activeLayer = layers.find((l) => l.id === activeLayerId) ?? null;
 
   const dataQueries = useQueries({
     queries: remoteLayers.map((layer) => ({
@@ -396,6 +434,7 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       }
       setSelection({
         feature: hit,
+        layerId: meta.layerId,
         layerName: meta.layerName,
         layerColor: meta.layerColor,
         lngLat: [e.lngLat.lng, e.lngLat.lat],
@@ -408,5 +447,59 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
     };
   }, [map]);
 
-  return <RemoteFeaturePopup map={map} selection={selection} onClose={() => setSelection(null)} />;
+  const addFeatureMutation = useMutation({
+    mutationFn: ({
+      layerId,
+      geometry,
+      properties,
+    }: {
+      layerId: string;
+      geometry: GeoJSON.Geometry;
+      properties: Partial<MapFeaturePropertiesDTO>;
+    }) => createFeature(layerId, { geometry, properties }),
+    onSuccess: (_result, vars) => {
+      queryClient.invalidateQueries({ queryKey: featuresQueryKey(vars.layerId) });
+      setSelection(null);
+    },
+  });
+
+  const selectionGeometryType = selection?.feature.geometry?.type;
+  let addDisabledReason: string | null = null;
+  if (!activeLayer) {
+    addDisabledReason = 'Select a layer first';
+  } else if (activeLayer.sourceType !== 'local') {
+    addDisabledReason = 'Select one of your own layers first';
+  } else if (!selectionGeometryType || !COPYABLE_GEOMETRY_TYPES.has(selectionGeometryType)) {
+    addDisabledReason = "This feature's shape can't be copied yet";
+  }
+
+  function handleAddToActiveLayer() {
+    if (!selection || !activeLayer || addDisabledReason) return;
+    const sourceLayer = layers.find((l) => l.id === selection.layerId);
+    const labelProperty = sourceLayer?.styleConfig?.labelProperty ?? null;
+    const rawTitle = labelProperty ? selection.feature.properties?.[labelProperty] : undefined;
+    addFeatureMutation.mutate({
+      layerId: activeLayer.id,
+      geometry: selection.feature.geometry,
+      properties: {
+        title: rawTitle != null ? String(rawTitle) : '',
+        descriptionHtml: DOMPurify.sanitize(
+          buildCopiedDescriptionHtml(selection.feature.properties, labelProperty),
+          SANITIZE_CONFIG,
+        ),
+      },
+    });
+  }
+
+  return (
+    <RemoteFeaturePopup
+      map={map}
+      selection={selection}
+      onClose={() => setSelection(null)}
+      activeLayerName={activeLayer?.sourceType === 'local' ? activeLayer.name : null}
+      addDisabledReason={addDisabledReason}
+      isAdding={addFeatureMutation.isPending}
+      onAddToActiveLayer={handleAddToActiveLayer}
+    />
+  );
 }
