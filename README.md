@@ -1,10 +1,10 @@
 # Mapinski
 
-A web app for creating and viewing custom maps on Mapbox — a more flexible, modern alternative to Google's "My Maps" that can export to KML. See `SDD.md` for the full spec.
+A web app for creating and viewing custom maps on Mapbox — a more flexible, modern alternative to Google's "My Maps" that can export to KML. See `docs/SDD.md` for the full spec.
 
 ## Stack
 
-Monorepo (npm workspaces): `shared` (types + GeoJSON zod schemas), `server` (Express + TypeScript + Drizzle/PostGIS API), `client` (Vite + React + TypeScript + MUI + Mapbox GL JS).
+Monorepo (npm workspaces): `packages/shared` (types + GeoJSON zod schemas), `packages/server` (Express + TypeScript + Drizzle/PostGIS API), `packages/client` (Vite + React + TypeScript + MUI + Mapbox GL JS).
 
 ## Prerequisites
 
@@ -19,14 +19,14 @@ Monorepo (npm workspaces): `shared` (types + GeoJSON zod schemas), `server` (Exp
 
 ```bash
 cp .env.example .env
-cp .env.example client/.env.local   # Vite only reads VITE_-prefixed vars from client/.env.local
+cp .env.example packages/client/.env.local   # Vite only reads VITE_-prefixed vars from packages/client/.env.local
 npm install
 docker compose up -d
 npm run db:migrate
 npm run dev
 ```
 
-Fill in `.env` (server) and `client/.env.local` (client) with real credentials before starting — see `.env.example` for the full list of required variables.
+Fill in `.env` (server) and `packages/client/.env.local` (client) with real credentials before starting — see `.env.example` for the full list of required variables.
 
 - Client: http://localhost:5173
 - Server: http://localhost:4000

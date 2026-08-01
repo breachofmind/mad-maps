@@ -7,9 +7,9 @@
   "private": true,
   "type": "commonjs",
   "workspaces": [
-    "shared",
-    "server",
-    "client"
+    "packages/shared",
+    "packages/server",
+    "packages/client"
   ],
   "dependencies": {
     "drizzle-orm": "^0.36.4"
@@ -18,12 +18,12 @@
     "rollup": "npm:@rollup/wasm-node@^4.62.3"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=server & npm run dev --workspace=client & wait",
-    "dev:server": "npm run dev --workspace=server",
-    "dev:client": "npm run dev --workspace=client",
-    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
-    "test": "npm run test --workspace=shared && npm run test --workspace=server && npm run test --workspace=client",
-    "db:generate": "npm run db:generate --workspace=server",
-    "db:migrate": "npm run db:migrate --workspace=server"
+    "dev": "npm run dev --workspace=@mapinski/server & npm run dev --workspace=@mapinski/client & wait",
+    "dev:server": "npm run dev --workspace=@mapinski/server",
+    "dev:client": "npm run dev --workspace=@mapinski/client",
+    "build": "npm run build --workspace=@mapinski/shared && npm run build --workspace=@mapinski/server && npm run build --workspace=@mapinski/client",
+    "test": "npm run test --workspace=@mapinski/shared && npm run test --workspace=@mapinski/server && npm run test --workspace=@mapinski/client",
+    "db:generate": "npm run db:generate --workspace=@mapinski/server",
+    "db:migrate": "npm run db:migrate --workspace=@mapinski/server"
   }
 }
