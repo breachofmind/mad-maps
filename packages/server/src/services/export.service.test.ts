@@ -109,17 +109,19 @@ describe('buildKmlExport', () => {
     expect(kml).toContain('<Folder><name>Points of Interest</name>');
 
     // The Trails folder should contain exactly the Coastal Trail placemark,
-    // and nothing from the Points of Interest layer.
+    // and nothing from the Points of Interest layer. Layers export in
+    // orderIndex order, and newer layers (Points of Interest, created after
+    // Trails) sort first — see createLayer inserting at the top.
     const trailsFolderStart = kml!.indexOf('<Folder><name>Trails</name>');
     const poisFolderStart = kml!.indexOf('<Folder><name>Points of Interest</name>');
-    const trailsFolder = kml!.slice(trailsFolderStart, poisFolderStart);
+    const trailsFolder = kml!.slice(trailsFolderStart);
 
     expect(trailsFolder).toContain('<Placemark>');
     expect(trailsFolder).toContain('<name>Coastal Trail</name>');
     expect(trailsFolder).not.toContain('Lookout Point');
     expect(trailsFolder).not.toContain('Picnic Area');
 
-    const poisFolder = kml!.slice(poisFolderStart);
+    const poisFolder = kml!.slice(poisFolderStart, trailsFolderStart);
     expect(poisFolder).toContain('<name>Lookout Point</name>');
     expect(poisFolder).toContain('<name>Picnic Area</name>');
     expect((poisFolder.match(/<Placemark>/g) ?? []).length).toBe(2);

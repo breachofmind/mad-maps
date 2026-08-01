@@ -50,15 +50,15 @@ describe('layers.service', () => {
     expect(await createLayer(mapId, otherOwnerId, 'Nope')).toBeNull();
   });
 
-  it('creates layers with sequential order indexes and lists them in order', async () => {
+  it('creates each new layer at the top (order index 0), pushing existing layers down', async () => {
     const first = await createLayer(mapId, ownerId, 'Trails');
     const second = await createLayer(mapId, ownerId, 'Points of Interest');
 
     expect(first?.orderIndex).toBe(0);
-    expect(second?.orderIndex).toBe(1);
+    expect(second?.orderIndex).toBe(0);
 
     const list = await listLayersForMap(mapId, ownerId);
-    expect(list?.map((l) => l.name)).toEqual(['Trails', 'Points of Interest']);
+    expect(list?.map((l) => l.name)).toEqual(['Points of Interest', 'Trails']);
   });
 
   it('renames and toggles visibility for a layer', async () => {

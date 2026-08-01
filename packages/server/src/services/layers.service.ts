@@ -26,9 +26,11 @@ export async function createLayer(
   const map = await getMapForOwner(mapId, ownerId);
   if (!map) return null;
 
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(layers)
+  // New layers land at the top of the panel (orderIndex 0), so existing
+  // layers need to shift down to make room before the insert.
+  await db
+    .update(layers)
+    .set({ orderIndex: sql`${layers.orderIndex} + 1`, updatedAt: new Date() })
     .where(eq(layers.mapId, mapId));
 
   const [created] = await db
@@ -36,7 +38,7 @@ export async function createLayer(
     .values({
       mapId,
       name,
-      orderIndex: count,
+      orderIndex: 0,
       sourceType: sourceUrl ? 'geojson-url' : 'local',
       sourceUrl: sourceUrl ?? null,
     })

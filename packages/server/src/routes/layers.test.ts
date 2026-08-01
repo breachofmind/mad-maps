@@ -56,8 +56,8 @@ describe('layer routes', () => {
 
     const listRes = await agent.get(`/api/maps/${mapId}/layers`).expect(200);
     expect(listRes.body.map((l: { name: string }) => l.name)).toEqual([
-      'Trails',
       'Points of Interest',
+      'Trails',
     ]);
 
     const patchRes = await agent

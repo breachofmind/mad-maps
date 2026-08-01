@@ -409,6 +409,23 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           </Menu>
         </Stack>
 
+        {addingLayer && (
+          <Box px={2} pb={1.5} display="flex" gap={1}>
+            <TextField
+              autoFocus
+              size="small"
+              placeholder="Layer name"
+              value={newLayerName}
+              onChange={(e) => setNewLayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitCreate();
+                if (e.key === 'Escape') setAddingLayer(false);
+              }}
+              fullWidth
+            />
+          </Box>
+        )}
+
         {isLoading ? (
           <Box display="flex" justifyContent="center" py={2}>
             <CircularProgress size={20} />
@@ -580,22 +597,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           </List>
         )}
 
-        {addingLayer && (
-          <Box px={2} py={1.5} display="flex" gap={1}>
-            <TextField
-              autoFocus
-              size="small"
-              placeholder="Layer name"
-              value={newLayerName}
-              onChange={(e) => setNewLayerName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submitCreate();
-                if (e.key === 'Escape') setAddingLayer(false);
-              }}
-              fullWidth
-            />
-          </Box>
-        )}
         <AddExternalLayerDialog
           open={addExternalDialogOpen}
           onClose={() => setAddExternalDialogOpen(false)}
