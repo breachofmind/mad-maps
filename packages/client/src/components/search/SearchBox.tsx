@@ -19,6 +19,7 @@ import { searchPlaces } from '../../lib/search/api';
 import { createFeature, featuresQueryKey } from '../../lib/mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
+import { useEditorStore } from '../../lib/state/editorStore';
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -43,10 +44,12 @@ function buildDescriptionHtml(place: PlaceResultDTO): string {
 interface SearchBoxProps {
   map: mapboxgl.Map | null;
   activeLayerId: string | null;
+  canAddFeatures: boolean;
 }
 
-export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
+export function SearchBox({ map, activeLayerId, canAddFeatures }: SearchBoxProps) {
   const queryClient = useQueryClient();
+  const setSelection = useEditorStore((s) => s.setSelection);
   const [inputValue, setInputValue] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedPlace, setSelectedPlace] = useState<PlaceResultDTO | null>(null);
@@ -70,8 +73,11 @@ export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
           descriptionHtml: DOMPurify.sanitize(buildDescriptionHtml(place), SANITIZE_CONFIG),
         },
       }),
-    onSuccess: () => {
-      if (activeLayerId) queryClient.invalidateQueries({ queryKey: featuresQueryKey(activeLayerId) });
+    onSuccess: async (result) => {
+      if (activeLayerId) {
+        await queryClient.invalidateQueries({ queryKey: featuresQueryKey(activeLayerId) });
+        setSelection({ type: 'feature', featureId: result.id });
+      }
       setSelectedPlace(null);
     },
   });
@@ -187,12 +193,20 @@ export function SearchBox({ map, activeLayerId }: SearchBoxProps) {
           <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 220 }}>
             {selectedPlace.formattedAddress}
           </Typography>
-          <Tooltip title={activeLayerId ? 'Add pin at this location' : 'Select a layer first'}>
+          <Tooltip
+            title={
+              !activeLayerId
+                ? 'Select a layer first'
+                : !canAddFeatures
+                  ? 'Select one of your own layers first'
+                  : 'Add pin at this location'
+            }
+          >
             <span>
               <IconButton
                 size="small"
                 color="primary"
-                disabled={!activeLayerId || addPinMutation.isPending}
+                disabled={!activeLayerId || !canAddFeatures || addPinMutation.isPending}
                 onClick={() => addPinMutation.mutate(selectedPlace)}
                 aria-label="Add pin at this location"
               >

@@ -58,11 +58,13 @@ export function MapEditorPage() {
   });
 
   const selectedFeature = useSelectedFeature(layers ?? []);
+  const activeLayer = layers?.find((l) => l.id === activeLayerId) ?? null;
+  const canAddFeatures = activeLayer?.sourceType === 'local';
 
   useEffect(() => {
-    if (!activeLayerId && layers && layers.length > 0) {
-      setActiveLayerId(layers[0].id);
-    }
+    if (activeLayerId || !layers || layers.length === 0) return;
+    const firstLocalLayer = layers.find((l) => l.sourceType === 'local');
+    setActiveLayerId((firstLocalLayer ?? layers[0]).id);
   }, [layers, activeLayerId, setActiveLayerId]);
 
   const patchMutation = useMutation({
@@ -75,8 +77,11 @@ export function MapEditorPage() {
   const createFeatureMutation = useMutation({
     mutationFn: ({ layerId, geometry }: { layerId: string; geometry: GeoJSON.Geometry }) =>
       createFeature(layerId, { geometry }),
-    onSuccess: (_result, variables) => {
-      queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
+    onSuccess: async (result, variables) => {
+      await queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
+      if (variables.geometry.type === 'Point') {
+        setSelection({ type: 'feature', featureId: result.id });
+      }
     },
   });
 
@@ -93,7 +98,7 @@ export function MapEditorPage() {
   const { setMode, editFeature, stopEditing } = useMapboxDraw({
     map: mapInstance,
     onCreate: (feature) => {
-      if (!activeLayerId || !feature.geometry) return;
+      if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
       createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
     },
     onModeChange: (mode) => {
@@ -114,11 +119,22 @@ export function MapEditorPage() {
     active: drawMode === 'route',
     profile: routeProfile,
     onCreate: (feature) => {
-      if (!activeLayerId || !feature.geometry) return;
+      if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
       createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
       setDrawMode('none');
     },
   });
+
+  // If the active layer changes to an external one mid-draw (e.g. the user
+  // switches layers in LayerPanel while a draw/route session is in progress),
+  // bail out rather than let onCreate above silently swallow the finished
+  // feature — external layers can't hold local map_features.
+  useEffect(() => {
+    if (canAddFeatures || drawMode === 'none') return;
+    setDrawMode('none');
+    setMode('simple_select');
+    if (drawMode === 'route') cancel();
+  }, [canAddFeatures, drawMode, setDrawMode, setMode, cancel]);
 
   // Vertex-editing is opt-in via a toggle button in FeaturePropertiesPanel
   // (see isEditingVertices below) rather than showing automatically on
@@ -233,7 +249,7 @@ export function MapEditorPage() {
             : null
         }
       />
-      <SearchBox map={mapInstance} activeLayerId={activeLayerId} />
+      <SearchBox map={mapInstance} activeLayerId={activeLayerId} canAddFeatures={canAddFeatures} />
       <FeaturePopup
         map={mapInstance}
         feature={selectedFeature?.feature ?? null}
@@ -276,7 +292,7 @@ export function MapEditorPage() {
         <MapMenu mapId={map.id} currentStyleUrl={map.baseStyle} />
       </Paper>
       <LayerPanel mapId={map.id} map={mapInstance} />
-      <DrawControls setMode={setMode} disabled={!activeLayerId} />
+      <DrawControls setMode={setMode} disabled={!canAddFeatures} />
       {drawMode === 'route' && (
         <RouteControls
           profile={routeProfile}
