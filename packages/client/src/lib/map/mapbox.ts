@@ -11,5 +11,10 @@ if (!accessToken) {
 
 mapboxgl.accessToken = accessToken ?? '';
 
+// No pmtiles registration needed here: Mapbox GL JS ships 'pmtiles' as a
+// built-in TileProvider name (see RemoteLayer.tsx's `provider: 'pmtiles'`
+// vector source) and lazy-loads its own official provider module from its
+// CDN the first time it's referenced.
+
 export { mapboxgl };
 export { MAP_STYLE_OPTIONS, DEFAULT_MAP_STYLE, type MapStyleOption } from './mapStyles';

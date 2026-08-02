@@ -21,7 +21,22 @@ export interface MapDTO {
   updatedAt: string;
 }
 
-export type LayerSourceType = 'local' | 'geojson-url';
+export type LayerSourceType = 'local' | 'geojson-url' | 'pmtiles-url';
+
+export interface PmtilesLayerMeta {
+  id: string;
+  fields: Record<string, 'Number' | 'String' | 'Boolean'>;
+  description?: string;
+  minzoom?: number;
+  maxzoom?: number;
+}
+
+export interface PmtilesMetadata {
+  layers: PmtilesLayerMeta[];
+  minzoom: number;
+  maxzoom: number;
+  bounds?: [number, number, number, number];
+}
 
 export interface LayerColorStop {
   value: number;
@@ -50,6 +65,8 @@ export interface LayerDTO {
   color: string;
   sourceType: LayerSourceType;
   sourceUrl: string | null;
+  sourceLayer: string | null;
+  pmtilesMetadata: PmtilesMetadata | null;
   styleConfig: LayerStyleConfig | null;
   createdAt: string;
   updatedAt: string;

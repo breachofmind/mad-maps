@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -13,10 +13,19 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
 import Box from '@mui/material/Box';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import { EXTERNAL_DATASETS } from '../../lib/layers/externalDatasets';
-import { createLayer, deleteLayer, fetchExternalLayerData, layersQueryKey } from '../../lib/layers/api';
+import { createLayer, deleteLayer, fetchExternalLayerData, inspectPmtiles, layersQueryKey } from '../../lib/layers/api';
 
-const CUSTOM_OPTION_ID = 'custom';
+const CUSTOM_GEOJSON_OPTION_ID = 'custom-geojson';
+const CUSTOM_PMTILES_OPTION_ID = 'custom-pmtiles';
+// Debounces the PMTiles inspect request so it fires once typing pauses
+// rather than on every keystroke — the request itself is cheap (a couple of
+// small range reads), but there's no reason to spam it mid-paste/mid-type.
+const PMTILES_INSPECT_DEBOUNCE_MS = 400;
 
 interface AddExternalLayerDialogProps {
   open: boolean;
@@ -35,15 +44,46 @@ function isValidHttpUrl(value: string): boolean {
 
 export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLayerDialogProps) {
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string>(EXTERNAL_DATASETS[0]?.id ?? CUSTOM_OPTION_ID);
+  const [selectedId, setSelectedId] = useState<string>(EXTERNAL_DATASETS[0]?.id ?? CUSTOM_GEOJSON_OPTION_ID);
   const [customName, setCustomName] = useState('');
   const [customUrl, setCustomUrl] = useState('');
+  const [pmtilesName, setPmtilesName] = useState('');
+  const [pmtilesUrl, setPmtilesUrl] = useState('');
+  const [pmtilesSourceLayer, setPmtilesSourceLayer] = useState('');
+  const [debouncedPmtilesUrl, setDebouncedPmtilesUrl] = useState('');
 
-  const isCustom = selectedId === CUSTOM_OPTION_ID;
+  const isCustomGeojson = selectedId === CUSTOM_GEOJSON_OPTION_ID;
+  const isPmtiles = selectedId === CUSTOM_PMTILES_OPTION_ID;
   const dataset = EXTERNAL_DATASETS.find((d) => d.id === selectedId);
-  const name = isCustom ? customName.trim() : (dataset?.label ?? '');
-  const url = isCustom ? customUrl.trim() : (dataset?.url ?? '');
-  const canSubmit = name.length > 0 && isValidHttpUrl(url);
+  const name = isCustomGeojson ? customName.trim() : (dataset?.label ?? '');
+  const url = isCustomGeojson ? customUrl.trim() : (dataset?.url ?? '');
+  const canSubmitGeojson = name.length > 0 && isValidHttpUrl(url);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedPmtilesUrl(pmtilesUrl.trim()), PMTILES_INSPECT_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [pmtilesUrl]);
+
+  const inspectQuery = useQuery({
+    queryKey: ['pmtiles-inspect', debouncedPmtilesUrl],
+    queryFn: () => inspectPmtiles(debouncedPmtilesUrl),
+    enabled: isPmtiles && isValidHttpUrl(debouncedPmtilesUrl),
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  // Auto-selects the only source-layer so the common case (a single-layer
+  // archive) needs no extra click; a multi-layer archive still requires an
+  // explicit pick (canSubmitPmtiles below blocks submit until one is made).
+  useEffect(() => {
+    const layers = inspectQuery.data?.layers;
+    setPmtilesSourceLayer(layers?.length === 1 ? layers[0].id : '');
+  }, [inspectQuery.data]);
+
+  const canSubmitPmtiles =
+    pmtilesName.trim().length > 0 &&
+    Boolean(inspectQuery.data) &&
+    (inspectQuery.data!.layers.length === 1 || pmtilesSourceLayer.length > 0);
 
   const addMutation = useMutation({
     // Fetches the URL through the server right after creating the layer, as
@@ -66,21 +106,51 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
     },
   });
 
+  const addPmtilesMutation = useMutation({
+    // Unlike the GeoJSON flow above, validation (inspectQuery) already ran
+    // before this point, so there's no create-then-rollback dance — the
+    // layer is only ever created once we know the URL is a readable
+    // vector PMTiles archive with the chosen source-layer.
+    mutationFn: () =>
+      createLayer(mapId, pmtilesName.trim(), pmtilesUrl.trim(), {
+        sourceFormat: 'pmtiles',
+        sourceLayer: pmtilesSourceLayer,
+        pmtilesMetadata: inspectQuery.data!,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: layersQueryKey(mapId) });
+      handleClose();
+    },
+  });
+
   function handleClose() {
     addMutation.reset();
+    addPmtilesMutation.reset();
     setCustomName('');
     setCustomUrl('');
-    setSelectedId(EXTERNAL_DATASETS[0]?.id ?? CUSTOM_OPTION_ID);
+    setPmtilesName('');
+    setPmtilesUrl('');
+    setPmtilesSourceLayer('');
+    setDebouncedPmtilesUrl('');
+    setSelectedId(EXTERNAL_DATASETS[0]?.id ?? CUSTOM_GEOJSON_OPTION_ID);
     onClose();
   }
+
+  function handleSubmit() {
+    if (isPmtiles) addPmtilesMutation.mutate();
+    else addMutation.mutate();
+  }
+
+  const canSubmit = isPmtiles ? canSubmitPmtiles : canSubmitGeojson;
+  const isPending = isPmtiles ? addPmtilesMutation.isPending : addMutation.isPending;
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>Add Data Layer</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Overlay a public GeoJSON dataset on this map. It renders live from the source and can be toggled or
-          removed like any other layer.
+          Overlay a public GeoJSON or PMTiles dataset on this map. It renders live from the source and can be
+          toggled or removed like any other layer.
         </Typography>
         <RadioGroup value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
           {EXTERNAL_DATASETS.map((ds) => (
@@ -99,10 +169,11 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
               sx={{ alignItems: 'flex-start', mb: 1 }}
             />
           ))}
-          <FormControlLabel value={CUSTOM_OPTION_ID} control={<Radio size="small" />} label="Custom URL" />
+          <FormControlLabel value={CUSTOM_GEOJSON_OPTION_ID} control={<Radio size="small" />} label="Custom GeoJSON URL" />
+          <FormControlLabel value={CUSTOM_PMTILES_OPTION_ID} control={<Radio size="small" />} label="Custom PMTiles URL" />
         </RadioGroup>
 
-        {isCustom && (
+        {isCustomGeojson && (
           <Box display="flex" flexDirection="column" gap={1.5} mt={1} pl={4}>
             <TextField
               size="small"
@@ -123,10 +194,55 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
           </Box>
         )}
 
-        {addMutation.isError && (
+        {isPmtiles && (
+          <Box display="flex" flexDirection="column" gap={1.5} mt={1} pl={4}>
+            <TextField
+              size="small"
+              label="Layer name"
+              value={pmtilesName}
+              onChange={(e) => setPmtilesName(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              size="small"
+              label="PMTiles URL"
+              placeholder="https://example.com/data.pmtiles"
+              value={pmtilesUrl}
+              onChange={(e) => setPmtilesUrl(e.target.value)}
+              error={pmtilesUrl.trim().length > 0 && !isValidHttpUrl(pmtilesUrl.trim())}
+              helperText={inspectQuery.isFetching ? 'Reading archive…' : undefined}
+              fullWidth
+            />
+            {inspectQuery.isError && (
+              <Alert severity="error">
+                Couldn't read that as a PMTiles archive. Double-check the URL and that it's a vector (MVT) tileset.
+              </Alert>
+            )}
+            {inspectQuery.data && inspectQuery.data.layers.length > 1 && (
+              <FormControl size="small" fullWidth>
+                <InputLabel id="pmtiles-source-layer-label">Source layer</InputLabel>
+                <Select
+                  labelId="pmtiles-source-layer-label"
+                  label="Source layer"
+                  value={pmtilesSourceLayer}
+                  onChange={(e) => setPmtilesSourceLayer(e.target.value)}
+                >
+                  {inspectQuery.data.layers.map((l) => (
+                    <MenuItem key={l.id} value={l.id}>
+                      {l.id}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        )}
+
+        {(isPmtiles ? addPmtilesMutation.isError : addMutation.isError) && (
           <Alert severity="error" sx={{ mt: 2 }}>
-            Couldn't load that data source. Double-check the URL and that it returns a valid GeoJSON
-            FeatureCollection.
+            {isPmtiles
+              ? "Couldn't create that layer. Please try again."
+              : "Couldn't load that data source. Double-check the URL and that it returns a valid GeoJSON FeatureCollection."}
           </Alert>
         )}
       </DialogContent>
@@ -134,9 +250,9 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
         <Button onClick={handleClose}>Cancel</Button>
         <Button
           variant="contained"
-          disabled={!canSubmit || addMutation.isPending}
-          onClick={() => addMutation.mutate()}
-          startIcon={addMutation.isPending ? <CircularProgress size={16} /> : undefined}
+          disabled={!canSubmit || isPending}
+          onClick={handleSubmit}
+          startIcon={isPending ? <CircularProgress size={16} /> : undefined}
         >
           Add Layer
         </Button>

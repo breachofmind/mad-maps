@@ -187,4 +187,69 @@ describe('layer routes', () => {
       await agent.get('/api/layers/00000000-0000-0000-0000-000000000000/external-data').expect(404);
     });
   });
+
+  describe('pmtiles layers', () => {
+    const pmtilesMetadata = {
+      layers: [{ id: 'roads', fields: { name: 'String' } }],
+      minzoom: 0,
+      maxzoom: 14,
+    };
+
+    it('creates a layer with sourceType pmtiles-url, sourceLayer, and pmtilesMetadata', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Roads',
+          sourceUrl: 'https://example.com/data.pmtiles',
+          sourceFormat: 'pmtiles',
+          sourceLayer: 'roads',
+          pmtilesMetadata,
+        })
+        .expect(201);
+
+      expect(created.body.sourceType).toBe('pmtiles-url');
+      expect(created.body.sourceUrl).toBe('https://example.com/data.pmtiles');
+      expect(created.body.sourceLayer).toBe('roads');
+      expect(created.body.pmtilesMetadata).toEqual(pmtilesMetadata);
+    });
+
+    it('rejects a pmtiles sourceFormat without a sourceLayer', async () => {
+      await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Missing Source Layer',
+          sourceUrl: 'https://example.com/data.pmtiles',
+          sourceFormat: 'pmtiles',
+          pmtilesMetadata,
+        })
+        .expect(400);
+    });
+
+    it('rejects a pmtiles sourceFormat without pmtilesMetadata', async () => {
+      await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Missing Metadata',
+          sourceUrl: 'https://example.com/data.pmtiles',
+          sourceFormat: 'pmtiles',
+          sourceLayer: 'roads',
+        })
+        .expect(400);
+    });
+
+    it('returns 400 for external-data on a pmtiles-url layer (never proxied server-side)', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Roads 2',
+          sourceUrl: 'https://example.com/data-2.pmtiles',
+          sourceFormat: 'pmtiles',
+          sourceLayer: 'roads',
+          pmtilesMetadata,
+        })
+        .expect(201);
+
+      await agent.get(`/api/layers/${created.body.id}/external-data`).expect(400);
+    });
+  });
 });

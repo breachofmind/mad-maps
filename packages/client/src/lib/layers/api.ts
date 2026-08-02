@@ -1,4 +1,4 @@
-import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig, PmtilesMetadata } from '@mapinski/shared';
 import { apiClient } from '../apiClient';
 
 export interface UpdateLayerInput {
@@ -6,6 +6,12 @@ export interface UpdateLayerInput {
   visible?: boolean;
   color?: string;
   styleConfig?: LayerStyleConfig | null;
+}
+
+export interface CreateLayerPmtilesOptions {
+  sourceFormat: 'pmtiles';
+  sourceLayer: string;
+  pmtilesMetadata: PmtilesMetadata;
 }
 
 export function layersQueryKey(mapId: string) {
@@ -17,8 +23,22 @@ export async function fetchLayers(mapId: string): Promise<LayerDTO[]> {
   return data;
 }
 
-export async function createLayer(mapId: string, name: string, sourceUrl?: string): Promise<LayerDTO> {
-  const { data } = await apiClient.post<LayerDTO>(`/api/maps/${mapId}/layers`, { name, sourceUrl });
+export async function createLayer(
+  mapId: string,
+  name: string,
+  sourceUrl?: string,
+  pmtilesOptions?: CreateLayerPmtilesOptions,
+): Promise<LayerDTO> {
+  const { data } = await apiClient.post<LayerDTO>(`/api/maps/${mapId}/layers`, {
+    name,
+    sourceUrl,
+    ...pmtilesOptions,
+  });
+  return data;
+}
+
+export async function inspectPmtiles(url: string): Promise<PmtilesMetadata> {
+  const { data } = await apiClient.post<PmtilesMetadata>('/api/pmtiles/inspect', { url });
   return data;
 }
 

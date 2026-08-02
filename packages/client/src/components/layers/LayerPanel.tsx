@@ -118,7 +118,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     queries: (layers ?? []).map((layer) => ({
       queryKey: featuresQueryKey(layer.id),
       queryFn: () => fetchFeatures(layer.id),
-      enabled: layer.sourceType !== 'geojson-url',
+      enabled: layer.sourceType === 'local',
     })),
   });
 
@@ -433,7 +433,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
         ) : (
           <List dense disablePadding sx={{ pb: 1.5 }}>
             {layers?.map((layer, index) => {
-              const isRemote = layer.sourceType === 'geojson-url';
+              const isRemote = layer.sourceType !== 'local';
               const features = featureQueries[index]?.data ?? [];
               const externalQuery = externalDataQueries[index];
               const collapsed = collapsedLayerIds.has(layer.id);
@@ -607,6 +607,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
       {selectedLayer && (
         <LayerPropertiesPanel
           layer={selectedLayer}
+          map={map}
           canMoveUp={selectedIndex > 0}
           canMoveDown={layers != null && selectedIndex < layers.length - 1}
           isRefreshing={

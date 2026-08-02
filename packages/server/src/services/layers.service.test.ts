@@ -7,6 +7,7 @@ import {
   deleteLayerForOwner,
   listLayersForMap,
   reorderLayers,
+  toLayerDTO,
   updateLayerForOwner,
 } from './layers.service';
 
@@ -102,9 +103,36 @@ describe('layers.service', () => {
     expect(local?.sourceType).toBe('local');
     expect(local?.sourceUrl).toBeNull();
 
-    const remote = await createLayer(mapId, ownerId, 'Remote Layer', 'https://example.com/data.geojson');
+    const remote = await createLayer(mapId, ownerId, 'Remote Layer', {
+      url: 'https://example.com/data.geojson',
+      format: 'geojson',
+    });
     expect(remote?.sourceType).toBe('geojson-url');
     expect(remote?.sourceUrl).toBe('https://example.com/data.geojson');
+  });
+
+  it('creates a pmtiles-url layer with sourceLayer and pmtilesMetadata, and round-trips through the DTO', async () => {
+    const pmtilesMetadata = {
+      layers: [{ id: 'roads', fields: { name: 'String' as const } }],
+      minzoom: 0,
+      maxzoom: 14,
+    };
+    const created = await createLayer(mapId, ownerId, 'Roads', {
+      url: 'https://example.com/data.pmtiles',
+      format: 'pmtiles',
+      sourceLayer: 'roads',
+      pmtilesMetadata,
+    });
+
+    expect(created?.sourceType).toBe('pmtiles-url');
+    expect(created?.sourceUrl).toBe('https://example.com/data.pmtiles');
+    expect(created?.sourceLayer).toBe('roads');
+    expect(created?.pmtilesMetadata).toEqual(pmtilesMetadata);
+
+    const dto = toLayerDTO(created!);
+    expect(dto.sourceType).toBe('pmtiles-url');
+    expect(dto.sourceLayer).toBe('roads');
+    expect(dto.pmtilesMetadata).toEqual(pmtilesMetadata);
   });
 
   it('defaults styleConfig to null, sets it, and clears it back to null', async () => {

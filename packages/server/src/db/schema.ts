@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean, customType } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean, customType } from 'drizzle-orm/pg-core';
+import type { PmtilesMetadata } from '@mapinski/shared';
 
 // Drizzle's built-in pg-core `geometry()` column only supports Point geometry
 // (its mapToDriverValue always emits `point(...)`), which doesn't fit a
@@ -65,6 +66,8 @@ export interface LayerStyleConfig {
   iconRules: LayerIconRule[];
 }
 
+export const layerSourceTypeEnum = pgEnum('layer_source_type', ['local', 'geojson-url', 'pmtiles-url']);
+
 export const layers = pgTable('layers', {
   id: uuid('id').primaryKey().defaultRandom(),
   mapId: uuid('map_id')
@@ -74,8 +77,16 @@ export const layers = pgTable('layers', {
   orderIndex: integer('order_index').notNull().default(0),
   visible: boolean('visible').notNull().default(true),
   color: text('color').notNull().default('#1976d2'),
-  sourceType: text('source_type').notNull().default('local'),
+  sourceType: layerSourceTypeEnum('source_type').notNull().default('local'),
   sourceUrl: text('source_url'),
+  // Only set for sourceType 'pmtiles-url': the vector-tile source-layer name
+  // this Mapinski layer renders. A PMTiles archive with multiple named
+  // layers is added multiple times, once per source-layer.
+  sourceLayer: text('source_layer'),
+  // Only set for sourceType 'pmtiles-url': captured once at add-time from
+  // the archive's header/metadata (field names+types, zoom, bounds) so the
+  // client never has to re-fetch the archive to know what properties exist.
+  pmtilesMetadata: jsonb('pmtiles_metadata').$type<PmtilesMetadata>(),
   styleConfig: jsonb('style_config').$type<LayerStyleConfig>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

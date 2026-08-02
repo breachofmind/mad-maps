@@ -16,6 +16,7 @@ import { layerMapFeaturesRouter, mapFeaturesRouter } from './routes/mapFeatures'
 import { searchRouter } from './routes/search';
 import { mapExportRouter } from './routes/export';
 import { mapImportRouter, newMapImportRouter } from './routes/import';
+import { pmtilesRouter } from './routes/pmtiles';
 
 const PgSession = connectPgSimple(session);
 
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/layers/:layerId/mapFeatures', layerMapFeaturesRouter);
   app.use('/api/mapFeatures', mapFeaturesRouter);
   app.use('/api/search', searchRouter);
+  app.use('/api/pmtiles', pmtilesRouter);
   app.use('/api/maps/:mapId/export', mapExportRouter);
   app.use('/api/maps/import', newMapImportRouter);
   app.use('/api/maps/:mapId/import', mapImportRouter);

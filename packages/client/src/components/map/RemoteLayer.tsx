@@ -153,20 +153,25 @@ function pointFilter(iconFilter: MapboxExpression | null): MapboxExpression {
 // use of the same expression for local features.
 function ensureRemoteLayerAdded(
   map: mapboxgl.Map,
-  layerId: string,
-  color: string,
-  styleConfig: LayerStyleConfig | null,
+  layer: LayerDTO,
   loadedIconUrls: ReadonlySet<string>,
   labelColors: LabelColors,
   data: GeoJSON.FeatureCollection,
 ) {
+  const layerId = layer.id;
   const id = sourceId(layerId);
   const ids = subLayerIds(layerId);
-  const colorExpression = buildColorExpression(color, styleConfig);
-  const iconFilter = iconValuesFilter(styleConfig, loadedIconUrls);
-  const existing = map.getSource(id) as mapboxgl.GeoJSONSource | undefined;
+  const colorExpression = buildColorExpression(layer.color, layer.styleConfig);
+  const iconFilter = iconValuesFilter(layer.styleConfig, loadedIconUrls);
+  const styleConfig = layer.styleConfig;
+  // Vector sources (pmtiles-url) have no setData equivalent — a fetched
+  // tile is immutable once loaded, and the source URL/source-layer are
+  // fixed at layer-creation time, so there's nothing to refresh here.
+  const isVectorSource = layer.sourceType === 'pmtiles-url';
+  const sourceLayerProps = isVectorSource ? { 'source-layer': layer.sourceLayer! } : {};
+  const existing = map.getSource(id) as mapboxgl.GeoJSONSource | mapboxgl.VectorTileSource | undefined;
   if (existing) {
-    existing.setData(data);
+    if (!isVectorSource) (existing as mapboxgl.GeoJSONSource).setData(data);
     if (map.getLayer(ids.fill)) map.setPaintProperty(ids.fill, 'fill-color', colorExpression);
     if (map.getLayer(ids.outline)) map.setPaintProperty(ids.outline, 'line-color', colorExpression);
     if (map.getLayer(ids.line)) map.setPaintProperty(ids.line, 'line-color', colorExpression);
@@ -186,11 +191,20 @@ function ensureRemoteLayerAdded(
     return;
   }
 
-  map.addSource(id, { type: 'geojson', data });
+  if (isVectorSource) {
+    // 'pmtiles' is a built-in Mapbox GL TileProvider name — the browser
+    // lazy-loads Mapbox's own official provider module the first time a
+    // vector source references it, which reads tiles from the archive at
+    // this URL via HTTP range requests. No protocol registration needed.
+    map.addSource(id, { type: 'vector', url: layer.sourceUrl!, provider: 'pmtiles' });
+  } else {
+    map.addSource(id, { type: 'geojson', data });
+  }
   map.addLayer({
     id: ids.fill,
     type: 'fill',
     source: id,
+    ...sourceLayerProps,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: { 'fill-color': colorExpression, 'fill-opacity': FILL_OPACITY },
   });
@@ -198,6 +212,7 @@ function ensureRemoteLayerAdded(
     id: ids.outline,
     type: 'line',
     source: id,
+    ...sourceLayerProps,
     filter: ['==', ['geometry-type'], 'Polygon'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': colorExpression, 'line-width': OUTLINE_WIDTH },
@@ -206,6 +221,7 @@ function ensureRemoteLayerAdded(
     id: ids.line,
     type: 'line',
     source: id,
+    ...sourceLayerProps,
     filter: ['==', ['geometry-type'], 'LineString'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': colorExpression, 'line-width': LINE_WIDTH },
@@ -214,6 +230,7 @@ function ensureRemoteLayerAdded(
     id: ids.point,
     type: 'circle',
     source: id,
+    ...sourceLayerProps,
     filter: pointFilter(iconFilter),
     paint: {
       'circle-color': colorExpression,
@@ -228,6 +245,7 @@ function ensureRemoteLayerAdded(
     id: ids.icon,
     type: 'symbol',
     source: id,
+    ...sourceLayerProps,
     filter: iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER,
     layout: {
       'icon-image': iconImageExpression(styleConfig, loadedIconUrls),
@@ -244,6 +262,7 @@ function ensureRemoteLayerAdded(
     id: ids.label,
     type: 'symbol',
     source: id,
+    ...sourceLayerProps,
     layout: {
       'text-field': labelTextField(styleConfig?.labelProperty),
       'text-size': LABEL_TEXT_SIZE,
@@ -286,15 +305,19 @@ interface RemoteLayerProps {
 // Mounted before FeatureLayer in MapEditorPage so remote overlays render
 // beneath the user's own local layers.
 export function RemoteLayer({ map, layers }: RemoteLayerProps) {
-  const remoteLayers = layers.filter((layer) => layer.sourceType === 'geojson-url');
+  const remoteLayers = layers.filter((layer) => layer.sourceType === 'geojson-url' || layer.sourceType === 'pmtiles-url');
   const queryClient = useQueryClient();
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const activeLayer = layers.find((l) => l.id === activeLayerId) ?? null;
 
+  // pmtiles-url layers render straight from their source URL via Mapbox's
+  // vector source (see ensureRemoteLayerAdded) — no server round-trip, so
+  // no query is enabled for them here.
   const dataQueries = useQueries({
     queries: remoteLayers.map((layer) => ({
       queryKey: externalLayerDataQueryKey(layer.id),
       queryFn: () => fetchExternalLayerData(layer.id),
+      enabled: layer.sourceType === 'geojson-url',
       staleTime: Infinity,
     })),
   });
@@ -332,15 +355,7 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       const meta = new Map<string, { layerId: string; layerName: string; layerColor: string }>();
       currentLayers.forEach((layer, index) => {
         const data = currentQueries[index]?.data ?? EMPTY_COLLECTION;
-        ensureRemoteLayerAdded(
-          map,
-          layer.id,
-          layer.color,
-          layer.styleConfig,
-          loadedIconUrlsRef.current,
-          labelColorsRef.current,
-          data,
-        );
+        ensureRemoteLayerAdded(map, layer, loadedIconUrlsRef.current, labelColorsRef.current, data);
         setRemoteLayerVisibility(map, layer.id, layer.visible);
         for (const subLayerId of Object.values(subLayerIds(layer.id))) {
           meta.set(subLayerId, { layerId: layer.id, layerName: layer.name, layerColor: layer.color });
@@ -372,7 +387,12 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     map,
-    remoteLayers.map((l) => `${l.id}:${l.name}:${l.color}:${l.visible}:${JSON.stringify(l.styleConfig)}`).join(','),
+    remoteLayers
+      .map(
+        (l) =>
+          `${l.id}:${l.name}:${l.color}:${l.visible}:${l.sourceType}:${l.sourceUrl}:${l.sourceLayer}:${JSON.stringify(l.styleConfig)}`,
+      )
+      .join(','),
     dataQueries.map((q) => q.dataUpdatedAt).join(','),
   ]);
 

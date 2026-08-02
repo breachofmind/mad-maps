@@ -1,5 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
+import { pmtilesMetadataSchema } from '@mapinski/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {
@@ -17,10 +18,37 @@ function currentUser(req: import('express').Request): User {
   return req.user as User;
 }
 
-const createLayerSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  sourceUrl: z.string().trim().url().max(2000).optional(),
-});
+const createLayerSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    sourceUrl: z.string().trim().url().max(2000).optional(),
+    sourceFormat: z.enum(['geojson', 'pmtiles']).optional(),
+    sourceLayer: z.string().trim().min(1).max(200).optional(),
+    pmtilesMetadata: pmtilesMetadataSchema.optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.sourceFormat === 'pmtiles') {
+      if (!val.sourceUrl) {
+        ctx.addIssue({ code: 'custom', message: 'sourceUrl is required for a pmtiles layer', path: ['sourceUrl'] });
+      }
+      if (!val.sourceLayer) {
+        ctx.addIssue({ code: 'custom', message: 'sourceLayer is required for a pmtiles layer', path: ['sourceLayer'] });
+      }
+      if (!val.pmtilesMetadata) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'pmtilesMetadata is required for a pmtiles layer',
+          path: ['pmtilesMetadata'],
+        });
+      }
+    } else if (val.sourceLayer || val.pmtilesMetadata) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'sourceLayer/pmtilesMetadata only apply to pmtiles layers',
+        path: ['sourceFormat'],
+      });
+    }
+  });
 
 const styleConfigSchema = z
   .object({
@@ -65,7 +93,17 @@ mapLayersRouter.post('/', async (req: Request<{ mapId: string }>, res) => {
   const parsed = createLayerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const created = await createLayer(req.params.mapId, currentUser(req).id, parsed.data.name, parsed.data.sourceUrl);
+  const { name, sourceUrl, sourceFormat, sourceLayer, pmtilesMetadata } = parsed.data;
+  const source = sourceUrl
+    ? {
+        url: sourceUrl,
+        format: sourceFormat === 'pmtiles' ? ('pmtiles' as const) : ('geojson' as const),
+        sourceLayer,
+        pmtilesMetadata,
+      }
+    : undefined;
+
+  const created = await createLayer(req.params.mapId, currentUser(req).id, name, source);
   if (!created) return res.status(404).json({ error: 'Map not found' });
   res.status(201).json(toLayerDTO(created));
 });

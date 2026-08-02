@@ -1,8 +1,15 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { LayerDTO } from '@mapinski/shared';
+import type { LayerDTO, PmtilesMetadata } from '@mapinski/shared';
 import { db } from '../db/client';
 import { layers, maps, type Layer, type LayerStyleConfig } from '../db/schema';
 import { getMapForOwner } from './maps.service';
+
+export interface CreateLayerSource {
+  url: string;
+  format: 'geojson' | 'pmtiles';
+  sourceLayer?: string;
+  pmtilesMetadata?: PmtilesMetadata;
+}
 
 export interface UpdateLayerInput {
   name?: string;
@@ -21,7 +28,7 @@ export async function createLayer(
   mapId: string,
   ownerId: string,
   name: string,
-  sourceUrl?: string,
+  source?: CreateLayerSource,
 ): Promise<Layer | null> {
   const map = await getMapForOwner(mapId, ownerId);
   if (!map) return null;
@@ -39,8 +46,10 @@ export async function createLayer(
       mapId,
       name,
       orderIndex: 0,
-      sourceType: sourceUrl ? 'geojson-url' : 'local',
-      sourceUrl: sourceUrl ?? null,
+      sourceType: source ? (source.format === 'pmtiles' ? 'pmtiles-url' : 'geojson-url') : 'local',
+      sourceUrl: source?.url ?? null,
+      sourceLayer: source?.format === 'pmtiles' ? (source.sourceLayer ?? null) : null,
+      pmtilesMetadata: source?.format === 'pmtiles' ? (source.pmtilesMetadata ?? null) : null,
     })
     .returning();
   return created;
@@ -110,8 +119,10 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     orderIndex: layer.orderIndex,
     visible: layer.visible,
     color: layer.color,
-    sourceType: layer.sourceType === 'geojson-url' ? 'geojson-url' : 'local',
+    sourceType: layer.sourceType,
     sourceUrl: layer.sourceUrl,
+    sourceLayer: layer.sourceLayer,
+    pmtilesMetadata: layer.pmtilesMetadata ?? null,
     styleConfig: layer.styleConfig ?? null,
     createdAt: layer.createdAt.toISOString(),
     updatedAt: layer.updatedAt.toISOString(),

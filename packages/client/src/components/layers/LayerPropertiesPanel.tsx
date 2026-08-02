@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type mapboxgl from 'mapbox-gl';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -20,7 +21,15 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import type { LayerColorStop, LayerDTO, LayerIconRule, LayerStyleConfig } from '@mapinski/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { previewIconImage } from '../../lib/map/externalIconImages';
-import { collectDistinctValues, collectPropertyStats, numericRange } from '../../lib/layers/propertyStats';
+import { REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
+import {
+  collectDistinctValues,
+  collectPropertyStats,
+  numericRange,
+  type PropertyStats,
+} from '../../lib/layers/propertyStats';
+
+const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
   labelProperty: null,
@@ -186,6 +195,7 @@ function IconRuleRow({
 
 interface LayerPropertiesPanelProps {
   layer: LayerDTO;
+  map: mapboxgl.Map | null;
   canMoveUp: boolean;
   canMoveDown: boolean;
   isRefreshing: boolean;
@@ -201,6 +211,7 @@ interface LayerPropertiesPanelProps {
 
 export function LayerPropertiesPanel({
   layer,
+  map,
   canMoveUp,
   canMoveDown,
   isRefreshing,
@@ -213,12 +224,54 @@ export function LayerPropertiesPanel({
   onDelete,
   onClose,
 }: LayerPropertiesPanelProps) {
-  const isRemote = layer.sourceType === 'geojson-url';
+  const isRemote = layer.sourceType !== 'local';
+  const isPmtiles = layer.sourceType === 'pmtiles-url';
   // Merged rather than a plain `?? EMPTY_STYLE_CONFIG` fallback so a
   // styleConfig saved before iconProperty/iconRules existed still has both
   // fields defined.
   const styleConfig: LayerStyleConfig = { ...EMPTY_STYLE_CONFIG, ...(layer.styleConfig ?? {}) };
-  const stats = useMemo(() => collectPropertyStats(externalData), [externalData]);
+
+  // pmtiles-url layers have no server-fetched FeatureCollection (see
+  // RemoteLayer.tsx) — property names come from the archive metadata
+  // captured at add-time (authoritative), while numeric ranges/distinct
+  // values are sampled from whichever tiles are currently loaded into the
+  // map's source cache (best-effort, not the full dataset). Re-sampled
+  // whenever the source reports new tile data.
+  const [pmtilesSampleTick, setPmtilesSampleTick] = useState(0);
+  useEffect(() => {
+    if (!map || !isPmtiles) return;
+    const id = `${REMOTE_LAYER_ID_PREFIX}${layer.id}`;
+    function handleSourceData(e: mapboxgl.MapSourceDataEvent) {
+      if (e.sourceId === id && e.isSourceLoaded) setPmtilesSampleTick((t) => t + 1);
+    }
+    map.on('sourcedata', handleSourceData);
+    return () => {
+      map.off('sourcedata', handleSourceData);
+    };
+  }, [map, isPmtiles, layer.id]);
+
+  const pmtilesSampleData = useMemo<GeoJSON.FeatureCollection>(() => {
+    if (!map || !isPmtiles || !layer.sourceLayer) return EMPTY_FEATURE_COLLECTION;
+    const id = `${REMOTE_LAYER_ID_PREFIX}${layer.id}`;
+    if (!map.getSource(id)) return EMPTY_FEATURE_COLLECTION;
+    const features = map.querySourceFeatures(id, { sourceLayer: layer.sourceLayer });
+    return { type: 'FeatureCollection', features };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, isPmtiles, layer.id, layer.sourceLayer, pmtilesSampleTick]);
+
+  const pmtilesLayerMeta = layer.pmtilesMetadata?.layers.find((l) => l.id === layer.sourceLayer);
+  const pmtilesStats = useMemo<PropertyStats>(() => {
+    if (!pmtilesLayerMeta) return { all: [], numeric: [] };
+    const entries = Object.entries(pmtilesLayerMeta.fields);
+    return {
+      all: entries.map(([key]) => key).sort(),
+      numeric: entries.filter(([, type]) => type === 'Number').map(([key]) => key).sort(),
+    };
+  }, [pmtilesLayerMeta]);
+
+  const effectiveData = isPmtiles ? pmtilesSampleData : externalData;
+  const geojsonStats = useMemo(() => collectPropertyStats(externalData), [externalData]);
+  const stats = isPmtiles ? pmtilesStats : geojsonStats;
   const failedIconUrls = useEditorStore((s) => s.failedIconUrls);
 
   function handleLabelPropertyChange(e: SelectChangeEvent) {
@@ -231,7 +284,7 @@ export function LayerPropertiesPanel({
       onStyleConfigChange({ ...styleConfig, colorProperty: null });
       return;
     }
-    const range = numericRange(externalData, colorProperty);
+    const range = numericRange(effectiveData, colorProperty);
     const colorStops: LayerColorStop[] = [
       { value: range?.min ?? 0, color: DEFAULT_LOW_COLOR },
       { value: range?.max ?? 1, color: DEFAULT_HIGH_COLOR },
@@ -273,8 +326,8 @@ export function LayerPropertiesPanel({
   }
 
   const distinctIconValues = useMemo(
-    () => (styleConfig.iconProperty ? collectDistinctValues(externalData, styleConfig.iconProperty) : []),
-    [externalData, styleConfig.iconProperty],
+    () => (styleConfig.iconProperty ? collectDistinctValues(effectiveData, styleConfig.iconProperty) : []),
+    [effectiveData, styleConfig.iconProperty],
   );
   const mappedIconValues = new Set(styleConfig.iconRules.map((rule) => rule.value));
   const unmappedIconValues = distinctIconValues.filter((value) => !mappedIconValues.has(value));
@@ -443,15 +496,17 @@ export function LayerPropertiesPanel({
                 {layer.sourceUrl}
               </Typography>
             )}
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={isRefreshing}
-              startIcon={isRefreshing ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
-              onClick={onRefresh}
-            >
-              Refresh data
-            </Button>
+            {layer.sourceType === 'geojson-url' && (
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={isRefreshing}
+                startIcon={isRefreshing ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
+                onClick={onRefresh}
+              >
+                Refresh data
+              </Button>
+            )}
           </Box>
         )}
 
