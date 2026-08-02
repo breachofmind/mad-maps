@@ -24,7 +24,11 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
+  // exposedHeaders is needed so client-side JS can read Content-Disposition
+  // cross-origin (client/server run on different ports) — without it the
+  // browser hides that header even though the response includes it, and
+  // file downloads (map export) silently fall back to a generic filename.
+  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true, exposedHeaders: ['Content-Disposition'] }));
   app.use(express.json({ limit: '10mb' }));
   app.use(cookieParser());
 

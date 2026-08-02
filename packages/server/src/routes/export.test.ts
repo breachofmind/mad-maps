@@ -58,6 +58,17 @@ describe('GET /api/maps/:mapId/export', () => {
     expect(res.body.features).toHaveLength(1);
   });
 
+  it('exposes Content-Disposition via CORS so the client can read the filename cross-origin', async () => {
+    // The client and server run on different origins/ports, so without
+    // Access-Control-Expose-Headers the browser hides Content-Disposition
+    // from JS even though the response includes it — supertest doesn't
+    // simulate that restriction, so this specifically checks the response
+    // header cors() is expected to add for a cross-origin request.
+    const res = await agent.get(`/api/maps/${mapId}/export`).set('Origin', 'http://localhost:5173').expect(200);
+
+    expect(res.headers['access-control-expose-headers']).toContain('Content-Disposition');
+  });
+
   it('returns KML with the correct content type and filename when format=kml', async () => {
     const res = await agent.get(`/api/maps/${mapId}/export?format=kml`).expect(200);
 
