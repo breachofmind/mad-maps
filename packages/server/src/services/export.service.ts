@@ -3,7 +3,7 @@ import { getMapForOwner } from './maps.service';
 import { listLayersForMap } from './layers.service';
 import { listFeaturesForLayer, toMapFeatureDTO } from './features.service';
 
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -16,7 +16,7 @@ function escapeXml(value: string): string {
 // no way to ask for just the inner Placemarks, so per-layer KML is generated
 // independently and its Document body extracted, then re-wrapped in a
 // <Folder> per layer under a single outer <Document>.
-function extractDocumentInner(kml: string): string {
+export function extractDocumentInner(kml: string): string {
   const openTag = '<Document>';
   const start = kml.indexOf(openTag);
   const end = kml.lastIndexOf('</Document>');

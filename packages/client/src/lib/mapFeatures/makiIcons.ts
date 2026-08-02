@@ -1,29 +1,6 @@
-import { MAKI_ICON_SVGS } from './makiIconSvgs.generated';
+import { MAKI_ICON_NAMES, type MakiIconName } from '@mapinski/shared';
 
-// Namespaced so a Maki key can never collide with an existing MUI-based
-// FeatureIconName (packages/client/src/lib/mapFeatures/icons.ts) — both are
-// valid values of the same plain-string icon/defaultIcon fields.
-const MAKI_PREFIX = 'maki:';
-
-export type MakiIconName = `maki:${string}`;
-
-export function isMakiIconName(name: string): name is MakiIconName {
-  return name.startsWith(MAKI_PREFIX) && name.slice(MAKI_PREFIX.length) in MAKI_ICON_SVGS;
-}
-
-export function makiIconKey(baseName: string): MakiIconName {
-  return `${MAKI_PREFIX}${baseName}`;
-}
-
-// Raw <svg>...</svg> markup (viewBox 0 0 15 15, no fill set on the path) for
-// a Maki icon name — accepts either the bare Maki name ("restaurant") or the
-// namespaced key ("maki:restaurant").
-export function getMakiIconMarkup(name: string): string | undefined {
-  const baseName = name.startsWith(MAKI_PREFIX) ? name.slice(MAKI_PREFIX.length) : name;
-  return MAKI_ICON_SVGS[baseName];
-}
-
-export const MAKI_ICON_NAMES: MakiIconName[] = Object.keys(MAKI_ICON_SVGS).sort().map(makiIconKey);
+export { isMakiIconName, makiIconKey, getMakiIconMarkup, MAKI_ICON_NAMES, type MakiIconName } from '@mapinski/shared';
 
 export interface FeatureIconCategory {
   label: string;
@@ -118,16 +95,17 @@ function formatMakiLabel(baseName: string): string {
 }
 
 export function formatMakiIconLabel(name: MakiIconName): string {
-  return formatMakiLabel(name.slice(MAKI_PREFIX.length));
+  return formatMakiLabel(name.slice('maki:'.length));
 }
 
 export const MAKI_ICON_CATEGORIES: FeatureIconCategory[] = (() => {
   const buckets = new Map<string, MakiIconName[]>(CATEGORY_KEYWORDS.map(({ label }) => [label, []]));
   const more: MakiIconName[] = [];
 
-  for (const baseName of Object.keys(MAKI_ICON_SVGS).sort()) {
+  for (const name of MAKI_ICON_NAMES) {
+    const baseName = name.slice('maki:'.length);
     const bucket = CATEGORY_KEYWORDS.find(({ keywords }) => keywords.some((keyword) => nameMatchesKeyword(baseName, keyword)));
-    (bucket ? buckets.get(bucket.label)! : more).push(makiIconKey(baseName));
+    (bucket ? buckets.get(bucket.label)! : more).push(name);
   }
 
   const categories = CATEGORY_KEYWORDS.map(({ label }) => ({ label, names: buckets.get(label)! })).filter(

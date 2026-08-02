@@ -59,6 +59,12 @@ export function MapMenu({ mapId, currentStyleUrl }: MapMenuProps) {
           </ListItemIcon>
           <ListItemText>Export as KML</ListItemText>
         </MenuItem>
+        <MenuItem onClick={() => handleExport('kmz')}>
+          <ListItemIcon>
+            <DownloadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Export as KMZ (with icons)</ListItemText>
+        </MenuItem>
         <Divider />
         <MenuItem onClick={handleImportClick}>
           <ListItemIcon>

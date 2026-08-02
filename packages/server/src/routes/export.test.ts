@@ -67,6 +67,23 @@ describe('GET /api/maps/:mapId/export', () => {
     expect(res.text).toContain('<name>A Pin</name>');
   });
 
+  it('returns a KMZ with the correct content type and filename when format=kmz', async () => {
+    const res = await agent
+      .get(`/api/maps/${mapId}/export?format=kmz`)
+      .buffer()
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+
+    expect(res.headers['content-type']).toContain('application/vnd.google-earth.kmz');
+    expect(res.headers['content-disposition']).toContain('export-route-test-map.kmz');
+    // Zip local-file-header magic bytes ("PK\x03\x04").
+    expect((res.body as Buffer).subarray(0, 4).toString('hex')).toBe('504b0304');
+  });
+
   it('rejects an invalid format with 400', async () => {
     await agent.get(`/api/maps/${mapId}/export?format=shapefile`).expect(400);
   });

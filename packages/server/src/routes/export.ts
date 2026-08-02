@@ -4,6 +4,7 @@ import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import { getMapForOwner } from '../services/maps.service';
 import { buildGeoJsonExport, buildKmlExport } from '../services/export.service';
+import { buildKmzExport } from '../services/kmz.service';
 
 function currentUser(req: import('express').Request): User {
   return req.user as User;
@@ -14,7 +15,7 @@ function slugify(title: string): string {
   return slug || 'map';
 }
 
-const querySchema = z.object({ format: z.enum(['geojson', 'kml']).default('geojson') });
+const querySchema = z.object({ format: z.enum(['geojson', 'kml', 'kmz']).default('geojson') });
 
 export const mapExportRouter = Router({ mergeParams: true });
 mapExportRouter.use(requireAuth);
@@ -34,6 +35,13 @@ mapExportRouter.get('/', async (req: Request<{ mapId: string }>, res) => {
     res.setHeader('Content-Type', 'application/vnd.google-earth.kml+xml');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.send(kml);
+  }
+
+  if (parsed.data.format === 'kmz') {
+    const kmz = await buildKmzExport(req.params.mapId, ownerId);
+    res.setHeader('Content-Type', 'application/vnd.google-earth.kmz');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(kmz);
   }
 
   const geojson = await buildGeoJsonExport(req.params.mapId, ownerId);

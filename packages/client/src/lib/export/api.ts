@@ -1,6 +1,6 @@
 import { apiClient } from '../apiClient';
 
-export type ExportFormat = 'geojson' | 'kml';
+export type ExportFormat = 'geojson' | 'kml' | 'kmz';
 
 function filenameFromContentDisposition(header: unknown, fallback: string): string {
   if (typeof header !== 'string') return fallback;
