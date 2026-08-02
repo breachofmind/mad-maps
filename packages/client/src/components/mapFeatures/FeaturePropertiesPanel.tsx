@@ -27,6 +27,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { FEATURE_COLORS, normalizeHexColor } from '../../lib/mapFeatures/colors';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
+import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -291,24 +292,9 @@ export function FeaturePropertiesPanel({
               />
             ))}
             <Tooltip title="Custom color">
-              <Box
-                component="input"
-                type="color"
-                value={customColorValue}
-                onChange={(e) => selectColor(e.target.value)}
-                sx={{
-                  width: 32,
-                  height: 32,
-                  p: 0,
-                  border: 'none',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  '&::-webkit-color-swatch-wrapper': { p: 0 },
-                  '&::-webkit-color-swatch': { border: '2px solid black', borderRadius: '50%' },
-                  '&::-moz-color-swatch': { border: '2px solid black', borderRadius: '50%' },
-                }}
-              />
+              <span>
+                <ColorSwatchInput value={customColorValue} onChange={selectColor} ariaLabel="Custom color" />
+              </span>
             </Tooltip>
             <TextField
               size="small"

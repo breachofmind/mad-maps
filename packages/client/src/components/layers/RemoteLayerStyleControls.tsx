@@ -17,6 +17,7 @@ import { useEditorStore } from '../../lib/state/editorStore';
 import { previewIconImage } from '../../lib/map/externalIconImages';
 import { usePmtilesSourceFeatures } from '../../lib/map/usePmtilesSourceFeatures';
 import { collectDistinctValues, collectPropertyStats, numericRange, pmtilesPropertyStats } from '../../lib/layers/propertyStats';
+import { ColorSwatchInput } from '../common/ColorSwatchInput';
 
 const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
   labelProperty: null,
@@ -27,40 +28,6 @@ const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
 };
 const DEFAULT_LOW_COLOR = '#1976d2';
 const DEFAULT_HIGH_COLOR = '#d32f2f';
-
-const COLOR_SWATCH_SX = {
-  width: 32,
-  height: 32,
-  p: 0,
-  border: 'none',
-  borderRadius: '50%',
-  overflow: 'hidden',
-  cursor: 'pointer',
-  '&::-webkit-color-swatch-wrapper': { p: 0 },
-  '&::-webkit-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
-  '&::-moz-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
-};
-
-function ColorSwatchInput({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: string;
-  onChange: (color: string) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <Box
-      component="input"
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={ariaLabel}
-      sx={COLOR_SWATCH_SX}
-    />
-  );
-}
 
 function GradientStopRow({
   label,
