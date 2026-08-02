@@ -8,11 +8,13 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import SearchIcon from '@mui/icons-material/Search';
-import { FEATURE_ICONS, FEATURE_ICON_CATEGORIES, type FeatureIconName } from '../../lib/mapFeatures/icons';
+import { FEATURE_ICON_NAMES, type FeatureIconName } from '../../lib/mapFeatures/icons';
+import { MAKI_ICON_CATEGORIES, formatMakiIconLabel, isMakiIconName, type MakiIconName } from '../../lib/mapFeatures/makiIcons';
+import { FeatureIconGlyph } from './FeatureIconGlyph';
 
 interface IconPickerProps {
   value: string;
-  onChange: (icon: FeatureIconName) => void;
+  onChange: (icon: MakiIconName) => void;
 }
 
 const LABEL_OVERRIDES: Partial<Record<FeatureIconName, string>> = {
@@ -20,21 +22,28 @@ const LABEL_OVERRIDES: Partial<Record<FeatureIconName, string>> = {
   evStation: 'EV Station',
 };
 
-function formatIconLabel(name: FeatureIconName): string {
-  return LABEL_OVERRIDES[name] ?? name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+function formatIconLabel(name: string): string {
+  if (isMakiIconName(name)) return formatMakiIconLabel(name);
+  return LABEL_OVERRIDES[name as FeatureIconName] ?? name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 }
+
+// Only Maki icons are offered for new selections (see makiIcons.ts) — the
+// old MUI set (icons.ts) is kept only so already-saved features/layers with
+// an MUI-keyed icon (e.g. "restaurant") keep resolving and rendering
+// correctly; formatIconLabel/FeatureIconGlyph below still understand those
+// keys for that reason.
+const ALL_CATEGORIES = MAKI_ICON_CATEGORIES;
 
 export function IconPicker({ value, onChange }: IconPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [search, setSearch] = useState('');
 
-  const selectedName = (value in FEATURE_ICONS ? value : 'marker') as FeatureIconName;
-  const SelectedIcon = FEATURE_ICONS[selectedName];
+  const selectedName = isMakiIconName(value) || (FEATURE_ICON_NAMES as readonly string[]).includes(value) ? value : 'marker';
 
   const filteredCategories = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return FEATURE_ICON_CATEGORIES;
-    return FEATURE_ICON_CATEGORIES.map((category) => ({
+    if (!query) return ALL_CATEGORIES;
+    return ALL_CATEGORIES.map((category) => ({
       ...category,
       names: category.names.filter((name) => formatIconLabel(name).toLowerCase().includes(query)),
     })).filter((category) => category.names.length > 0);
@@ -45,7 +54,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
     setSearch('');
   }
 
-  function handleSelect(name: FeatureIconName) {
+  function handleSelect(name: MakiIconName) {
     onChange(name);
     handleClose();
   }
@@ -56,7 +65,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
         size="small"
         variant="outlined"
         onClick={(e) => setAnchorEl(e.currentTarget)}
-        startIcon={<SelectedIcon fontSize="small" />}
+        startIcon={<FeatureIconGlyph name={selectedName} />}
         sx={{ textTransform: 'none' }}
       >
         {formatIconLabel(selectedName)}
@@ -97,7 +106,6 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {category.names.map((name) => {
-                      const Icon = FEATURE_ICONS[name];
                       const selected = name === selectedName;
                       return (
                         <Tooltip key={name} title={formatIconLabel(name)}>
@@ -110,7 +118,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                               bgcolor: selected ? 'action.selected' : undefined,
                             }}
                           >
-                            <Icon fontSize="small" />
+                            <FeatureIconGlyph name={name} />
                           </IconButton>
                         </Tooltip>
                       );

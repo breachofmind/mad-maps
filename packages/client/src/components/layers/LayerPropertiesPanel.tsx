@@ -12,7 +12,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
-import type { FeatureIconName } from '../../lib/mapFeatures/icons';
 import { IconPicker } from '../mapFeatures/IconPicker';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { RemoteLayerStyleControls } from './RemoteLayerStyleControls';
@@ -97,7 +96,7 @@ export function LayerPropertiesPanel({
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <ColorSwatchInput value={layer.color} onChange={onColorChange} ariaLabel={`Change ${layer.name} default pin color`} />
-              <IconPicker value={layer.defaultIcon} onChange={(icon: FeatureIconName) => onDefaultIconChange(icon)} />
+              <IconPicker value={layer.defaultIcon} onChange={onDefaultIconChange} />
             </Stack>
             <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
               Applied to new pins you add to this layer.

@@ -33,7 +33,7 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { geometryBounds } from '../../lib/map/geometryBounds';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../../lib/mapFeatures/api';
-import { FEATURE_ICONS, type FeatureIconName } from '../../lib/mapFeatures/icons';
+import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
 import {
   createLayer,
   deleteLayer,
@@ -533,7 +533,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                   <Collapse in={!collapsed && features.length > 0} unmountOnExit>
                     <List dense disablePadding>
                       {features.map((feature, featureIndex) => {
-                        const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
                         const isSelected = selection?.featureId === feature.id;
                         // Also true when the feature is hovered on the map itself (see
                         // FeatureLayer.tsx's handleMouseMove), not just this row —
@@ -574,7 +573,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                                 <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
                               </Box>
                               <FeatureTypeIcon featureType={feature.featureType} />
-                              <Icon fontSize="small" sx={{ color: feature.properties.color, flexShrink: 0 }} />
+                              <FeatureIconGlyph name={feature.properties.icon} color={feature.properties.color} />
                               <Typography
                                 variant="body2"
                                 color="text.secondary"

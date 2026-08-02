@@ -10,7 +10,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import type { MapFeatureDTO } from '@mapinski/shared';
 import { mapboxgl } from '../../lib/map/mapbox';
 import { geometryAnchor } from '../../lib/map/geometryAnchor';
-import { FEATURE_ICONS, type FeatureIconName } from '../../lib/mapFeatures/icons';
+import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
 import { formatCoordinates } from '../../lib/mapFeatures/geometryMeasurements';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 
@@ -30,7 +30,6 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
     const container = document.createElement('div');
     const root: Root = createRoot(container);
 
-    const Icon = FEATURE_ICONS[feature.properties.icon as FeatureIconName] ?? FEATURE_ICONS.marker;
     const sanitizedDescription = DOMPurify.sanitize(feature.properties.descriptionHtml, SANITIZE_CONFIG);
     const coordinates = feature.geometry.type === 'Point' ? formatCoordinates(feature.geometry.coordinates) : null;
 
@@ -38,7 +37,7 @@ export function FeaturePopup({ map, feature, onClose }: FeaturePopupProps) {
       <Stack spacing={0.5} sx={{ maxWidth: 240 }}>
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
           <Stack direction="row" spacing={1} alignItems="center">
-            <Icon fontSize="small" sx={{ color: feature.properties.color }} />
+            <FeatureIconGlyph name={feature.properties.icon} color={feature.properties.color} />
             <Typography variant="subtitle2">{feature.properties.title || 'Untitled'}</Typography>
           </Stack>
           <Tooltip title="Close">
