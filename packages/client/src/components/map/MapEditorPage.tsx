@@ -42,7 +42,7 @@ export function MapEditorPage() {
   const drawMode = useEditorStore((s) => s.drawMode);
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
   const setSelection = useEditorStore((s) => s.setSelection);
-  const [routeProfile, setRouteProfile] = useState<RouteProfile>('walking');
+  const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
 
