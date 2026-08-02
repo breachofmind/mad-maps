@@ -6,6 +6,7 @@ import { getMapForOwner } from './maps.service';
 import { listLayersForMap } from './layers.service';
 import { listFeaturesForLayer, toMapFeatureDTO } from './features.service';
 import { escapeXml, extractDocumentInner } from './export.service';
+import { DEFAULT_STROKE_WIDTH, geometryStyle } from './kmlStyle';
 
 // Matches the client's raster size for feature icons
 // (packages/client/src/lib/map/featureIconImages.tsx's ICON_RASTER_SIZE).
@@ -39,7 +40,7 @@ export async function buildKmzExport(mapId: string, ownerId: string): Promise<Bu
   const layers = await listLayersForMap(mapId, ownerId);
   if (!layers) return null;
 
-  const styles: string[] = [];
+  const styles = new Map<string, string>();
   const folders: string[] = [];
   const iconPngs = new Map<string, Promise<Buffer>>();
 
@@ -79,9 +80,19 @@ export async function buildKmzExport(mapId: string, ownerId: string): Promise<Bu
         if (!iconPngs.has(id)) {
           const svg = coloredIconSvg(resolvedIcon, dto.properties.color);
           iconPngs.set(id, sharp(Buffer.from(svg)).resize(ICON_RASTER_SIZE, ICON_RASTER_SIZE).png().toBuffer());
-          styles.push(`<Style id="${id}"><IconStyle><Icon><href>icons/${id}.png</href></Icon></IconStyle></Style>`);
+          styles.set(id, `<Style id="${id}"><IconStyle><Icon><href>icons/${id}.png</href></Icon></IconStyle></Style>`);
         }
         placemark = placemark.replace('<Placemark>', `<Placemark><styleUrl>#${id}</styleUrl>`);
+      } else {
+        const style = geometryStyle(
+          dto.geometry.type,
+          dto.properties.color,
+          dto.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH,
+        );
+        if (style) {
+          styles.set(style.id, style.block);
+          placemark = placemark.replace('<Placemark>', `<Placemark><styleUrl>#${style.id}</styleUrl>`);
+        }
       }
 
       placemarks.push(placemark);
@@ -93,7 +104,7 @@ export async function buildKmzExport(mapId: string, ownerId: string): Promise<Bu
   const kml =
     '<?xml version="1.0" encoding="UTF-8"?>' +
     `<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${escapeXml(map.title)}</name>` +
-    `${styles.join('')}${folders.join('')}</Document></kml>`;
+    `${[...styles.values()].join('')}${folders.join('')}</Document></kml>`;
 
   const zip = new JSZip();
   zip.file('doc.kml', kml);

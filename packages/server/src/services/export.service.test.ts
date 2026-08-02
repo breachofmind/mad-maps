@@ -133,4 +133,27 @@ describe('buildKmlExport', () => {
 
     expect(kml).toContain('<name>Trip &amp; &lt;Notes&gt;</name>');
   });
+
+  it("carries each feature's color and stroke width into a LineStyle/PolyStyle, referenced via styleUrl", async () => {
+    const kml = await buildKmlExport(mapId, ownerId);
+
+    const trailStart = kml!.lastIndexOf('<Placemark>', kml!.indexOf('<name>Coastal Trail</name>'));
+    const trailPlacemark = kml!.slice(trailStart, kml!.indexOf('</Placemark>', trailStart));
+    const trailStyleId = trailPlacemark.match(/<styleUrl>#([^<]+)<\/styleUrl>/)![1];
+    const trailStyleStart = kml!.indexOf(`<Style id="${trailStyleId}">`);
+    const trailStyle = kml!.slice(trailStyleStart, kml!.indexOf('</Style>', trailStyleStart));
+
+    // #1976d2 -> aabbggrr, default stroke width (3px, no strokeWidth set).
+    expect(trailStyle).toContain('<LineStyle><color>ffd27619</color><width>3</width></LineStyle>');
+    expect(trailStyle).not.toContain('<PolyStyle>');
+
+    const picnicStart = kml!.lastIndexOf('<Placemark>', kml!.indexOf('<name>Picnic Area</name>'));
+    const picnicPlacemark = kml!.slice(picnicStart, kml!.indexOf('</Placemark>', picnicStart));
+    const picnicStyleId = picnicPlacemark.match(/<styleUrl>#([^<]+)<\/styleUrl>/)![1];
+    const picnicStyleStart = kml!.indexOf(`<Style id="${picnicStyleId}">`);
+    const picnicStyle = kml!.slice(picnicStyleStart, kml!.indexOf('</Style>', picnicStyleStart));
+
+    expect(picnicStyle).toContain('<LineStyle><color>ffd27619</color><width>3</width></LineStyle>');
+    expect(picnicStyle).toContain('<PolyStyle><color>40d27619</color><fill>1</fill><outline>1</outline></PolyStyle>');
+  });
 });
