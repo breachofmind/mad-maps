@@ -1,8 +1,27 @@
+import type { LayerDTO } from '@mapinski/shared';
+
 const SAMPLE_SIZE = 200;
 
 export interface PropertyStats {
   all: string[];
   numeric: string[];
+}
+
+// A pmtiles-url layer's property names come from the archive metadata
+// captured at add-time (authoritative), not from sampling features like
+// collectPropertyStats below — there's no equivalent of a server-fetched
+// FeatureCollection to scan for it.
+export function pmtilesPropertyStats(layer: LayerDTO): PropertyStats {
+  const meta = layer.pmtilesMetadata?.layers.find((l) => l.id === layer.sourceLayer);
+  if (!meta) return { all: [], numeric: [] };
+  const entries = Object.entries(meta.fields);
+  return {
+    all: entries.map(([key]) => key).sort(),
+    numeric: entries
+      .filter(([, type]) => type === 'Number')
+      .map(([key]) => key)
+      .sort(),
+  };
 }
 
 // Scans a sample of features (GeoJSON property shape can vary feature to
