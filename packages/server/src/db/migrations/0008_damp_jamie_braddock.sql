@@ -1,0 +1,1 @@
+ALTER TABLE "layers" ADD COLUMN "default_icon" text DEFAULT 'marker' NOT NULL;

@@ -5,6 +5,7 @@ export interface UpdateLayerInput {
   name?: string;
   visible?: boolean;
   color?: string;
+  defaultIcon?: string;
   styleConfig?: LayerStyleConfig | null;
 }
 

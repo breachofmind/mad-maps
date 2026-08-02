@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
-import type { PlaceResultDTO } from '@mapinski/shared';
+import type { LayerDTO, PlaceResultDTO } from '@mapinski/shared';
 import type mapboxgl from 'mapbox-gl';
 import { mapboxgl as mapboxglRuntime } from '../../lib/map/mapbox';
 import { searchPlaces } from '../../lib/search/api';
@@ -43,11 +43,12 @@ function buildDescriptionHtml(place: PlaceResultDTO): string {
 
 interface SearchBoxProps {
   map: mapboxgl.Map | null;
-  activeLayerId: string | null;
-  canAddFeatures: boolean;
+  activeLayer: LayerDTO | null;
 }
 
-export function SearchBox({ map, activeLayerId, canAddFeatures }: SearchBoxProps) {
+export function SearchBox({ map, activeLayer }: SearchBoxProps) {
+  const activeLayerId = activeLayer?.id ?? null;
+  const canAddFeatures = activeLayer?.sourceType === 'local';
   const queryClient = useQueryClient();
   const setSelection = useEditorStore((s) => s.setSelection);
   const [inputValue, setInputValue] = useState('');
@@ -71,6 +72,8 @@ export function SearchBox({ map, activeLayerId, canAddFeatures }: SearchBoxProps
         properties: {
           title: place.name,
           descriptionHtml: DOMPurify.sanitize(buildDescriptionHtml(place), SANITIZE_CONFIG),
+          color: activeLayer!.color,
+          icon: activeLayer!.defaultIcon,
         },
       }),
     onSuccess: async (result) => {

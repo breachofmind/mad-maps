@@ -617,6 +617,9 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           onMoveDown={() => move(selectedIndex, 1)}
           externalData={externalDataQueries[selectedIndex]?.data}
           onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
+          onDefaultIconChange={(defaultIcon) =>
+            updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
+          }
           onStyleConfigChange={(styleConfig) =>
             updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
           }

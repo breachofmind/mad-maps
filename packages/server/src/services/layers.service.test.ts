@@ -148,6 +148,7 @@ describe('layers.service', () => {
       ],
       iconProperty: 'cover',
       iconRules: [{ value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' }],
+      defaultIconUrl: null,
     };
     const updated = await updateLayerForOwner(created!.id, ownerId, { styleConfig });
     expect(updated?.styleConfig).toEqual(styleConfig);

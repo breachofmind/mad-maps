@@ -66,6 +66,7 @@ const styleConfigSchema = z
         }),
       )
       .max(30),
+    defaultIconUrl: z.string().max(2000).url().nullable(),
   })
   .nullable();
 
@@ -73,6 +74,7 @@ const updateLayerSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   visible: z.boolean().optional(),
   color: z.string().min(1).max(32).optional(),
+  defaultIcon: z.string().trim().min(1).max(100).optional(),
   styleConfig: styleConfigSchema.optional(),
 });
 

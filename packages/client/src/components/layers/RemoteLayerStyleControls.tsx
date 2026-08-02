@@ -25,6 +25,7 @@ const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
   colorStops: [],
   iconProperty: null,
   iconRules: [],
+  defaultIconUrl: null,
 };
 const DEFAULT_LOW_COLOR = '#1976d2';
 const DEFAULT_HIGH_COLOR = '#d32f2f';
@@ -143,6 +144,74 @@ function IconRuleRow({
       <IconButton size="small" onClick={onRemove} aria-label={`Remove icon for ${rule.value}`}>
         <CloseIcon fontSize="small" />
       </IconButton>
+    </Stack>
+  );
+}
+
+function DefaultIconRow({
+  iconUrl,
+  failed,
+  onChange,
+}: {
+  iconUrl: string | null;
+  failed: boolean;
+  onChange: (iconUrl: string | null) => void;
+}) {
+  // Same draft/commit-on-blur pattern as IconRuleRow, plus a live preview
+  // rendered from the same cached raster externalIconImages.ts produces for
+  // the map (see IconRuleRow for why not a plain <img src>).
+  const [draftUrl, setDraftUrl] = useState(iconUrl ?? '');
+  useEffect(() => setDraftUrl(iconUrl ?? ''), [iconUrl]);
+
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!iconUrl) {
+      setPreviewSrc(null);
+      return;
+    }
+    previewIconImage(iconUrl).then((src) => {
+      if (!cancelled) setPreviewSrc(src);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [iconUrl]);
+
+  function commit() {
+    const trimmed = draftUrl.trim();
+    if (trimmed !== (iconUrl ?? '')) onChange(trimmed === '' ? null : trimmed);
+  }
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Box
+        component="img"
+        src={previewSrc ?? undefined}
+        alt=""
+        sx={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0, visibility: previewSrc ? 'visible' : 'hidden' }}
+      />
+      <TextField
+        size="small"
+        placeholder="Icon image URL"
+        value={draftUrl}
+        onChange={(e) => setDraftUrl(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            commit();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        error={failed}
+        helperText={failed ? "Couldn't load this image" : undefined}
+        fullWidth
+      />
+      {iconUrl && (
+        <IconButton size="small" onClick={() => onChange(null)} aria-label="Clear default pin icon">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      )}
     </Stack>
   );
 }
@@ -362,6 +431,20 @@ export function RemoteLayerStyleControls({
             )}
           </Stack>
         )}
+      </Box>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+          Default pin icon
+        </Typography>
+        <DefaultIconRow
+          iconUrl={styleConfig.defaultIconUrl}
+          failed={Boolean(styleConfig.defaultIconUrl && failedIconUrls.has(styleConfig.defaultIconUrl))}
+          onChange={(defaultIconUrl) => onStyleConfigChange({ ...styleConfig, defaultIconUrl })}
+        />
+        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+          Shown for features with no icon rule above (or no property selected) — otherwise a plain circle.
+        </Typography>
       </Box>
 
       <Box>

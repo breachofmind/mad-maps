@@ -112,19 +112,29 @@ function labelTextField(labelProperty: string | null | undefined): string | Mapb
 
 // Only rules whose image actually loaded onto the map are usable — a rule
 // referencing a url that 404'd or lacks CORS support falls back to the
-// default circle marker rather than rendering nothing.
+// default pin (or circle marker) rather than rendering nothing.
 function usableIconRules(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>) {
   if (!styleConfig?.iconProperty) return [];
   return (styleConfig.iconRules ?? []).filter((rule) => rule.iconUrl && loadedIconUrls.has(rule.iconUrl));
 }
 
-// A point matches the icon layer when its iconProperty value is one of the
-// usable rules' values; every other point (no rule, or a rule whose image
-// failed to load) falls through to the plain circle layer instead.
-function iconValuesFilter(
+function defaultIconLoaded(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>): boolean {
+  const url = styleConfig?.defaultIconUrl;
+  return Boolean(url && loadedIconUrls.has(url));
+}
+
+// A point renders on the icon layer when either its iconProperty value
+// matches one of the usable rules, or — since every point that doesn't
+// match a specific rule falls back to the layer's default pin, once one is
+// configured and loaded — a default icon is set at all (in which case
+// *every* point qualifies, matched or not, and the circle layer beneath is
+// left with nothing to draw). Returns null when no icon applies to any
+// point, in which case everything renders as the plain circle marker.
+function pointIconFilter(
   styleConfig: LayerStyleConfig | null,
   loadedIconUrls: ReadonlySet<string>,
-): MapboxExpression | null {
+): MapboxExpression | 'all' | null {
+  if (defaultIconLoaded(styleConfig, loadedIconUrls)) return 'all';
   const rules = usableIconRules(styleConfig, loadedIconUrls);
   if (rules.length === 0) return null;
   return ['in', ['get', styleConfig!.iconProperty], ['literal', rules.map((r) => r.value)]];
@@ -135,16 +145,30 @@ function iconImageExpression(
   loadedIconUrls: ReadonlySet<string>,
 ): string | MapboxExpression {
   const rules = usableIconRules(styleConfig, loadedIconUrls);
-  if (rules.length === 0) return '';
+  const defaultImageId = defaultIconLoaded(styleConfig, loadedIconUrls)
+    ? externalIconImageId(styleConfig!.defaultIconUrl!)
+    : '';
+  if (rules.length === 0) return defaultImageId;
   const match: unknown[] = ['match', ['get', styleConfig!.iconProperty]];
   for (const rule of rules) match.push(rule.value, externalIconImageId(rule.iconUrl));
-  match.push(''); // unmatched values: no icon (they're excluded by the point layer's own filter anyway)
+  match.push(defaultImageId); // unmatched values fall back to the layer's default pin, if any
   return match as MapboxExpression;
 }
 
-function pointFilter(iconFilter: MapboxExpression | null): MapboxExpression {
+// The icon layer's own filter: every point when the default pin covers
+// unmatched values too, just the matched subset otherwise, or none at all.
+function iconLayerFilter(iconFilter: MapboxExpression | 'all' | null): MapboxExpression {
   const base: MapboxExpression = ['==', ['geometry-type'], 'Point'];
-  return iconFilter ? (['all', base, ['!', iconFilter]] as MapboxExpression) : base;
+  if (iconFilter === 'all') return base;
+  if (iconFilter === null) return NEVER_FILTER;
+  return ['all', base, iconFilter];
+}
+
+function pointFilter(iconFilter: MapboxExpression | 'all' | null): MapboxExpression {
+  const base: MapboxExpression = ['==', ['geometry-type'], 'Point'];
+  if (iconFilter === 'all') return NEVER_FILTER;
+  if (iconFilter === null) return base;
+  return ['all', base, ['!', iconFilter]];
 }
 
 // Mapbox's `geometry-type` expression already collapses Multi* geometries
@@ -162,7 +186,7 @@ function ensureRemoteLayerAdded(
   const id = sourceId(layerId);
   const ids = subLayerIds(layerId);
   const colorExpression = buildColorExpression(layer.color, layer.styleConfig);
-  const iconFilter = iconValuesFilter(layer.styleConfig, loadedIconUrls);
+  const iconFilter = pointIconFilter(layer.styleConfig, loadedIconUrls);
   const styleConfig = layer.styleConfig;
   // Vector sources (pmtiles-url) have no setData equivalent — a fetched
   // tile is immutable once loaded, and the source URL/source-layer are
@@ -185,7 +209,7 @@ function ensureRemoteLayerAdded(
       map.setPaintProperty(ids.label, 'text-halo-color', labelColors.halo);
     }
     if (map.getLayer(ids.icon)) {
-      map.setFilter(ids.icon, iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER);
+      map.setFilter(ids.icon, iconLayerFilter(iconFilter));
       map.setLayoutProperty(ids.icon, 'icon-image', iconImageExpression(styleConfig, loadedIconUrls));
     }
     return;
@@ -239,14 +263,15 @@ function ensureRemoteLayerAdded(
       'circle-stroke-width': POINT_STROKE_WIDTH,
     },
   });
-  // Points whose iconProperty value matches a loaded icon rule render here
-  // instead of on the circle layer above (see pointFilter/iconValuesFilter).
+  // Points whose iconProperty value matches a loaded icon rule — or, absent
+  // a match, the layer's default pin — render here instead of on the circle
+  // layer above (see pointFilter/pointIconFilter).
   map.addLayer({
     id: ids.icon,
     type: 'symbol',
     source: id,
     ...sourceLayerProps,
-    filter: iconFilter ? (['all', ['==', ['geometry-type'], 'Point'], iconFilter] as MapboxExpression) : NEVER_FILTER,
+    filter: iconLayerFilter(iconFilter),
     layout: {
       'icon-image': iconImageExpression(styleConfig, loadedIconUrls),
       'icon-size': ICON_SIZE,
@@ -363,7 +388,10 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       });
       layerMetaBySubLayerRef.current = meta;
 
-      const iconUrls = currentLayers.flatMap((l) => (l.styleConfig?.iconRules ?? []).map((r) => r.iconUrl));
+      const iconUrls = currentLayers.flatMap((l) => [
+        ...(l.styleConfig?.iconRules ?? []).map((r) => r.iconUrl),
+        ...(l.styleConfig?.defaultIconUrl ? [l.styleConfig.defaultIconUrl] : []),
+      ]);
       if (iconUrls.length === 0) return;
       ensureExternalIconImages(map, iconUrls).then(({ loaded, failed }) => {
         if (cancelled) return;
@@ -507,6 +535,8 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
           buildCopiedDescriptionHtml(selection.feature.properties, labelProperty),
           SANITIZE_CONFIG,
         ),
+        color: activeLayer.color,
+        icon: activeLayer.defaultIcon,
       },
     });
   }

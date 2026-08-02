@@ -110,6 +110,7 @@ describe('layer routes', () => {
         { value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' },
         { value: 'OVC', iconUrl: '' },
       ],
+      defaultIconUrl: null,
     };
     const patched = await agent
       .patch(`/api/layers/${created.body.id}`)

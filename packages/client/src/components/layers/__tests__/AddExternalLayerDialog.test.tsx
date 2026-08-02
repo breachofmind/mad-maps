@@ -60,6 +60,7 @@ describe('AddExternalLayerDialog PMTiles flow', () => {
       orderIndex: 0,
       visible: true,
       color: '#1976d2',
+      defaultIcon: 'marker',
       sourceType: 'pmtiles-url',
       sourceUrl: 'https://example.com/data.pmtiles',
       sourceLayer: 'roads',

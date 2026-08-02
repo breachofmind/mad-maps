@@ -57,6 +57,13 @@
       "when": 1785634251757,
       "tag": "0007_harsh_gateway",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785642122400,
+      "tag": "0008_damp_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }

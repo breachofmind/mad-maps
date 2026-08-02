@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
+import type { MapFeaturePropertiesDTO } from '@mapinski/shared';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
@@ -75,8 +76,15 @@ export function MapEditorPage() {
   });
 
   const createFeatureMutation = useMutation({
-    mutationFn: ({ layerId, geometry }: { layerId: string; geometry: GeoJSON.Geometry }) =>
-      createFeature(layerId, { geometry }),
+    mutationFn: ({
+      layerId,
+      geometry,
+      properties,
+    }: {
+      layerId: string;
+      geometry: GeoJSON.Geometry;
+      properties?: Partial<MapFeaturePropertiesDTO>;
+    }) => createFeature(layerId, { geometry, properties }),
     onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
       if (variables.geometry.type === 'Point') {
@@ -99,7 +107,11 @@ export function MapEditorPage() {
     map: mapInstance,
     onCreate: (feature) => {
       if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
-      createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
+      createFeatureMutation.mutate({
+        layerId: activeLayerId,
+        geometry: feature.geometry,
+        properties: { color: activeLayer!.color, icon: activeLayer!.defaultIcon },
+      });
     },
     onModeChange: (mode) => {
       // 'route' has no mapbox-gl-draw equivalent (see DrawControls) — Draw
@@ -120,7 +132,11 @@ export function MapEditorPage() {
     profile: routeProfile,
     onCreate: (feature) => {
       if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
-      createFeatureMutation.mutate({ layerId: activeLayerId, geometry: feature.geometry });
+      createFeatureMutation.mutate({
+        layerId: activeLayerId,
+        geometry: feature.geometry,
+        properties: { color: activeLayer!.color, icon: activeLayer!.defaultIcon },
+      });
       setDrawMode('none');
     },
   });
@@ -249,7 +265,7 @@ export function MapEditorPage() {
             : null
         }
       />
-      <SearchBox map={mapInstance} activeLayerId={activeLayerId} canAddFeatures={canAddFeatures} />
+      <SearchBox map={mapInstance} activeLayer={activeLayer} />
       <FeaturePopup
         map={mapInstance}
         feature={selectedFeature?.feature ?? null}

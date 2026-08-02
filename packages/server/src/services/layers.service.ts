@@ -15,6 +15,7 @@ export interface UpdateLayerInput {
   name?: string;
   visible?: boolean;
   color?: string;
+  defaultIcon?: string;
   styleConfig?: LayerStyleConfig | null;
 }
 
@@ -119,6 +120,7 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     orderIndex: layer.orderIndex,
     visible: layer.visible,
     color: layer.color,
+    defaultIcon: layer.defaultIcon,
     sourceType: layer.sourceType,
     sourceUrl: layer.sourceUrl,
     sourceLayer: layer.sourceLayer,

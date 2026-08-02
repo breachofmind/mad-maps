@@ -64,6 +64,7 @@ export interface LayerStyleConfig {
   colorStops: LayerColorStop[];
   iconProperty: string | null;
   iconRules: LayerIconRule[];
+  defaultIconUrl: string | null;
 }
 
 export const layerSourceTypeEnum = pgEnum('layer_source_type', ['local', 'geojson-url', 'pmtiles-url']);
@@ -77,6 +78,9 @@ export const layers = pgTable('layers', {
   orderIndex: integer('order_index').notNull().default(0),
   visible: boolean('visible').notNull().default(true),
   color: text('color').notNull().default('#1976d2'),
+  // Icon applied to brand-new local features added to this layer — see
+  // LayerStyleConfig.defaultIconUrl for the remote-layer counterpart.
+  defaultIcon: text('default_icon').notNull().default('marker'),
   sourceType: layerSourceTypeEnum('source_type').notNull().default('local'),
   sourceUrl: text('source_url'),
   // Only set for sourceType 'pmtiles-url': the vector-tile source-layer name

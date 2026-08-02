@@ -54,6 +54,10 @@ export interface LayerStyleConfig {
   colorStops: LayerColorStop[];
   iconProperty: string | null;
   iconRules: LayerIconRule[];
+  // Fallback icon (image URL) for points that don't match any iconRule, or
+  // when iconProperty isn't set at all — the "default pin" for this remote
+  // layer. Falls back to the plain circle marker when null.
+  defaultIconUrl: string | null;
 }
 
 export interface LayerDTO {
@@ -63,6 +67,10 @@ export interface LayerDTO {
   orderIndex: number;
   visible: boolean;
   color: string;
+  // Icon (from lib/mapFeatures/icons.ts's built-in set) applied to brand-new
+  // local features added to this layer — only meaningful for sourceType
+  // 'local'; remote layers use styleConfig.defaultIconUrl instead.
+  defaultIcon: string;
   sourceType: LayerSourceType;
   sourceUrl: string | null;
   sourceLayer: string | null;
