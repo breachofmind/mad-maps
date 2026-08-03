@@ -21,7 +21,9 @@ import { DrawControls, DRAW_MODE_TO_EDITOR_MODE } from '../draw/DrawControls';
 import { useMapboxDraw } from '../../lib/draw/useMapboxDraw';
 import { RouteControls } from '../draw/RouteControls';
 import { useMapboxRoute } from '../../lib/draw/useMapboxRoute';
-import type { RouteProfile } from '../../lib/draw/mapboxDirections';
+import { formatDuration, type RouteProfile } from '../../lib/draw/mapboxDirections';
+import { formatDistance } from '../../lib/mapFeatures/geometryMeasurements';
+import { useUnitsStore } from '../../lib/state/unitsStore';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { BulkFeaturePropertiesPanel } from '../mapFeatures/BulkFeaturePropertiesPanel';
 import { useSelectedFeatures } from '../../lib/mapFeatures/useSelectedFeatures';
@@ -31,6 +33,14 @@ import { FeatureLayer } from './FeatureLayer';
 import { RemoteLayer } from './RemoteLayer';
 import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
+
+// Verb suffixed onto a finished route's prefilled description (e.g. "8 min
+// drive") so it reads naturally regardless of which profile was used.
+const ROUTE_PROFILE_VERBS: Record<RouteProfile, string> = {
+  walking: 'walk',
+  cycling: 'ride',
+  driving: 'drive',
+};
 
 export function MapEditorPage() {
   const { mapId } = useParams<{ mapId: string }>();
@@ -43,6 +53,7 @@ export function MapEditorPage() {
   const drawMode = useEditorStore((s) => s.drawMode);
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
@@ -128,16 +139,29 @@ export function MapEditorPage() {
     },
   });
 
-  const { waypointCount, isFetching, distanceMeters, error, finish, cancel } = useMapboxRoute({
+  const { waypointCount, isFetching, distanceMeters, durationSeconds, error, finish, cancel } = useMapboxRoute({
     map: mapInstance,
     active: drawMode === 'route',
     profile: routeProfile,
     onCreate: (feature) => {
       if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
+      const routeDistanceMeters = feature.properties?.distanceMeters as number | null | undefined;
+      const routeDurationSeconds = feature.properties?.durationSeconds as number | null | undefined;
+      const routeProfileUsed = feature.properties?.profile as RouteProfile | undefined;
+      const summary =
+        routeDistanceMeters != null && routeDurationSeconds != null
+          ? `${formatDistance(routeDistanceMeters, distanceUnit)} · ${formatDuration(routeDurationSeconds)}${
+              routeProfileUsed ? ` ${ROUTE_PROFILE_VERBS[routeProfileUsed]}` : ''
+            }`
+          : null;
       createFeatureMutation.mutate({
         layerId: activeLayerId,
         geometry: feature.geometry,
-        properties: { color: activeLayer!.color, icon: activeLayer!.defaultIcon },
+        properties: {
+          color: activeLayer!.color,
+          icon: activeLayer!.defaultIcon,
+          ...(summary ? { descriptionHtml: `<p>${summary}</p>` } : {}),
+        },
       });
       setDrawMode('none');
     },
@@ -319,6 +343,7 @@ export function MapEditorPage() {
           waypointCount={waypointCount}
           isFetching={isFetching}
           distanceMeters={distanceMeters}
+          durationSeconds={durationSeconds}
           error={error}
           onFinish={finish}
           onCancel={cancel}

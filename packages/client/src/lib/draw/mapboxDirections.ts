@@ -38,3 +38,14 @@ export async function fetchDirectionsRoute(
     durationSeconds: route.duration,
   };
 }
+
+// Rounds to the nearest whole minute — a route's raw duration is fractional
+// seconds, and showing that precision would read as false accuracy. Floors
+// at 1 minute so a very short route never displays as "0 min".
+export function formatDuration(seconds: number): string {
+  const totalMinutes = Math.max(1, Math.round(seconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`;
+}

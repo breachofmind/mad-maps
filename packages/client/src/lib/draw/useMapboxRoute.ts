@@ -34,6 +34,7 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
   const [waypointCount, setWaypointCount] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [distanceMeters, setDistanceMeters] = useState<number | null>(null);
+  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onCreateRef = useRef(onCreate);
@@ -144,6 +145,7 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     if (waypointsRef.current.length < 2) {
       routeRef.current = null;
       setDistanceMeters(null);
+      setDurationSeconds(null);
       render();
       return;
     }
@@ -159,10 +161,12 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
       if (seq !== requestSeqRef.current) return;
       routeRef.current = route.geometry;
       setDistanceMeters(route.distanceMeters);
+      setDurationSeconds(route.durationSeconds);
     } catch (err) {
       if (seq !== requestSeqRef.current) return;
       routeRef.current = null;
       setDistanceMeters(null);
+      setDurationSeconds(null);
       setError(err instanceof Error ? err.message : 'Failed to fetch route');
     } finally {
       if (seq === requestSeqRef.current) setIsFetching(false);
@@ -178,6 +182,7 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     setWaypointCount(0);
     setIsFetching(false);
     setDistanceMeters(null);
+    setDurationSeconds(null);
     setError(null);
     render();
   }
@@ -191,7 +196,15 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
       type: 'LineString',
       coordinates: waypointsRef.current,
     };
-    onCreateRef.current({ type: 'Feature', properties: {}, geometry });
+    // distanceMeters/durationSeconds reflect the last successfully snapped
+    // route (null if the fetch never completed/failed) — passed through on
+    // the feature so the caller can prefill a description without this hook
+    // needing to know anything about how that gets displayed or persisted.
+    onCreateRef.current({
+      type: 'Feature',
+      properties: { distanceMeters, durationSeconds, profile: profileRef.current },
+      geometry,
+    });
     reset();
   }
 
@@ -275,5 +288,5 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, active]);
 
-  return { waypointCount, isFetching, distanceMeters, error, finish, cancel: reset, undoLast };
+  return { waypointCount, isFetching, distanceMeters, durationSeconds, error, finish, cancel: reset, undoLast };
 }

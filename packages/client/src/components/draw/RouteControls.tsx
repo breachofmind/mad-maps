@@ -13,7 +13,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { useUnitsStore } from '../../lib/state/unitsStore';
 import { formatDistance } from '../../lib/mapFeatures/geometryMeasurements';
-import type { RouteProfile } from '../../lib/draw/mapboxDirections';
+import { formatDuration, type RouteProfile } from '../../lib/draw/mapboxDirections';
 
 interface RouteControlsProps {
   profile: RouteProfile;
@@ -21,6 +21,7 @@ interface RouteControlsProps {
   waypointCount: number;
   isFetching: boolean;
   distanceMeters: number | null;
+  durationSeconds: number | null;
   error: string | null;
   onFinish: () => void;
   onCancel: () => void;
@@ -32,6 +33,7 @@ export function RouteControls({
   waypointCount,
   isFetching,
   distanceMeters,
+  durationSeconds,
   error,
   onFinish,
   onCancel,
@@ -41,8 +43,10 @@ export function RouteControls({
   let status = 'Click the map to start a route';
   if (isFetching) status = 'Snapping to roads/trails…';
   else if (error) status = error;
-  else if (distanceMeters !== null) status = formatDistance(distanceMeters, distanceUnit);
-  else if (waypointCount > 0) status = 'Click to add another point';
+  else if (distanceMeters !== null) {
+    status = formatDistance(distanceMeters, distanceUnit);
+    if (durationSeconds !== null) status += ` · ${formatDuration(durationSeconds)}`;
+  } else if (waypointCount > 0) status = 'Click to add another point';
 
   return (
     <Paper

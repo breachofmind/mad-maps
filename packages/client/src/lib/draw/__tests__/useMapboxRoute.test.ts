@@ -84,6 +84,54 @@ describe('useMapboxRoute', () => {
     });
   });
 
+  it('attaches distance, duration, and profile to the finished feature', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        routes: [
+          {
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-122.4, 37.7],
+                [-122.41, 37.71],
+              ],
+            },
+            distance: 1500,
+            duration: 300,
+          },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    const onCreate = jest.fn();
+    const { map, fire } = createFakeMap();
+    const { result } = renderHook(() =>
+      useMapboxRoute({ map: map as never, active: true, profile: 'driving', onCreate }),
+    );
+
+    await act(async () => {
+      fire('click', { lngLat: { lng: -122.4, lat: 37.7 } });
+      fire('click', { lngLat: { lng: -122.41, lat: 37.71 } });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.distanceMeters).toBe(1500);
+    expect(result.current.durationSeconds).toBe(300);
+
+    act(() => {
+      result.current.finish();
+    });
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: { distanceMeters: 1500, durationSeconds: 300, profile: 'driving' },
+      }),
+    );
+  });
+
   it('does not draw the preview when the tool is inactive', () => {
     const { map, fire, lastSetDataFeatures } = createFakeMap();
     renderHook(() => useMapboxRoute({ map: map as never, active: false, profile: 'walking', onCreate: jest.fn() }));

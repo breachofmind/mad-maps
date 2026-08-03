@@ -1,4 +1,4 @@
-import { fetchDirectionsRoute } from '../mapboxDirections';
+import { fetchDirectionsRoute, formatDuration } from '../mapboxDirections';
 
 const originalFetch = globalThis.fetch;
 
@@ -71,5 +71,28 @@ describe('fetchDirectionsRoute', () => {
         'test-token',
       ),
     ).rejects.toThrow('No route found');
+  });
+});
+
+describe('formatDuration', () => {
+  it('formats under an hour as minutes', () => {
+    expect(formatDuration(600)).toBe('10 min');
+  });
+
+  it('rounds to the nearest minute', () => {
+    expect(formatDuration(89)).toBe('1 min');
+    expect(formatDuration(91)).toBe('2 min');
+  });
+
+  it('floors a very short duration at 1 minute rather than showing 0', () => {
+    expect(formatDuration(10)).toBe('1 min');
+  });
+
+  it('formats an hour or more as hours and minutes', () => {
+    expect(formatDuration(4500)).toBe('1 hr 15 min');
+  });
+
+  it('omits minutes when the duration is an exact number of hours', () => {
+    expect(formatDuration(7200)).toBe('2 hr');
   });
 });
