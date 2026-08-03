@@ -134,11 +134,16 @@ export function FeaturePropertiesPanel({
         zIndex: 1,
         width: 320,
         maxHeight: '75vh',
-        overflowY: 'auto',
-        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ px: 2, pt: 2, pb: 1.5, flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}
+      >
         <Typography variant="subtitle1">{FEATURE_TYPE_LABELS[feature.featureType]} details</Typography>
         <Stack direction="row" spacing={0.5}>
           {showStroke && (
@@ -161,7 +166,7 @@ export function FeaturePropertiesPanel({
         </Stack>
       </Stack>
 
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={{ overflowY: 'auto', px: 2, py: 2 }}>
         <TextField
           label="Title"
           size="small"

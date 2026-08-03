@@ -61,11 +61,16 @@ export function LayerPropertiesPanel({
         zIndex: 1,
         width: 360,
         maxHeight: '75vh',
-        overflowY: 'auto',
-        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ px: 2, pt: 2, pb: 1.5, flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}
+      >
         <Typography variant="subtitle1" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {layer.name}
         </Typography>
@@ -76,7 +81,7 @@ export function LayerPropertiesPanel({
         </Tooltip>
       </Stack>
 
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={{ overflowY: 'auto', px: 2, pb: 2 }}>
         {isRemote && (
           <RemoteLayerStyleControls
             layer={layer}
@@ -98,9 +103,6 @@ export function LayerPropertiesPanel({
               <ColorSwatchInput value={layer.color} onChange={onColorChange} ariaLabel={`Change ${layer.name} default pin color`} />
               <IconPicker value={layer.defaultIcon} onChange={onDefaultIconChange} />
             </Stack>
-            <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-              Applied to new pins you add to this layer.
-            </Typography>
           </Box>
         )}
 

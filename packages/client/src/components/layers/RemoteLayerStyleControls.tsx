@@ -241,9 +241,6 @@ export function RemoteLayerStyleControls({
             ))}
           </Select>
         </FormControl>
-        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          Shows this property as text next to each feature on the map.
-        </Typography>
       </Box>
 
       <Box>
@@ -335,9 +332,6 @@ export function RemoteLayerStyleControls({
           failed={Boolean(styleConfig.defaultIconUrl && failedIconUrls.has(styleConfig.defaultIconUrl))}
           onChange={(defaultIconUrl) => onStyleConfigChange({ ...styleConfig, defaultIconUrl })}
         />
-        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          Shown for features with no icon rule above (or no property selected) — otherwise a plain circle.
-        </Typography>
       </Box>
 
       <Box>
