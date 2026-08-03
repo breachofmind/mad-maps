@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import '../../components/draw/mapboxDrawOverrides.css';
 import type mapboxgl from 'mapbox-gl';
-import { DRAW_STYLES } from './drawTheme';
+import { DRAW_STYLES, GL_DRAW_LINES_COLD_LAYER_ID, GL_DRAW_LINES_HOT_LAYER_ID } from './drawTheme';
+import { usePulseOpacity } from './usePulseOpacity';
 
 export type DrawToolMode = 'simple_select' | 'draw_point' | 'draw_line_string' | 'draw_polygon';
 
@@ -41,6 +42,11 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
   const onUpdateGeometryRef = useRef(onUpdateGeometry);
   onUpdateGeometryRef.current = onUpdateGeometry;
   const editingRef = useRef<EditingState | null>(null);
+  // Tracked internally (in addition to the onModeChange callback below,
+  // which the caller uses for its own editor-mode state) so this hook can
+  // self-contain the pulse-opacity animation gating rather than requiring
+  // callers to feed drawing state back in.
+  const [currentMode, setCurrentMode] = useState<string>('simple_select');
 
   useEffect(() => {
     if (!map) return;
@@ -79,6 +85,7 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
 
     function handleModeChange(e: { mode: string }) {
       onModeChangeRef.current?.(e.mode as DrawToolMode);
+      setCurrentMode(e.mode);
     }
 
     // mapbox-gl-draw has no built-in "undo last vertex" — Backspace/Delete
@@ -154,6 +161,18 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
     };
   }, [map]);
 
+  // Pulses the in-progress edge's opacity while actively placing points for
+  // a new line or polygon — matches the route tool's animated waypoint
+  // connector (useMapboxRoute.ts). Deliberately excludes direct_select
+  // (dragging vertices of an already-finished feature): that's a different
+  // interaction than "drawing," even though it renders through this same
+  // 'active' layer case in drawTheme.ts.
+  usePulseOpacity(
+    map,
+    currentMode === 'draw_line_string' || currentMode === 'draw_polygon',
+    [GL_DRAW_LINES_HOT_LAYER_ID, GL_DRAW_LINES_COLD_LAYER_ID],
+  );
+
   // direct_select's own onStop doesn't restore map.dragPan if a vertex/
   // feature drag was mid-gesture when the mode exits (its cleanup for that
   // normally runs on mouseup, which draw.deleteAll() bypasses entirely) —
@@ -164,6 +183,14 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
     map?.dragPan.enable();
   }
 
+  // mapbox-gl-draw's public changeMode() is silent by default (its own
+  // api.js hardcodes `suppressAPIEvents` to true unless the constructor is
+  // given `suppressAPIEvents: false`), so calling it here never actually
+  // fires 'draw.modechange' — that event only reaches handleModeChange
+  // above for mode transitions mapbox-gl-draw triggers *itself* (Enter,
+  // Escape, finishing a shape). setCurrentMode is called directly wherever
+  // this hook drives a mode change, rather than relying on the event
+  // round-tripping back to us.
   function setMode(mode: DrawToolMode) {
     const draw = drawRef.current;
     if (!draw) return;
@@ -189,6 +216,7 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
         draw.changeMode('draw_polygon');
         break;
     }
+    setCurrentMode(mode);
   }
 
   // Loads an existing LineString/Polygon feature into Draw and switches to
@@ -200,6 +228,7 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
     restoreDragPan();
     draw.add(feature);
     draw.changeMode('direct_select', { featureId: feature.id });
+    setCurrentMode('direct_select');
     editingRef.current = { featureId: feature.id, layerId, initialGeometry: feature.geometry };
   }
 
@@ -208,6 +237,7 @@ export function useMapboxDraw({ map, onCreate, onModeChange, onUpdateGeometry }:
     if (!draw || !editingRef.current) return;
     draw.deleteAll();
     draw.changeMode('simple_select');
+    setCurrentMode('simple_select');
     editingRef.current = null;
     restoreDragPan();
   }

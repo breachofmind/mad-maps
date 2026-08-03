@@ -30,6 +30,7 @@ function createFakeMap() {
     removeSource: jest.fn(() => {
       source = null;
     }),
+    setPaintProperty: jest.fn(),
   };
 
   function fire(event: string, payload: unknown) {
@@ -53,7 +54,7 @@ describe('useMapboxRoute', () => {
     );
 
     expect(map.addSource).toHaveBeenCalledTimes(1);
-    expect(map.addLayer).toHaveBeenCalledTimes(4);
+    expect(map.addLayer).toHaveBeenCalledTimes(3);
   });
 
   it('draws a rubber-band line from the last placed waypoint to the cursor', () => {
@@ -142,5 +143,71 @@ describe('useMapboxRoute', () => {
     });
 
     expect(lastSetDataFeatures()).toHaveLength(0);
+  });
+
+  it('pulses the waypoint line opacity while active', () => {
+    jest.useFakeTimers();
+    try {
+      const { map } = createFakeMap();
+      renderHook(() =>
+        useMapboxRoute({ map: map as never, active: true, profile: 'walking', onCreate: jest.fn() }),
+      );
+
+      // Sets up the transition once, then flips opacity on the initial
+      // pulse plus at least one full interval tick.
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      const opacityCalls = map.setPaintProperty.mock.calls.filter(
+        (call) => call[0] === 'mapinski-route-preview-waypoint-line' && call[1] === 'line-opacity',
+      );
+      expect(opacityCalls.length).toBeGreaterThanOrEqual(2);
+      const values = opacityCalls.map((call) => call[2]);
+      // Alternates between the two pulse extremes rather than the same
+      // value repeating.
+      expect(new Set(values).size).toBe(2);
+
+      const transitionCall = map.setPaintProperty.mock.calls.find(
+        (call) => call[0] === 'mapinski-route-preview-waypoint-line' && call[1] === 'line-opacity-transition',
+      );
+      expect(transitionCall).toBeDefined();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('stops pulsing and restores full opacity once the tool goes inactive', () => {
+    jest.useFakeTimers();
+    try {
+      const { map } = createFakeMap();
+      const { rerender } = renderHook(
+        ({ active }) => useMapboxRoute({ map: map as never, active, profile: 'walking', onCreate: jest.fn() }),
+        { initialProps: { active: true } },
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      const callsWhileActive = map.setPaintProperty.mock.calls.length;
+      expect(callsWhileActive).toBeGreaterThan(0);
+
+      map.setPaintProperty.mockClear();
+      rerender({ active: false });
+
+      expect(map.setPaintProperty).toHaveBeenCalledWith(
+        'mapinski-route-preview-waypoint-line',
+        'line-opacity',
+        1,
+      );
+
+      map.setPaintProperty.mockClear();
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(map.setPaintProperty).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

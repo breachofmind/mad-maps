@@ -3,12 +3,13 @@ import type mapboxgl from 'mapbox-gl';
 import { mapboxgl as mapboxglRuntime } from '../map/mapbox';
 import { FEATURE_POINT_LAYER_ID } from '../map/featureLayerIds';
 import { fetchDirectionsRoute, type RouteProfile } from './mapboxDirections';
+import { DASH_LENGTH, GAP_LENGTH } from './drawTheme';
+import { usePulseOpacity } from './usePulseOpacity';
 
 const SOURCE_ID = 'mapinski-route-preview';
 // Dashed line straight between the clicked waypoints (and out to the live
 // cursor), in click order — shown the whole time so the user can always see
 // where they've placed nodes, even before/if the snapped route comes back.
-const WAYPOINT_LINE_HALO_LAYER_ID = 'mapinski-route-preview-waypoint-line-halo';
 const WAYPOINT_LINE_LAYER_ID = 'mapinski-route-preview-waypoint-line';
 const ROUTE_LINE_LAYER_ID = 'mapinski-route-preview-route-line';
 const POINT_LAYER_ID = 'mapinski-route-preview-points';
@@ -48,27 +49,21 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     function ensureLayers() {
       if (!map || map.getSource(SOURCE_ID)) return;
       map.addSource(SOURCE_ID, { type: 'geojson', data: EMPTY_COLLECTION });
-      // A wide, solid white halo drawn under the dashed waypoint line — the
-      // same trick FeatureLayer uses for its hover outline — so the dashes
-      // stay visible over dark/blue basemap styles instead of blending in.
-      map.addLayer({
-        id: WAYPOINT_LINE_HALO_LAYER_ID,
-        type: 'line',
-        source: SOURCE_ID,
-        filter: ['==', ['get', 'role'], 'waypointLine'],
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#fff', 'line-width': 5, 'line-opacity': 0.9 },
-      });
-      // Added before the route line so the solid snapped route (once it
-      // arrives) draws on top of the dashed waypoint connector rather than
-      // being hidden underneath it.
+      // Color/width/dasharray match the line tool's own in-progress dash
+      // style (drawTheme.ts's 'gl-draw-lines' active case, which has no
+      // halo either) so both drawing tools read as the same visual language.
       map.addLayer({
         id: WAYPOINT_LINE_LAYER_ID,
         type: 'line',
         source: SOURCE_ID,
         filter: ['==', ['get', 'role'], 'waypointLine'],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#fbb03b', 'line-width': 3, 'line-dasharray': [2, 1.5], 'line-opacity': 1 },
+        paint: {
+          'line-color': '#fbb03b',
+          'line-width': 2,
+          'line-dasharray': [DASH_LENGTH, GAP_LENGTH],
+          'line-opacity': 1,
+        },
       });
       map.addLayer({
         id: ROUTE_LINE_LAYER_ID,
@@ -105,13 +100,14 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     map.on('style.load', ensureLayers);
     return () => {
       map.off('style.load', ensureLayers);
-      if (map.getLayer(WAYPOINT_LINE_HALO_LAYER_ID)) map.removeLayer(WAYPOINT_LINE_HALO_LAYER_ID);
       if (map.getLayer(WAYPOINT_LINE_LAYER_ID)) map.removeLayer(WAYPOINT_LINE_LAYER_ID);
       if (map.getLayer(ROUTE_LINE_LAYER_ID)) map.removeLayer(ROUTE_LINE_LAYER_ID);
       if (map.getLayer(POINT_LAYER_ID)) map.removeLayer(POINT_LAYER_ID);
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
     };
   }, [map]);
+
+  usePulseOpacity(map, active, WAYPOINT_LINE_LAYER_ID);
 
   function render() {
     const source = map?.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;

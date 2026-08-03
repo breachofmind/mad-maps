@@ -7,6 +7,30 @@ const blue = '#3bb2d0';
 const orange = '#fbb03b';
 const white = '#fff';
 
+// Authored id — mapbox-gl-draw's own options.js addSources() splits every
+// style layer here into "hot" (actively changing) and "cold" (settled)
+// runtime variants, appending the suffix to this id; the bare id below is
+// never itself a real map layer (same convention FeatureLayer.tsx's
+// DRAW_VERTEX_LAYER_IDS already relies on for the vertex-handle layers).
+export const GL_DRAW_LINES_LAYER_ID = 'gl-draw-lines';
+
+// The in-progress feature useMapboxDraw.ts pulses the opacity of (see
+// usePulseOpacity.ts) usually renders on the "hot" source — mapbox-gl-draw
+// buckets a feature there for as long as its geometry keeps changing, which
+// is what's happening while the user is actively placing points. But a
+// render tick where nothing changed (e.g. the mouse briefly stops moving)
+// bumps the *same* active feature over to "cold" instead — so both are
+// pulsed together, in case the in-progress feature ever renders through
+// "cold" for a tick.
+export const GL_DRAW_LINES_HOT_LAYER_ID = `${GL_DRAW_LINES_LAYER_ID}.hot`;
+export const GL_DRAW_LINES_COLD_LAYER_ID = `${GL_DRAW_LINES_LAYER_ID}.cold`;
+
+// Matches the route tool's own waypoint-connector dash pattern
+// (useMapboxRoute.ts) so both drawing tools read as the same visual
+// language.
+export const DASH_LENGTH = 0.2;
+export const GAP_LENGTH = 2;
+
 export const DRAW_STYLES: object[] = [
   {
     id: 'gl-draw-polygon-fill',
@@ -18,13 +42,13 @@ export const DRAW_STYLES: object[] = [
     },
   },
   {
-    id: 'gl-draw-lines',
+    id: GL_DRAW_LINES_LAYER_ID,
     type: 'line',
     filter: ['any', ['==', '$type', 'LineString'], ['==', '$type', 'Polygon']],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': ['case', ['==', ['get', 'active'], 'true'], orange, blue],
-      'line-dasharray': ['case', ['==', ['get', 'active'], 'true'], [0.2, 2], [2, 0]],
+      'line-dasharray': ['case', ['==', ['get', 'active'], 'true'], [DASH_LENGTH, GAP_LENGTH], [2, 0]],
       'line-width': 2,
     },
   },
