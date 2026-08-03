@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { MapFeatureDTO } from '@mapinski/shared';
 import { geometryToFeatureType, type Geometry } from '@mapinski/shared';
 import { db } from '../db/client';
@@ -204,6 +204,52 @@ export async function deleteFeatureForOwner(featureId: string, ownerId: string):
 
   await db.delete(mapFeatures).where(eq(mapFeatures.id, featureId));
   return true;
+}
+
+async function findOwnedFeatureIds(featureIds: string[], ownerId: string): Promise<string[]> {
+  const owned = await db
+    .select({ id: mapFeatures.id })
+    .from(mapFeatures)
+    .innerJoin(layers, eq(mapFeatures.layerId, layers.id))
+    .innerJoin(maps, eq(layers.mapId, maps.id))
+    .where(and(inArray(mapFeatures.id, featureIds), eq(maps.ownerId, ownerId)));
+  return owned.map((row) => row.id);
+}
+
+export async function updateFeaturesForOwner(
+  featureIds: string[],
+  ownerId: string,
+  properties: Partial<MapFeatureProperties>,
+): Promise<FeatureRow[]> {
+  const owned = await db
+    .select({ id: mapFeatures.id, properties: mapFeatures.properties })
+    .from(mapFeatures)
+    .innerJoin(layers, eq(mapFeatures.layerId, layers.id))
+    .innerJoin(maps, eq(layers.mapId, maps.id))
+    .where(and(inArray(mapFeatures.id, featureIds), eq(maps.ownerId, ownerId)));
+  if (owned.length === 0) return [];
+
+  const sanitizedPatch = sanitizeProperties(properties as { descriptionHtml?: string }) as Partial<MapFeatureProperties>;
+
+  const updated = await Promise.all(
+    owned.map(async (row) => {
+      const [result] = await db
+        .update(mapFeatures)
+        .set({ properties: { ...row.properties, ...sanitizedPatch }, updatedAt: new Date() })
+        .where(eq(mapFeatures.id, row.id))
+        .returning(selectShape);
+      return result;
+    }),
+  );
+  return updated;
+}
+
+export async function deleteFeaturesForOwner(featureIds: string[], ownerId: string): Promise<string[]> {
+  const ownedIds = await findOwnedFeatureIds(featureIds, ownerId);
+  if (ownedIds.length === 0) return [];
+
+  await db.delete(mapFeatures).where(inArray(mapFeatures.id, ownedIds));
+  return ownedIds;
 }
 
 export function toMapFeatureDTO(row: FeatureRow): MapFeatureDTO {

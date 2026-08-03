@@ -7,10 +7,12 @@ import { createLayer } from './layers.service';
 import {
   createFeature,
   deleteFeatureForOwner,
+  deleteFeaturesForOwner,
   findFeatureForOwner,
   listFeaturesForLayer,
   toMapFeatureDTO,
   updateFeatureForOwner,
+  updateFeaturesForOwner,
 } from './features.service';
 
 let ownerId: string;
@@ -175,5 +177,119 @@ describe('features.service CRUD and ownership', () => {
     });
 
     expect(updated?.properties.descriptionHtml).toBe('<p>safe</p>');
+  });
+});
+
+describe('features.service batch operations', () => {
+  let otherOwnerId: string;
+  let otherLayerId: string;
+
+  beforeAll(async () => {
+    const [otherUser] = await db
+      .insert(users)
+      .values({
+        googleId: `features-service-test-other-${Date.now()}`,
+        email: 'features-service-test-other@example.com',
+      })
+      .returning();
+    otherOwnerId = otherUser.id;
+
+    const otherMap = await createMap({ ownerId: otherOwnerId, title: 'Other Owner Map' });
+    const otherLayer = await createLayer(otherMap.id, otherOwnerId, 'Other Owner Layer');
+    otherLayerId = otherLayer!.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(users).where(eq(users.id, otherOwnerId));
+  });
+
+  it('updates properties on multiple owned features and returns all of them', async () => {
+    const a = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [10, 10] },
+      properties: { ...defaultProperties, color: '#ff0000' },
+    });
+    const b = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [11, 11] },
+      properties: { ...defaultProperties, color: '#ff0000' },
+    });
+
+    const updated = await updateFeaturesForOwner([a!.id, b!.id], ownerId, { color: '#00ff00' });
+
+    expect(updated).toHaveLength(2);
+    expect(updated.map((f) => f.id).sort()).toEqual([a!.id, b!.id].sort());
+    expect(updated.every((f) => f.properties.color === '#00ff00')).toBe(true);
+  });
+
+  it('merges partial properties per-row rather than replacing', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [12, 12] },
+      properties: { ...defaultProperties, title: 'Keep Me', color: '#ff0000' },
+    });
+
+    const [updated] = await updateFeaturesForOwner([created!.id], ownerId, { color: '#0000ff' });
+
+    expect(updated.properties.title).toBe('Keep Me');
+    expect(updated.properties.color).toBe('#0000ff');
+  });
+
+  it('silently skips feature ids not owned by the caller', async () => {
+    const mine = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [13, 13] },
+      properties: defaultProperties,
+    });
+    const theirs = await createFeature(otherLayerId, otherOwnerId, {
+      geometry: { type: 'Point', coordinates: [14, 14] },
+      properties: defaultProperties,
+    });
+
+    const updated = await updateFeaturesForOwner([mine!.id, theirs!.id], ownerId, { color: '#123456' });
+
+    expect(updated.map((f) => f.id)).toEqual([mine!.id]);
+    const theirsAfter = await findFeatureForOwner(theirs!.id, otherOwnerId);
+    expect(theirsAfter?.properties.color).not.toBe('#123456');
+  });
+
+  it('returns an empty array when none of the requested ids are owned by the caller', async () => {
+    const theirs = await createFeature(otherLayerId, otherOwnerId, {
+      geometry: { type: 'Point', coordinates: [15, 15] },
+      properties: defaultProperties,
+    });
+
+    const updated = await updateFeaturesForOwner([theirs!.id], ownerId, { color: '#abcdef' });
+
+    expect(updated).toEqual([]);
+  });
+
+  it('deletes multiple owned features and returns their ids', async () => {
+    const a = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [16, 16] },
+      properties: defaultProperties,
+    });
+    const b = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [17, 17] },
+      properties: defaultProperties,
+    });
+
+    const deletedIds = await deleteFeaturesForOwner([a!.id, b!.id], ownerId);
+
+    expect(deletedIds.sort()).toEqual([a!.id, b!.id].sort());
+    expect(await findFeatureForOwner(a!.id, ownerId)).toBeNull();
+    expect(await findFeatureForOwner(b!.id, ownerId)).toBeNull();
+  });
+
+  it('silently skips deleting feature ids not owned by the caller', async () => {
+    const mine = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [18, 18] },
+      properties: defaultProperties,
+    });
+    const theirs = await createFeature(otherLayerId, otherOwnerId, {
+      geometry: { type: 'Point', coordinates: [19, 19] },
+      properties: defaultProperties,
+    });
+
+    const deletedIds = await deleteFeaturesForOwner([mine!.id, theirs!.id], ownerId);
+
+    expect(deletedIds).toEqual([mine!.id]);
+    expect(await findFeatureForOwner(theirs!.id, otherOwnerId)).not.toBeNull();
   });
 });

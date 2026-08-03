@@ -4,7 +4,10 @@ export type DrawMode = 'none' | 'point' | 'line' | 'polygon' | 'route';
 
 export interface FeatureSelection {
   type: 'feature';
-  featureId: string;
+  // Always non-empty when `selection` itself is non-null — toggling the
+  // last remaining id off collapses selection back to null (see
+  // toggleFeatureSelection) rather than ever holding an empty array.
+  featureIds: string[];
 }
 
 export interface MoveHistoryEntry {
@@ -41,6 +44,7 @@ interface EditorState {
   setActiveLayerId: (layerId: string | null) => void;
   setDrawMode: (mode: DrawMode) => void;
   setSelection: (selection: FeatureSelection | null) => void;
+  toggleFeatureSelection: (featureId: string) => void;
   setSelectedLayerId: (layerId: string | null) => void;
   toggleLayerPanel: () => void;
   setHoveredFeatureId: (featureId: string | null) => void;
@@ -61,6 +65,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setActiveLayerId: (layerId) => set({ activeLayerId: layerId }),
   setDrawMode: (mode) => set({ drawMode: mode }),
   setSelection: (selection) => set({ selection }),
+  toggleFeatureSelection: (featureId) =>
+    set((state) => {
+      const current = state.selection?.type === 'feature' ? state.selection.featureIds : [];
+      const next = current.includes(featureId)
+        ? current.filter((id) => id !== featureId)
+        : [...current, featureId];
+      return { selection: next.length > 0 ? { type: 'feature', featureIds: next } : null };
+    }),
   setSelectedLayerId: (layerId) => set({ selectedLayerId: layerId }),
   toggleLayerPanel: () => set((state) => ({ isLayerPanelOpen: !state.isLayerPanelOpen })),
   setHoveredFeatureId: (featureId) => set({ hoveredFeatureId: featureId }),

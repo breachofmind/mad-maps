@@ -79,7 +79,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
     onSuccess: async (result) => {
       if (activeLayerId) {
         await queryClient.invalidateQueries({ queryKey: featuresQueryKey(activeLayerId) });
-        setSelection({ type: 'feature', featureId: result.id });
+        setSelection({ type: 'feature', featureIds: [result.id] });
       }
       setSelectedPlace(null);
     },

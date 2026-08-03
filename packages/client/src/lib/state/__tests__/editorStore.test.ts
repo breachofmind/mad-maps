@@ -29,10 +29,24 @@ describe('editorStore', () => {
   });
 
   it('sets and clears the feature selection', () => {
-    useEditorStore.getState().setSelection({ type: 'feature', featureId: 'feature-1' });
-    expect(useEditorStore.getState().selection).toEqual({ type: 'feature', featureId: 'feature-1' });
+    useEditorStore.getState().setSelection({ type: 'feature', featureIds: ['feature-1'] });
+    expect(useEditorStore.getState().selection).toEqual({ type: 'feature', featureIds: ['feature-1'] });
 
     useEditorStore.getState().setSelection(null);
+    expect(useEditorStore.getState().selection).toBeNull();
+  });
+
+  it('toggles features into and out of the selection', () => {
+    useEditorStore.getState().toggleFeatureSelection('feature-1');
+    expect(useEditorStore.getState().selection).toEqual({ type: 'feature', featureIds: ['feature-1'] });
+
+    useEditorStore.getState().toggleFeatureSelection('feature-2');
+    expect(useEditorStore.getState().selection).toEqual({ type: 'feature', featureIds: ['feature-1', 'feature-2'] });
+
+    useEditorStore.getState().toggleFeatureSelection('feature-1');
+    expect(useEditorStore.getState().selection).toEqual({ type: 'feature', featureIds: ['feature-2'] });
+
+    useEditorStore.getState().toggleFeatureSelection('feature-2');
     expect(useEditorStore.getState().selection).toBeNull();
   });
 

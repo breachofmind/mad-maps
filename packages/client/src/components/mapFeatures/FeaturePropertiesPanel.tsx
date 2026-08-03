@@ -11,10 +11,6 @@ import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CloseIcon from '@mui/icons-material/Close';
@@ -25,9 +21,8 @@ import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
-import { FEATURE_COLORS, normalizeHexColor } from '../../lib/mapFeatures/colors';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
-import { ColorSwatchInput } from '../common/ColorSwatchInput';
+import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -54,42 +49,6 @@ const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
   { value: 'dotted', label: 'Dotted' },
 ];
 
-function MeasurementStat({ label, value }: { label: string; value: string }) {
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" display="block">
-        {label}
-      </Typography>
-      <Typography variant="body2">{value}</Typography>
-    </Box>
-  );
-}
-
-function UnitSelect<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <FormControl size="small" variant="standard" sx={{ minWidth: 130 }}>
-      <InputLabel>{label}</InputLabel>
-      <Select value={value} label={label} onChange={(e) => onChange(e.target.value as T)}>
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  );
-}
-
 interface FeaturePropertiesPanelProps {
   feature: MapFeatureDTO;
   layerId: string;
@@ -109,7 +68,6 @@ export function FeaturePropertiesPanel({
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
   const [strokeWidth, setStrokeWidth] = useState(feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH);
-  const [colorText, setColorText] = useState(feature.properties.color);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
   const areaUnit = useUnitsStore((s) => s.areaUnit);
@@ -164,22 +122,7 @@ export function FeaturePropertiesPanel({
     persistDescription(html);
   }
 
-  function selectColor(color: string) {
-    setColorText(color);
-    updateMutation.mutate({ properties: { color } });
-  }
-
-  function commitColorText() {
-    const normalized = normalizeHexColor(colorText);
-    if (normalized) {
-      selectColor(normalized);
-    } else {
-      setColorText(feature.properties.color);
-    }
-  }
-
   const showStroke = feature.featureType !== 'point';
-  const customColorValue = normalizeHexColor(colorText) ?? feature.properties.color;
 
   return (
     <Paper
@@ -276,39 +219,10 @@ export function FeaturePropertiesPanel({
           <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
             Color
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {FEATURE_COLORS.map((color) => (
-              <Box
-                key={color}
-                onClick={() => selectColor(color)}
-                sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  bgcolor: color,
-                  cursor: 'pointer',
-                  border: feature.properties.color === color ? '2px solid black' : '2px solid transparent',
-                }}
-              />
-            ))}
-            <Tooltip title="Custom color">
-              <span>
-                <ColorSwatchInput value={customColorValue} onChange={selectColor} ariaLabel="Custom color" />
-              </span>
-            </Tooltip>
-            <TextField
-              size="small"
-              variant="standard"
-              value={colorText}
-              onChange={(e) => setColorText(e.target.value)}
-              onBlur={commitColorText}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitColorText();
-              }}
-              sx={{ width: 84, mt: 1 }}
-              inputProps={{ 'aria-label': 'Custom color hex value' }}
-            />
-          </Stack>
+          <ColorSwatchRow
+            value={feature.properties.color}
+            onSelect={(color) => updateMutation.mutate({ properties: { color } })}
+          />
         </Box>
 
         {showStroke && (

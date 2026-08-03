@@ -36,6 +36,15 @@ export const mapFeaturePropertiesSchema = z.object({
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
 });
 
+export const batchUpdateFeaturesSchema = z.object({
+  featureIds: z.array(z.string().uuid()).min(1).max(500),
+  properties: mapFeaturePropertiesSchema.partial(),
+});
+
+export const batchDeleteFeaturesSchema = z.object({
+  featureIds: z.array(z.string().uuid()).min(1).max(500),
+});
+
 export const geoJsonFeatureSchema = z.object({
   type: z.literal('Feature'),
   geometry: geometrySchema,

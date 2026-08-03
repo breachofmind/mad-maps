@@ -38,3 +38,20 @@ export async function moveFeature(featureId: string, layerId: string, index: num
   const { data } = await apiClient.patch<MapFeatureDTO>(`/api/mapFeatures/${featureId}/move`, { layerId, index });
   return data;
 }
+
+export interface BatchUpdateFeaturesInput {
+  featureIds: string[];
+  properties: Partial<MapFeaturePropertiesDTO>;
+}
+
+export async function updateFeaturesBatch(input: BatchUpdateFeaturesInput): Promise<MapFeatureDTO[]> {
+  const { data } = await apiClient.patch<MapFeatureDTO[]>('/api/mapFeatures/batch', input);
+  return data;
+}
+
+export async function deleteFeaturesBatch(featureIds: string[]): Promise<{ deletedIds: string[] }> {
+  const { data } = await apiClient.delete<{ deletedIds: string[] }>('/api/mapFeatures/batch', {
+    data: { featureIds },
+  });
+  return data;
+}

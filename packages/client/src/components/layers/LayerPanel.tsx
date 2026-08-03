@@ -1,6 +1,5 @@
 import { useState, type DragEvent } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type mapboxgl from 'mapbox-gl';
 import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mapinski/shared';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
@@ -32,6 +31,7 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { geometryBounds } from '../../lib/map/geometryBounds';
+import { mapboxgl } from '../../lib/map/mapbox';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../../lib/mapFeatures/api';
 import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
 import {
@@ -100,6 +100,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const setSelectedLayerId = useEditorStore((s) => s.setSelectedLayerId);
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const toggleFeatureSelection = useEditorStore((s) => s.toggleFeatureSelection);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
   const [newLayerName, setNewLayerName] = useState('');
@@ -192,7 +193,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   }
 
   function selectFeature(feature: MapFeatureDTO) {
-    setSelection({ type: 'feature', featureId: feature.id });
+    setSelection({ type: 'feature', featureIds: [feature.id] });
     setSelectedLayerId(null);
     if (map) {
       map.fitBounds(geometryBounds(feature.geometry), {
@@ -200,6 +201,30 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
         maxZoom: FEATURE_SELECT_MAX_ZOOM,
       });
     }
+  }
+
+  // Shift-click toggle path: fits the map to the combined bounds of every
+  // currently-selected feature (across all layers), not just the one just
+  // clicked, so the view always frames the whole multi-selection.
+  function toggleFeatureInSelection(feature: MapFeatureDTO) {
+    toggleFeatureSelection(feature.id);
+    setSelectedLayerId(null);
+
+    if (!map) return;
+    const nextSelection = useEditorStore.getState().selection;
+    if (nextSelection?.type !== 'feature') return;
+
+    const allFeatures = featureQueries.flatMap((q) => q.data ?? []);
+    const selectedFeatures = allFeatures.filter((f) => nextSelection.featureIds.includes(f.id));
+    if (selectedFeatures.length === 0) return;
+
+    const bounds = new mapboxgl.LngLatBounds();
+    for (const selectedFeature of selectedFeatures) {
+      const [sw, ne] = geometryBounds(selectedFeature.geometry);
+      bounds.extend(sw);
+      bounds.extend(ne);
+    }
+    map.fitBounds(bounds, { padding: FEATURE_SELECT_PADDING, maxZoom: FEATURE_SELECT_MAX_ZOOM });
   }
 
   const moveFeatureMutation = useMutation({
@@ -533,7 +558,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                   <Collapse in={!collapsed && features.length > 0} unmountOnExit>
                     <List dense disablePadding>
                       {features.map((feature, featureIndex) => {
-                        const isSelected = selection?.featureId === feature.id;
+                        const isSelected = selection?.type === 'feature' && selection.featureIds.includes(feature.id);
                         // Also true when the feature is hovered on the map itself (see
                         // FeatureLayer.tsx's handleMouseMove), not just this row —
                         // action.hover matches the same background a native :hover on
@@ -546,7 +571,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                             />
                             <ListItemButton
                               selected={isSelected}
-                              onClick={() => selectFeature(feature)}
+                              onClick={(e) => (e.shiftKey ? toggleFeatureInSelection(feature) : selectFeature(feature))}
                               onDragOver={(e) => {
                                 if (!draggedFeature) return;
                                 updateDropIndicatorFromRow(e, layer.id, featureIndex);

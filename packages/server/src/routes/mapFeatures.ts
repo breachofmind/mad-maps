@@ -1,15 +1,17 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { geometrySchema, mapFeaturePropertiesSchema } from '@mapinski/shared';
+import { batchDeleteFeaturesSchema, batchUpdateFeaturesSchema, geometrySchema, mapFeaturePropertiesSchema } from '@mapinski/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {
   createFeature,
   deleteFeatureForOwner,
+  deleteFeaturesForOwner,
   listFeaturesForLayer,
   moveFeatureForOwner,
   toMapFeatureDTO,
   updateFeatureForOwner,
+  updateFeaturesForOwner,
 } from '../services/features.service';
 
 function currentUser(req: import('express').Request): User {
@@ -55,6 +57,25 @@ layerMapFeaturesRouter.post('/', async (req: Request<{ layerId: string }>, res) 
 
 export const mapFeaturesRouter = Router();
 mapFeaturesRouter.use(requireAuth);
+
+// Registered before /:featureId — both match a single path segment, so
+// Express would otherwise route "PATCH /batch"/"DELETE /batch" into the
+// single-feature handlers below (with "batch" mistaken for a featureId).
+mapFeaturesRouter.patch('/batch', async (req, res) => {
+  const parsed = batchUpdateFeaturesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const updated = await updateFeaturesForOwner(parsed.data.featureIds, currentUser(req).id, parsed.data.properties);
+  res.json(updated.map(toMapFeatureDTO));
+});
+
+mapFeaturesRouter.delete('/batch', async (req, res) => {
+  const parsed = batchDeleteFeaturesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const deletedIds = await deleteFeaturesForOwner(parsed.data.featureIds, currentUser(req).id);
+  res.json({ deletedIds });
+});
 
 mapFeaturesRouter.patch('/:featureId', async (req, res) => {
   const parsed = updateFeatureSchema.safeParse(req.body);

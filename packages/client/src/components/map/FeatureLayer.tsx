@@ -20,6 +20,11 @@ const SOURCE_ID = 'mapinski-features';
 // share LAYER_IDS.hoverLabel's SOURCE_ID-backed, geometry-anchored layer.
 const HOVER_CURSOR_SOURCE_ID = 'mapinski-features-hover-cursor';
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+// Stable reference for the "no selection" case — returning a fresh `[]`
+// literal from the Zustand selector below would make every snapshot look
+// like a change to useSyncExternalStore, causing an infinite render loop
+// ("Maximum update depth exceeded").
+const EMPTY_FEATURE_IDS: string[] = [];
 const LAYER_IDS = {
   polygonFill: 'mapinski-features-polygon-fill',
   polygonOutline: 'mapinski-features-polygon-outline',
@@ -179,10 +184,12 @@ interface HighlightFadeState {
 function applyHighlight(
   map: mapboxgl.Map,
   hoveredFeatureId: string | null,
-  selectedFeatureId: string | null,
+  selectedFeatureIds: string[],
   fadeState: HighlightFadeState,
 ) {
-  const highlightedIds = [hoveredFeatureId, selectedFeatureId].filter((id): id is string => id !== null);
+  const highlightedIds = [
+    ...new Set([...(hoveredFeatureId !== null ? [hoveredFeatureId] : []), ...selectedFeatureIds]),
+  ];
   const visible = highlightedIds.length > 0;
 
   if (fadeState.fadeOutTimeoutId !== null) {
@@ -408,7 +415,14 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
   const setSelectedLayerId = useEditorStore((s) => s.setSelectedLayerId);
   const hoveredFeatureId = useEditorStore((s) => s.hoveredFeatureId);
   const setHoveredFeatureId = useEditorStore((s) => s.setHoveredFeatureId);
-  const selectedFeatureId = useEditorStore((s) => s.selection?.featureId ?? null);
+  const selectedFeatureIds = useEditorStore((s) =>
+    s.selection?.type === 'feature' ? s.selection.featureIds : EMPTY_FEATURE_IDS,
+  );
+  // Zustand's selector above returns a fresh array reference every render —
+  // derive a stable string key so the highlight effect below only re-runs
+  // when membership actually changes, same pattern as featureQueries'
+  // dataUpdatedAt join a few lines up.
+  const selectedFeatureIdsKey = selectedFeatureIds.join(',');
   const dragStateRef = useRef<PointDragState | null>(null);
   // Tracks whether HOVER_CURSOR_SOURCE_ID currently holds a visible feature,
   // so handleMouseMove only calls setData when that's actually changing
@@ -446,8 +460,8 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
   iconRefsRef.current = iconRefs;
   const hoveredFeatureIdRef = useRef(hoveredFeatureId);
   hoveredFeatureIdRef.current = hoveredFeatureId;
-  const selectedFeatureIdRef = useRef(selectedFeatureId);
-  selectedFeatureIdRef.current = selectedFeatureId;
+  const selectedFeatureIdsRef = useRef(selectedFeatureIds);
+  selectedFeatureIdsRef.current = selectedFeatureIds;
   const moveFeatureMutationRef = useRef(moveFeatureMutation);
   moveFeatureMutationRef.current = moveFeatureMutation;
   const editingFeatureIdRef = useRef(editingFeatureId);
@@ -456,12 +470,13 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
 
   useEffect(() => {
     if (!map) return;
-    applyHighlight(map, hoveredFeatureId, selectedFeatureId, highlightFadeStateRef.current);
+    applyHighlight(map, hoveredFeatureId, selectedFeatureIds, highlightFadeStateRef.current);
     return () => {
       const timeoutId = highlightFadeStateRef.current.fadeOutTimeoutId;
       if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
-  }, [map, hoveredFeatureId, selectedFeatureId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, hoveredFeatureId, selectedFeatureIdsKey]);
 
   // Tied to hover alone (not selection, unlike the ring/border highlight
   // above) since the label is meant as an at-a-glance hover cue, not a
@@ -538,7 +553,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       // custom sources are gone after a style change), so the JS-side "is it
       // showing something" flag needs to match.
       cursorLabelVisibleRef.current = false;
-      applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdRef.current, highlightFadeStateRef.current);
+      applyHighlight(map, hoveredFeatureIdRef.current, selectedFeatureIdsRef.current, highlightFadeStateRef.current);
       map.setFilter(LAYER_IDS.hoverLabel, hoverLabelFilter(hoveredFeatureIdRef.current));
       ensureFeatureIconImages(map, iconRefsRef.current).catch((err) =>
         console.error('Failed to register feature icons', err),
@@ -583,7 +598,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         : [];
       const featureId = hits[0]?.properties?.featureId;
       if (typeof featureId === 'string') {
-        setSelection({ type: 'feature', featureId });
+        setSelection({ type: 'feature', featureIds: [featureId] });
         setSelectedLayerId(null);
       } else {
         setSelection(null);

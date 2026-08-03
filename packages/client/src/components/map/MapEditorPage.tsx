@@ -23,7 +23,8 @@ import { RouteControls } from '../draw/RouteControls';
 import { useMapboxRoute } from '../../lib/draw/useMapboxRoute';
 import type { RouteProfile } from '../../lib/draw/mapboxDirections';
 import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
-import { useSelectedFeature } from '../../lib/mapFeatures/useSelectedFeature';
+import { BulkFeaturePropertiesPanel } from '../mapFeatures/BulkFeaturePropertiesPanel';
+import { useSelectedFeatures } from '../../lib/mapFeatures/useSelectedFeatures';
 import { SearchBox } from '../search/SearchBox';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
@@ -58,7 +59,8 @@ export function MapEditorPage() {
     enabled: Boolean(mapId),
   });
 
-  const selectedFeature = useSelectedFeature(layers ?? []);
+  const selectedFeatures = useSelectedFeatures(layers ?? []);
+  const singleSelectedFeature = selectedFeatures.length === 1 ? selectedFeatures[0] : null;
   const activeLayer = layers?.find((l) => l.id === activeLayerId) ?? null;
   const canAddFeatures = activeLayer?.sourceType === 'local';
 
@@ -88,7 +90,7 @@ export function MapEditorPage() {
     onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
       if (variables.geometry.type === 'Point') {
-        setSelection({ type: 'feature', featureId: result.id });
+        setSelection({ type: 'feature', featureIds: [result.id] });
       }
     },
   });
@@ -163,7 +165,7 @@ export function MapEditorPage() {
   const editingFeatureIdRef = useRef<string | null>(null);
   const lastSelectionIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const currentSelectionId = selectedFeature?.feature.id ?? null;
+    const currentSelectionId = singleSelectedFeature?.feature.id ?? null;
     const selectionChanged = lastSelectionIdRef.current !== currentSelectionId;
     lastSelectionIdRef.current = currentSelectionId;
 
@@ -173,7 +175,8 @@ export function MapEditorPage() {
       setIsEditingVertices(false);
     }
 
-    const feature = effectiveEditing && selectedFeature?.feature.featureType !== 'point' ? selectedFeature : null;
+    const feature =
+      effectiveEditing && singleSelectedFeature?.feature.featureType !== 'point' ? singleSelectedFeature : null;
     if (feature) {
       if (editingFeatureIdRef.current !== feature.feature.id) {
         editFeature(
@@ -187,7 +190,7 @@ export function MapEditorPage() {
       editingFeatureIdRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFeature?.feature.id, selectedFeature?.feature.featureType, isEditingVertices]);
+  }, [singleSelectedFeature?.feature.id, singleSelectedFeature?.feature.featureType, isEditingVertices]);
 
   // Ctrl+Z undoes the most recent pin move or vertex drag, popping
   // editorStore's moveHistory stack (pushed by FeatureLayer on pin drag and by
@@ -260,15 +263,15 @@ export function MapEditorPage() {
         map={mapInstance}
         layers={layers ?? []}
         editingFeatureId={
-          isEditingVertices && selectedFeature && selectedFeature.feature.featureType !== 'point'
-            ? selectedFeature.feature.id
+          isEditingVertices && singleSelectedFeature && singleSelectedFeature.feature.featureType !== 'point'
+            ? singleSelectedFeature.feature.id
             : null
         }
       />
       <SearchBox map={mapInstance} activeLayer={activeLayer} />
       <FeaturePopup
         map={mapInstance}
-        feature={selectedFeature?.feature ?? null}
+        feature={singleSelectedFeature?.feature ?? null}
         onClose={() => setSelection(null)}
       />
       <Paper
@@ -321,14 +324,21 @@ export function MapEditorPage() {
           onCancel={cancel}
         />
       )}
-      {selectedFeature && (
+      {selectedFeatures.length === 1 && singleSelectedFeature && (
         <FeaturePropertiesPanel
-          key={selectedFeature.feature.id}
-          feature={selectedFeature.feature}
-          layerId={selectedFeature.layer.id}
+          key={singleSelectedFeature.feature.id}
+          feature={singleSelectedFeature.feature}
+          layerId={singleSelectedFeature.layer.id}
           onClose={() => setSelection(null)}
           isEditingVertices={isEditingVertices}
           onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
+        />
+      )}
+      {selectedFeatures.length >= 2 && (
+        <BulkFeaturePropertiesPanel
+          key={selectedFeatures.map((f) => f.feature.id).join(',')}
+          features={selectedFeatures}
+          onClose={() => setSelection(null)}
         />
       )}
     </Box>
