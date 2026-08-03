@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -14,10 +14,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import type { LayerColorStop, LayerDTO, LayerIconRule, LayerStyleConfig } from '@mapinski/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
-import { previewIconImage } from '../../lib/map/externalIconImages';
 import { usePmtilesSourceFeatures } from '../../lib/map/usePmtilesSourceFeatures';
 import { collectDistinctValues, collectPropertyStats, numericRange, pmtilesPropertyStats } from '../../lib/layers/propertyStats';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
+import { PinPicker } from '../mapFeatures/PinPicker';
 
 const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
   labelProperty: null,
@@ -72,75 +72,15 @@ function IconRuleRow({
   onChange: (iconUrl: string) => void;
   onRemove: () => void;
 }) {
-  // Local draft state so typing a URL doesn't PATCH the server on every
-  // keystroke — committed on blur/Enter, matching LayerPanel's rename-field
-  // pattern.
-  const [draftUrl, setDraftUrl] = useState(rule.iconUrl);
-  useEffect(() => setDraftUrl(rule.iconUrl), [rule.iconUrl]);
-
-  // Preview is rendered from the *same* cached raster externalIconImages.ts
-  // produces for the map (as a data: url), rather than a plain
-  // `<img src={url}>` — two independent DOM image loads of the same
-  // cross-origin url can otherwise race/conflict in the browser's image
-  // cache and spuriously fail CORS on one of them. Keyed off the committed
-  // rule.iconUrl (not the live draft) so it doesn't fire a fetch per
-  // keystroke while typing.
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (!rule.iconUrl) {
-      setPreviewSrc(null);
-      return;
-    }
-    previewIconImage(rule.iconUrl).then((src) => {
-      if (!cancelled) setPreviewSrc(src);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [rule.iconUrl]);
-
-  function commit() {
-    const trimmed = draftUrl.trim();
-    if (trimmed !== rule.iconUrl) onChange(trimmed);
-  }
-
   return (
     <Stack direction="row" spacing={1} alignItems="center">
-      <Box
-        component="img"
-        src={previewSrc ?? undefined}
-        alt=""
-        sx={{
-          width: 24,
-          height: 24,
-          objectFit: 'contain',
-          flexShrink: 0,
-          visibility: previewSrc ? 'visible' : 'hidden',
-        }}
-      />
       <Typography
         variant="body2"
         sx={{ width: 64, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
         {rule.value}
       </Typography>
-      <TextField
-        size="small"
-        placeholder="Icon image URL"
-        value={draftUrl}
-        onChange={(e) => setDraftUrl(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            commit();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        error={failed}
-        helperText={failed ? "Couldn't load this image" : undefined}
-        fullWidth
-      />
+      <PinPicker value={rule.iconUrl} onChange={onChange} failed={failed} />
       <IconButton size="small" onClick={onRemove} aria-label={`Remove icon for ${rule.value}`}>
         <CloseIcon fontSize="small" />
       </IconButton>
@@ -157,56 +97,9 @@ function DefaultIconRow({
   failed: boolean;
   onChange: (iconUrl: string | null) => void;
 }) {
-  // Same draft/commit-on-blur pattern as IconRuleRow, plus a live preview
-  // rendered from the same cached raster externalIconImages.ts produces for
-  // the map (see IconRuleRow for why not a plain <img src>).
-  const [draftUrl, setDraftUrl] = useState(iconUrl ?? '');
-  useEffect(() => setDraftUrl(iconUrl ?? ''), [iconUrl]);
-
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (!iconUrl) {
-      setPreviewSrc(null);
-      return;
-    }
-    previewIconImage(iconUrl).then((src) => {
-      if (!cancelled) setPreviewSrc(src);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [iconUrl]);
-
-  function commit() {
-    const trimmed = draftUrl.trim();
-    if (trimmed !== (iconUrl ?? '')) onChange(trimmed === '' ? null : trimmed);
-  }
-
   return (
     <Stack direction="row" spacing={1} alignItems="center">
-      <Box
-        component="img"
-        src={previewSrc ?? undefined}
-        alt=""
-        sx={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0, visibility: previewSrc ? 'visible' : 'hidden' }}
-      />
-      <TextField
-        size="small"
-        placeholder="Icon image URL"
-        value={draftUrl}
-        onChange={(e) => setDraftUrl(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            commit();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        error={failed}
-        helperText={failed ? "Couldn't load this image" : undefined}
-        fullWidth
-      />
+      <PinPicker value={iconUrl ?? ''} onChange={(next) => onChange(next === '' ? null : next)} failed={failed} />
       {iconUrl && (
         <IconButton size="small" onClick={() => onChange(null)} aria-label="Clear default pin icon">
           <CloseIcon fontSize="small" />

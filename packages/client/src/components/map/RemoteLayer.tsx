@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import type mapboxgl from 'mapbox-gl';
 import type { LayerDTO, LayerStyleConfig, MapFeaturePropertiesDTO } from '@mapinski/shared';
+import { isMakiIconName } from '@mapinski/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { externalLayerDataQueryKey, fetchExternalLayerData } from '../../lib/layers/api';
 import { createFeature, featuresQueryKey } from '../../lib/mapFeatures/api';
@@ -14,6 +15,7 @@ import {
   type LabelColors,
 } from '../../lib/map/basemapContrast';
 import { ensureExternalIconImages, externalIconImageId } from '../../lib/map/externalIconImages';
+import { ensureFeatureIconImages, featureIconImageId } from '../../lib/map/featureIconImages';
 import { REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
@@ -110,17 +112,25 @@ function labelTextField(labelProperty: string | null | undefined): string | Mapb
   return labelProperty ? ['to-string', ['get', labelProperty]] : '';
 }
 
-// Only rules whose image actually loaded onto the map are usable — a rule
+// Maki icons are rasterized locally (see featureIconImages.tsx) rather than
+// fetched, so unlike a custom URL they can't fail to load — always usable
+// once a value is set. A custom-URL rule/default is only usable once
+// ensureExternalIconImages has confirmed the url actually loaded.
+function isIconUsable(value: string, loadedIconUrls: ReadonlySet<string>): boolean {
+  return isMakiIconName(value) || loadedIconUrls.has(value);
+}
+
+// Only rules whose icon is usable (see isIconUsable) apply — a rule
 // referencing a url that 404'd or lacks CORS support falls back to the
 // default pin (or circle marker) rather than rendering nothing.
 function usableIconRules(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>) {
   if (!styleConfig?.iconProperty) return [];
-  return (styleConfig.iconRules ?? []).filter((rule) => rule.iconUrl && loadedIconUrls.has(rule.iconUrl));
+  return (styleConfig.iconRules ?? []).filter((rule) => rule.iconUrl && isIconUsable(rule.iconUrl, loadedIconUrls));
 }
 
-function defaultIconLoaded(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>): boolean {
+function defaultIconUsable(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>): boolean {
   const url = styleConfig?.defaultIconUrl;
-  return Boolean(url && loadedIconUrls.has(url));
+  return Boolean(url && isIconUsable(url, loadedIconUrls));
 }
 
 // A point renders on the icon layer when either its iconProperty value
@@ -134,23 +144,31 @@ function pointIconFilter(
   styleConfig: LayerStyleConfig | null,
   loadedIconUrls: ReadonlySet<string>,
 ): MapboxExpression | 'all' | null {
-  if (defaultIconLoaded(styleConfig, loadedIconUrls)) return 'all';
+  if (defaultIconUsable(styleConfig, loadedIconUrls)) return 'all';
   const rules = usableIconRules(styleConfig, loadedIconUrls);
   if (rules.length === 0) return null;
   return ['in', ['get', styleConfig!.iconProperty], ['literal', rules.map((r) => r.value)]];
 }
 
+// A rule/default value is either a "maki:"-prefixed icon name (rasterized
+// via featureIconImageId, tinted with the layer's color like local features)
+// or a custom image URL (rasterized as-is via externalIconImageId).
+function iconImageId(value: string, layerColor: string): string {
+  return isMakiIconName(value) ? featureIconImageId(value, layerColor) : externalIconImageId(value);
+}
+
 function iconImageExpression(
+  layerColor: string,
   styleConfig: LayerStyleConfig | null,
   loadedIconUrls: ReadonlySet<string>,
 ): string | MapboxExpression {
   const rules = usableIconRules(styleConfig, loadedIconUrls);
-  const defaultImageId = defaultIconLoaded(styleConfig, loadedIconUrls)
-    ? externalIconImageId(styleConfig!.defaultIconUrl!)
+  const defaultImageId = defaultIconUsable(styleConfig, loadedIconUrls)
+    ? iconImageId(styleConfig!.defaultIconUrl!, layerColor)
     : '';
   if (rules.length === 0) return defaultImageId;
   const match: unknown[] = ['match', ['get', styleConfig!.iconProperty]];
-  for (const rule of rules) match.push(rule.value, externalIconImageId(rule.iconUrl));
+  for (const rule of rules) match.push(rule.value, iconImageId(rule.iconUrl, layerColor));
   match.push(defaultImageId); // unmatched values fall back to the layer's default pin, if any
   return match as MapboxExpression;
 }
@@ -210,7 +228,7 @@ function ensureRemoteLayerAdded(
     }
     if (map.getLayer(ids.icon)) {
       map.setFilter(ids.icon, iconLayerFilter(iconFilter));
-      map.setLayoutProperty(ids.icon, 'icon-image', iconImageExpression(styleConfig, loadedIconUrls));
+      map.setLayoutProperty(ids.icon, 'icon-image', iconImageExpression(layer.color, styleConfig, loadedIconUrls));
     }
     return;
   }
@@ -273,7 +291,7 @@ function ensureRemoteLayerAdded(
     ...sourceLayerProps,
     filter: iconLayerFilter(iconFilter),
     layout: {
-      'icon-image': iconImageExpression(styleConfig, loadedIconUrls),
+      'icon-image': iconImageExpression(layer.color, styleConfig, loadedIconUrls),
       'icon-size': ICON_SIZE,
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
@@ -388,10 +406,22 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       });
       layerMetaBySubLayerRef.current = meta;
 
-      const iconUrls = currentLayers.flatMap((l) => [
-        ...(l.styleConfig?.iconRules ?? []).map((r) => r.iconUrl),
-        ...(l.styleConfig?.defaultIconUrl ? [l.styleConfig.defaultIconUrl] : []),
-      ]);
+      const iconValues = currentLayers.flatMap((l) => [
+        ...(l.styleConfig?.iconRules ?? []).map((r) => ({ value: r.iconUrl, color: l.color })),
+        ...(l.styleConfig?.defaultIconUrl ? [{ value: l.styleConfig.defaultIconUrl, color: l.color }] : []),
+      ]).filter((ref) => ref.value);
+
+      // Maki icons are rasterized locally and can't fail to load (see
+      // isIconUsable), so they're registered independently of the
+      // url-loaded/failed tracking below — no need to re-run syncLayers once
+      // they resolve, since ensureRemoteLayerAdded already treats them as
+      // usable and Mapbox repaints automatically once the image is added.
+      const makiRefs = iconValues.filter((ref) => isMakiIconName(ref.value)).map((ref) => ({ icon: ref.value, color: ref.color }));
+      if (makiRefs.length > 0) {
+        ensureFeatureIconImages(map, makiRefs).catch((err) => console.error('Failed to register remote layer icons', err));
+      }
+
+      const iconUrls = iconValues.filter((ref) => !isMakiIconName(ref.value)).map((ref) => ref.value);
       if (iconUrls.length === 0) return;
       ensureExternalIconImages(map, iconUrls).then(({ loaded, failed }) => {
         if (cancelled) return;

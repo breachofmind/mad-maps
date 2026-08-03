@@ -55,6 +55,7 @@ export interface LayerColorStop {
 
 export interface LayerIconRule {
   value: string;
+  // Either an image URL or a namespaced Maki icon name (e.g. "maki:restaurant").
   iconUrl: string;
 }
 
@@ -64,6 +65,7 @@ export interface LayerStyleConfig {
   colorStops: LayerColorStop[];
   iconProperty: string | null;
   iconRules: LayerIconRule[];
+  // Image URL or "maki:"-prefixed icon name — see LayerIconRule.iconUrl.
   defaultIconUrl: string | null;
 }
 

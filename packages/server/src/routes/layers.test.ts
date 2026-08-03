@@ -149,6 +149,40 @@ describe('layer routes', () => {
       .expect(400);
   });
 
+  it('accepts a "maki:"-prefixed icon name in place of an icon URL', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Maki Icon' }).expect(201);
+
+    const styleConfig = {
+      labelProperty: null,
+      colorProperty: null,
+      colorStops: [],
+      iconProperty: 'cover',
+      iconRules: [{ value: 'CLR', iconUrl: 'maki:restaurant' }],
+      defaultIconUrl: 'maki:cafe',
+    };
+    const patched = await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({ styleConfig })
+      .expect(200);
+    expect(patched.body.styleConfig).toEqual(styleConfig);
+  });
+
+  it('rejects a "maki:"-prefixed value that is not a real Maki icon name', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Bad Maki Icon' }).expect(201);
+    await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({
+        styleConfig: {
+          labelProperty: null,
+          colorProperty: null,
+          colorStops: [],
+          iconProperty: 'cover',
+          iconRules: [{ value: 'CLR', iconUrl: 'maki:not-a-real-icon' }],
+        },
+      })
+      .expect(400);
+  });
+
   describe('external data', () => {
     afterEach(() => jest.restoreAllMocks());
 

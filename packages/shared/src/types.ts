@@ -45,6 +45,9 @@ export interface LayerColorStop {
 
 export interface LayerIconRule {
   value: string;
+  // Either an image URL or a namespaced Maki icon name (see
+  // makiIcons.ts's isMakiIconName) — same "maki:"-prefix convention used by
+  // MapFeaturePropertiesDTO.icon/LayerDTO.defaultIcon below.
   iconUrl: string;
 }
 
@@ -54,9 +57,10 @@ export interface LayerStyleConfig {
   colorStops: LayerColorStop[];
   iconProperty: string | null;
   iconRules: LayerIconRule[];
-  // Fallback icon (image URL) for points that don't match any iconRule, or
-  // when iconProperty isn't set at all — the "default pin" for this remote
-  // layer. Falls back to the plain circle marker when null.
+  // Fallback icon (image URL or "maki:"-prefixed icon name, see
+  // LayerIconRule.iconUrl) for points that don't match any iconRule, or when
+  // iconProperty isn't set at all — the "default pin" for this remote layer.
+  // Falls back to the plain circle marker when null.
   defaultIconUrl: string | null;
 }
 

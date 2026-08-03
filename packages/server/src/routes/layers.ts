@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { pmtilesMetadataSchema } from '@mapinski/shared';
+import { isMakiIconName, pmtilesMetadataSchema } from '@mapinski/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {
@@ -50,6 +50,16 @@ const createLayerSchema = z
     }
   });
 
+// Either a namespaced Maki icon name (see isMakiIconName) or a real image
+// URL — the same convention MapFeaturePropertiesDTO.icon/LayerDTO.defaultIcon
+// use for local layers.
+const pinValueSchema = z
+  .string()
+  .max(2000)
+  .refine((value) => isMakiIconName(value) || z.string().url().safeParse(value).success, {
+    message: 'Must be a valid image URL or a maki: icon name',
+  });
+
 const styleConfigSchema = z
   .object({
     labelProperty: z.string().max(200).nullable(),
@@ -61,12 +71,12 @@ const styleConfigSchema = z
         z.object({
           value: z.string().max(200),
           // Empty string is a valid in-progress state (a value added before its
-          // icon URL is filled in) — anything non-empty must be a real URL.
-          iconUrl: z.union([z.literal(''), z.string().max(2000).url()]),
+          // icon is picked) — anything non-empty must pass pinValueSchema.
+          iconUrl: z.union([z.literal(''), pinValueSchema]),
         }),
       )
       .max(30),
-    defaultIconUrl: z.string().max(2000).url().nullable(),
+    defaultIconUrl: pinValueSchema.nullable(),
   })
   .nullable();
 
