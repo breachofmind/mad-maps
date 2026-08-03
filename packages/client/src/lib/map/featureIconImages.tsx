@@ -41,6 +41,19 @@ function rawIconMarkup(name: string): string {
   return renderToStaticMarkup(<Icon />);
 }
 
+const STROKE_WIDTH = 2;
+
+// Some glyphs (e.g. Maki's "fuel") sit flush against the edge of their
+// source viewBox, leaving no room for the stroke halo below to expand into
+// — the SVG viewport clips anything drawn outside it, cutting the halo off
+// on that edge. Padding the viewBox by half the stroke width on all sides
+// (the max a round linejoin can extend past the path outline) guarantees
+// the halo always has room, regardless of how tight the source glyph is.
+function padViewBox(viewBox: string, pad: number): string {
+  const [minX, minY, width, height] = viewBox.trim().split(/[\s,]+/).map(Number);
+  return `${minX - pad} ${minY - pad} ${width + pad * 2} ${height + pad * 2}`;
+}
+
 function iconDataUrl(name: string, color: string): string {
   // The color is baked directly into the raster (rather than relying on
   // mapbox's SDF icon-color tinting, which requires every resolved image in
@@ -49,7 +62,8 @@ function iconDataUrl(name: string, color: string): string {
   // the glyph contrast against any basemap without needing a background
   // shape behind it.
   const { viewBox, inner } = extractSvgParts(rawIconMarkup(name));
-  const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="24" height="24" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill">${inner}</svg>`;
+  const paddedViewBox = padViewBox(viewBox, STROKE_WIDTH / 2);
+  const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${paddedViewBox}" width="24" height="24" fill="${color}" stroke="#ffffff" stroke-width="${STROKE_WIDTH}" stroke-linejoin="round" paint-order="stroke fill">${inner}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
 }
 
