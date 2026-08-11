@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -13,7 +12,6 @@ import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PolylineIcon from '@mui/icons-material/Polyline';
 import type { FeatureType, LineStyle, MapFeatureDTO } from '@mapinski/shared';
@@ -23,6 +21,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
+import { Panel, PanelHeader, PanelBody } from '../common/Panel';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -124,169 +123,151 @@ export function FeaturePropertiesPanel({
 
   const showStroke = feature.featureType !== 'point';
 
-  return (
-    <Paper
-      elevation={3}
-      sx={{
-        position: 'absolute',
-        top: 72,
-        left: 16,
-        zIndex: 1,
-        width: 320,
-        maxHeight: '75vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ px: 2, pt: 2, pb: 1.5, flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}
+  const headerActions = showStroke && (
+    <Tooltip title={isEditingVertices ? 'Stop editing vertices' : 'Edit vertices'}>
+      <IconButton
+        size="small"
+        color={isEditingVertices ? 'primary' : 'default'}
+        onClick={onToggleEditVertices}
+        aria-label="Toggle vertex editing"
       >
-        <Typography variant="subtitle1">{FEATURE_TYPE_LABELS[feature.featureType]} details</Typography>
-        <Stack direction="row" spacing={0.5}>
-          {showStroke && (
-            <Tooltip title={isEditingVertices ? 'Stop editing vertices' : 'Edit vertices'}>
-              <IconButton
-                size="small"
-                color={isEditingVertices ? 'primary' : 'default'}
-                onClick={onToggleEditVertices}
-                aria-label="Toggle vertex editing"
-              >
-                <PolylineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title="Close">
-            <IconButton size="small" onClick={onClose} aria-label="Close feature details">
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Stack>
+        <PolylineIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
 
-      <Stack spacing={2} sx={{ overflowY: 'auto', px: 2, py: 2 }}>
-        <TextField
-          label="Title"
-          size="small"
-          fullWidth
-          value={title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-        />
+  return (
+    <Panel side="left" width={320} maxHeight="75vh">
+      <PanelHeader
+        title={`${FEATURE_TYPE_LABELS[feature.featureType]} details`}
+        actions={headerActions}
+        onClose={onClose}
+        closeLabel="Close feature details"
+      />
 
-        {coordinates && <MeasurementStat label="Coordinates" value={coordinates} />}
-
-        {measurements && (
-          <Box>
-            <Stack direction="row" spacing={2} mb={1}>
-              <UnitSelect
-                label="Distance unit"
-                value={distanceUnit}
-                options={DISTANCE_UNIT_OPTIONS}
-                onChange={setDistanceUnit}
-              />
-              {measurements.kind === 'polygon' && (
-                <UnitSelect label="Area unit" value={areaUnit} options={AREA_UNIT_OPTIONS} onChange={setAreaUnit} />
-              )}
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              {measurements.kind === 'line' ? (
-                <MeasurementStat label="Length" value={formatDistance(measurements.length, distanceUnit)} />
-              ) : (
-                <>
-                  <MeasurementStat label="Perimeter" value={formatDistance(measurements.perimeter, distanceUnit)} />
-                  <MeasurementStat label="Area" value={formatArea(measurements.area, areaUnit)} />
-                </>
-              )}
-            </Stack>
-          </Box>
-        )}
-
-        <Box>
-          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-            Description
-          </Typography>
-          <RichTextEditor key={feature.id} value={description} onChange={handleDescriptionChange} />
-        </Box>
-
-        <Box>
-          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-            Icon
-          </Typography>
-          <IconPicker
-            value={feature.properties.icon}
-            onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
+      <PanelBody>
+        <Stack spacing={2}>
+          <TextField
+            label="Title"
+            size="small"
+            fullWidth
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
           />
-        </Box>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-            Color
-          </Typography>
-          <ColorSwatchRow
-            value={feature.properties.color}
-            onSelect={(color) => updateMutation.mutate({ properties: { color } })}
-          />
-        </Box>
+          {coordinates && <MeasurementStat label="Coordinates" value={coordinates} />}
 
-        {showStroke && (
-          <>
+          {measurements && (
             <Box>
-              <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  Stroke width
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {strokeWidth}px
-                </Typography>
+              <Stack direction="row" spacing={2} mb={1}>
+                <UnitSelect
+                  label="Distance unit"
+                  value={distanceUnit}
+                  options={DISTANCE_UNIT_OPTIONS}
+                  onChange={setDistanceUnit}
+                />
+                {measurements.kind === 'polygon' && (
+                  <UnitSelect label="Area unit" value={areaUnit} options={AREA_UNIT_OPTIONS} onChange={setAreaUnit} />
+                )}
               </Stack>
-              <Slider
-                size="small"
-                min={1}
-                max={10}
-                step={0.5}
-                value={strokeWidth}
-                onChange={(_e, value) => setStrokeWidth(value as number)}
-                onChangeCommitted={(_e, value) =>
-                  updateMutation.mutate({ properties: { strokeWidth: value as number } })
-                }
-              />
+              <Stack direction="row" spacing={2}>
+                {measurements.kind === 'line' ? (
+                  <MeasurementStat label="Length" value={formatDistance(measurements.length, distanceUnit)} />
+                ) : (
+                  <>
+                    <MeasurementStat label="Perimeter" value={formatDistance(measurements.perimeter, distanceUnit)} />
+                    <MeasurementStat label="Area" value={formatArea(measurements.area, areaUnit)} />
+                  </>
+                )}
+              </Stack>
             </Box>
+          )}
 
-            <Box>
-              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                Line style
-              </Typography>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={feature.properties.lineStyle ?? 'solid'}
-                onChange={(_e, next: LineStyle | null) => {
-                  if (next) updateMutation.mutate({ properties: { lineStyle: next } });
-                }}
-              >
-                {LINE_STYLE_OPTIONS.map((option) => (
-                  <ToggleButton key={option.value} value={option.value}>
-                    {option.label}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </Box>
-          </>
-        )}
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+              Description
+            </Typography>
+            <RichTextEditor key={feature.id} value={description} onChange={handleDescriptionChange} />
+          </Box>
 
-        <Divider />
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+              Icon
+            </Typography>
+            <IconPicker
+              value={feature.properties.icon}
+              onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
+            />
+          </Box>
 
-        <Button
-          size="small"
-          color="error"
-          startIcon={<DeleteIcon fontSize="small" />}
-          onClick={() => deleteMutation.mutate()}
-        >
-          Delete Feature
-        </Button>
-      </Stack>
-    </Paper>
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+              Color
+            </Typography>
+            <ColorSwatchRow
+              value={feature.properties.color}
+              onSelect={(color) => updateMutation.mutate({ properties: { color } })}
+            />
+          </Box>
+
+          {showStroke && (
+            <>
+              <Box>
+                <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Stroke width
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {strokeWidth}px
+                  </Typography>
+                </Stack>
+                <Slider
+                  size="small"
+                  min={1}
+                  max={10}
+                  step={0.5}
+                  value={strokeWidth}
+                  onChange={(_e, value) => setStrokeWidth(value as number)}
+                  onChangeCommitted={(_e, value) =>
+                    updateMutation.mutate({ properties: { strokeWidth: value as number } })
+                  }
+                />
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                  Line style
+                </Typography>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={feature.properties.lineStyle ?? 'solid'}
+                  onChange={(_e, next: LineStyle | null) => {
+                    if (next) updateMutation.mutate({ properties: { lineStyle: next } });
+                  }}
+                >
+                  {LINE_STYLE_OPTIONS.map((option) => (
+                    <ToggleButton key={option.value} value={option.value}>
+                      {option.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
+            </>
+          )}
+
+          <Divider />
+
+          <Button
+            size="small"
+            color="error"
+            startIcon={<DeleteIcon fontSize="small" />}
+            onClick={() => deleteMutation.mutate()}
+          >
+            Delete Feature
+          </Button>
+        </Stack>
+      </PanelBody>
+    </Panel>
   );
 }

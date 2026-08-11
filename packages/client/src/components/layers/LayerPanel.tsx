@@ -1,7 +1,6 @@
 import { useState, type DragEvent } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mapinski/shared';
-import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -45,6 +44,7 @@ import {
   updateLayer,
   type UpdateLayerInput,
 } from '../../lib/layers/api';
+import { Panel, PanelHeader, PanelBody } from '../common/Panel';
 import { AddExternalLayerDialog } from './AddExternalLayerDialog';
 import { LayerPropertiesPanel } from './LayerPropertiesPanel';
 
@@ -384,48 +384,36 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
 
   return (
     <>
-      <Paper
-        elevation={3}
-        sx={{
-          position: 'absolute',
-          top: 72,
-          right: 16,
-          zIndex: 1,
-          width: 360,
-          maxHeight: '60vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" px={2} py={1.5} sx={{ flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="subtitle1">Layers</Typography>
-          <Tooltip title="Add layer">
-            <IconButton
-              size="small"
-              onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
-              aria-label="Add layer"
-            >
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
-            <MenuItem onClick={handleBlankLayerClick}>
-              <ListItemIcon>
-                <CreateNewFolderIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Blank layer</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={handleAddDataLayerClick}>
-              <ListItemIcon>
-                <CloudDownloadIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Add data layer…</ListItemText>
-            </MenuItem>
-          </Menu>
-        </Stack>
+      <Panel side="right" width={360} maxHeight="60vh">
+        <PanelHeader
+          title="Layers"
+          actions={
+            <>
+              <Tooltip title="Add layer">
+                <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
+                <MenuItem onClick={handleBlankLayerClick}>
+                  <ListItemIcon>
+                    <CreateNewFolderIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Blank layer</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleAddDataLayerClick}>
+                  <ListItemIcon>
+                    <CloudDownloadIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Add data layer…</ListItemText>
+                </MenuItem>
+              </Menu>
+            </>
+          }
+        />
 
-        <Box
-          sx={{ overflowY: 'auto' }}
+        <PanelBody
+          sx={{ px: 0, pb: 0 }}
           onDragOver={(e) => {
             // A catch-all so the cursor never flashes "not-allowed" while
             // dragging over gaps between rows that don't have their own more
@@ -636,14 +624,14 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
               })}
             </List>
           )}
-        </Box>
+        </PanelBody>
 
         <AddExternalLayerDialog
           open={addExternalDialogOpen}
           onClose={() => setAddExternalDialogOpen(false)}
           mapId={mapId}
         />
-      </Paper>
+      </Panel>
 
       {selectedLayer && (
         <LayerPropertiesPanel
