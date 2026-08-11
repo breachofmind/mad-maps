@@ -6,13 +6,13 @@ import { fetchDirectionsRoute, type RouteProfile } from './mapboxDirections';
 import { DASH_LENGTH, GAP_LENGTH } from './drawTheme';
 import { usePulseOpacity } from './usePulseOpacity';
 
-const SOURCE_ID = 'mapinski-route-preview';
+const SOURCE_ID = 'mad-maps-route-preview';
 // Dashed line straight between the clicked waypoints (and out to the live
 // cursor), in click order — shown the whole time so the user can always see
 // where they've placed nodes, even before/if the snapped route comes back.
-const WAYPOINT_LINE_LAYER_ID = 'mapinski-route-preview-waypoint-line';
-const ROUTE_LINE_LAYER_ID = 'mapinski-route-preview-route-line';
-const POINT_LAYER_ID = 'mapinski-route-preview-points';
+const WAYPOINT_LINE_LAYER_ID = 'mad-maps-route-preview-waypoint-line';
+const ROUTE_LINE_LAYER_ID = 'mad-maps-route-preview-route-line';
+const POINT_LAYER_ID = 'mad-maps-route-preview-points';
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 

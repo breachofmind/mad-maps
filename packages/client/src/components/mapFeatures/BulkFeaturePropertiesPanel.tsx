@@ -9,7 +9,7 @@ import Divider from '@mui/material/Divider';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { LineStyle } from '@mapinski/shared';
+import type { LineStyle } from '@mad-maps/shared';
 import { deleteFeaturesBatch, featuresQueryKey, updateFeaturesBatch } from '../../lib/mapFeatures/api';
 import { IconPicker } from './IconPicker';
 import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';

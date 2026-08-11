@@ -6,6 +6,6 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://mapinski:mapinski@localhost:5433/mapinski',
+    url: process.env.DATABASE_URL ?? 'postgres://madmaps:madmaps@localhost:5433/madmaps',
   },
 });

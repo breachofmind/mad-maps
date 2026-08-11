@@ -1,5 +1,5 @@
 import { pgTable, pgEnum, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean, customType } from 'drizzle-orm/pg-core';
-import type { PmtilesMetadata } from '@mapinski/shared';
+import type { PmtilesMetadata } from '@mad-maps/shared';
 
 // Drizzle's built-in pg-core `geometry()` column only supports Point geometry
 // (its mapToDriverValue always emits `point(...)`), which doesn't fit a
@@ -86,7 +86,7 @@ export const layers = pgTable('layers', {
   sourceType: layerSourceTypeEnum('source_type').notNull().default('local'),
   sourceUrl: text('source_url'),
   // Only set for sourceType 'pmtiles-url': the vector-tile source-layer name
-  // this Mapinski layer renders. A PMTiles archive with multiple named
+  // this Mad Maps layer renders. A PMTiles archive with multiple named
   // layers is added multiple times, once per source-layer.
   sourceLayer: text('source_layer'),
   // Only set for sourceType 'pmtiles-url': captured once at add-time from

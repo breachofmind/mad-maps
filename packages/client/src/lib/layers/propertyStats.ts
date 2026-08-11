@@ -1,4 +1,4 @@
-import type { LayerDTO } from '@mapinski/shared';
+import type { LayerDTO } from '@mad-maps/shared';
 
 const SAMPLE_SIZE = 200;
 

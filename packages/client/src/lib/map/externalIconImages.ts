@@ -4,7 +4,7 @@ import type mapboxgl from 'mapbox-gl';
 // normalizing to a fixed square (preserving aspect ratio, not stretching)
 // lets every rule use the same 'icon-size' regardless of source dimensions.
 const ICON_RASTER_SIZE = 48;
-const IMAGE_ID_PREFIX = 'mapinski-ext-icon';
+const IMAGE_ID_PREFIX = 'mad-maps-ext-icon';
 
 // FNV-1a: cheap, deterministic, good enough to key a Mapbox image id off an
 // arbitrary URL without leaking the raw (potentially very long) URL into it.

@@ -1,6 +1,6 @@
-import { MAKI_ICON_NAMES, type MakiIconName } from '@mapinski/shared';
+import { MAKI_ICON_NAMES, type MakiIconName } from '@mad-maps/shared';
 
-export { isMakiIconName, makiIconKey, getMakiIconMarkup, MAKI_ICON_NAMES, type MakiIconName } from '@mapinski/shared';
+export { isMakiIconName, makiIconKey, getMakiIconMarkup, MAKI_ICON_NAMES, type MakiIconName } from '@mad-maps/shared';
 
 export interface FeatureIconCategory {
   label: string;

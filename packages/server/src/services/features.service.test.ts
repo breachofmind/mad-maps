@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import type { Geometry } from '@mapinski/shared';
+import type { Geometry } from '@mad-maps/shared';
 import { db, pool } from '../db/client';
 import { users } from '../db/schema';
 import { createMap } from './maps.service';

@@ -1,5 +1,5 @@
 import { useQueries } from '@tanstack/react-query';
-import type { LayerDTO, MapFeatureDTO } from '@mapinski/shared';
+import type { LayerDTO, MapFeatureDTO } from '@mad-maps/shared';
 import { useEditorStore } from '../state/editorStore';
 import { featuresQueryKey, fetchFeatures } from './api';
 

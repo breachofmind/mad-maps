@@ -15,7 +15,7 @@ export function LoginPage() {
   return (
     <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
       <Stack spacing={3} alignItems="center">
-        <Typography variant="h4">Mapinski</Typography>
+        <Typography variant="h4">Mad Maps</Typography>
         <Typography variant="body1" color="text.secondary">
           Create and share custom maps.
         </Typography>

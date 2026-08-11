@@ -1,5 +1,5 @@
 {
-  "name": "@mapinski/server",
+  "name": "@mad-maps/server",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -14,7 +14,7 @@
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
-    "@mapinski/shared": "*",
+    "@mad-maps/shared": "*",
     "@tmcw/togeojson": "^5.8.1",
     "@xmldom/xmldom": "^0.9.6",
     "connect-pg-simple": "^10.0.0",

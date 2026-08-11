@@ -1,5 +1,5 @@
 {
-  "name": "mapinski",
+  "name": "mad-maps",
   "version": "1.0.0",
   "description": "Custom map creation and viewing app built on Mapbox, similar to Google My Maps.",
   "license": "ISC",
@@ -18,13 +18,13 @@
     "rollup": "npm:@rollup/wasm-node@^4.62.3"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=@mapinski/server & npm run dev --workspace=@mapinski/client & wait",
-    "dev:server": "npm run dev --workspace=@mapinski/server",
-    "dev:client": "npm run dev --workspace=@mapinski/client",
+    "dev": "npm run dev --workspace=@mad-maps/server & npm run dev --workspace=@mad-maps/client & wait",
+    "dev:server": "npm run dev --workspace=@mad-maps/server",
+    "dev:client": "npm run dev --workspace=@mad-maps/client",
     "dev:kill": "lsof -ti:4000,5173 | xargs -r kill",
-    "build": "npm run build --workspace=@mapinski/shared && npm run build --workspace=@mapinski/server && npm run build --workspace=@mapinski/client",
-    "test": "npm run test --workspace=@mapinski/shared && npm run test --workspace=@mapinski/server && npm run test --workspace=@mapinski/client",
-    "db:generate": "npm run db:generate --workspace=@mapinski/server",
-    "db:migrate": "npm run db:migrate --workspace=@mapinski/server"
+    "build": "npm run build --workspace=@mad-maps/shared && npm run build --workspace=@mad-maps/server && npm run build --workspace=@mad-maps/client",
+    "test": "npm run test --workspace=@mad-maps/shared && npm run test --workspace=@mad-maps/server && npm run test --workspace=@mad-maps/client",
+    "db:generate": "npm run db:generate --workspace=@mad-maps/server",
+    "db:migrate": "npm run db:migrate --workspace=@mad-maps/server"
   }
 }

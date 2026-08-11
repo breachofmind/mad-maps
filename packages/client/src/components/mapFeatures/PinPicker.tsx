@@ -6,7 +6,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { isMakiIconName, type MakiIconName } from '@mapinski/shared';
+import { isMakiIconName, type MakiIconName } from '@mad-maps/shared';
 import { previewIconImage } from '../../lib/map/externalIconImages';
 import { FeatureIconGlyph } from './FeatureIconGlyph';
 import { MakiIconGrid } from './MakiIconGrid';

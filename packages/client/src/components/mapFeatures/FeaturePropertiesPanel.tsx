@@ -14,7 +14,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PolylineIcon from '@mui/icons-material/Polyline';
-import type { FeatureType, LineStyle, MapFeatureDTO } from '@mapinski/shared';
+import type { FeatureType, LineStyle, MapFeatureDTO } from '@mad-maps/shared';
 import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput } from '../../lib/mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';

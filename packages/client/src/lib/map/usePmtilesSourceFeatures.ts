@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO } from '@mapinski/shared';
+import type { LayerDTO } from '@mad-maps/shared';
 import { REMOTE_LAYER_ID_PREFIX } from './featureLayerIds';
 
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };

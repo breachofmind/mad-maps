@@ -5,5 +5,5 @@ const app = createApp();
 
 app.listen(env.PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`Mapinski server listening on http://localhost:${env.PORT}`);
+  console.log(`Mad Maps server listening on http://localhost:${env.PORT}`);
 });

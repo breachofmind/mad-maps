@@ -17,6 +17,6 @@ export const useUnitsStore = create<UnitsState>()(
       setDistanceUnit: (unit) => set({ distanceUnit: unit }),
       setAreaUnit: (unit) => set({ areaUnit: unit }),
     }),
-    { name: 'mapinski-measurement-units' },
+    { name: 'mad-maps-measurement-units' },
   ),
 );

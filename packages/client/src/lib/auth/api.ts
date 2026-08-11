@@ -1,4 +1,4 @@
-import type { UserDTO } from '@mapinski/shared';
+import type { UserDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export async function fetchCurrentUser(): Promise<UserDTO | null> {

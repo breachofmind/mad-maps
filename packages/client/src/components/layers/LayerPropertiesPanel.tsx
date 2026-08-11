@@ -7,7 +7,7 @@ import Divider from '@mui/material/Divider';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import type { LayerDTO, LayerStyleConfig } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig } from '@mad-maps/shared';
 import { IconPicker } from '../mapFeatures/IconPicker';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { Panel, PanelHeader, PanelBody } from '../common/Panel';

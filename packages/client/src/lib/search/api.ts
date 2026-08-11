@@ -1,4 +1,4 @@
-import type { PlaceResultDTO } from '@mapinski/shared';
+import type { PlaceResultDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export async function searchPlaces(query: string): Promise<PlaceResultDTO[]> {

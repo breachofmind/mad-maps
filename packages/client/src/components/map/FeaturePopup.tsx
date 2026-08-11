@@ -7,7 +7,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
-import type { MapFeatureDTO } from '@mapinski/shared';
+import type { MapFeatureDTO } from '@mad-maps/shared';
 import { mapboxgl } from '../../lib/map/mapbox';
 import { geometryAnchor } from '../../lib/map/geometryAnchor';
 import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';

@@ -160,7 +160,7 @@ describe('useMapboxRoute', () => {
       });
 
       const opacityCalls = map.setPaintProperty.mock.calls.filter(
-        (call) => call[0] === 'mapinski-route-preview-waypoint-line' && call[1] === 'line-opacity',
+        (call) => call[0] === 'mad-maps-route-preview-waypoint-line' && call[1] === 'line-opacity',
       );
       expect(opacityCalls.length).toBeGreaterThanOrEqual(2);
       const values = opacityCalls.map((call) => call[2]);
@@ -169,7 +169,7 @@ describe('useMapboxRoute', () => {
       expect(new Set(values).size).toBe(2);
 
       const transitionCall = map.setPaintProperty.mock.calls.find(
-        (call) => call[0] === 'mapinski-route-preview-waypoint-line' && call[1] === 'line-opacity-transition',
+        (call) => call[0] === 'mad-maps-route-preview-waypoint-line' && call[1] === 'line-opacity-transition',
       );
       expect(transitionCall).toBeDefined();
     } finally {
@@ -196,7 +196,7 @@ describe('useMapboxRoute', () => {
       rerender({ active: false });
 
       expect(map.setPaintProperty).toHaveBeenCalledWith(
-        'mapinski-route-preview-waypoint-line',
+        'mad-maps-route-preview-waypoint-line',
         'line-opacity',
         1,
       );
