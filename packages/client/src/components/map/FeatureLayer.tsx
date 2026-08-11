@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mapinski/shared';
+import type { LayerDTO, LineStyle, MapFeatureDTO } from '@mad-maps/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { featuresQueryKey, fetchFeatures, updateFeature } from '../../lib/mapFeatures/api';
 import { ensureFeatureIconImages, featureIconImageId, type FeatureIconRef } from '../../lib/map/featureIconImages';
@@ -13,12 +13,12 @@ import {
 } from '../../lib/map/basemapContrast';
 import { FEATURE_POINT_LAYER_ID, REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
 
-const SOURCE_ID = 'mapinski-features';
+const SOURCE_ID = 'mad-maps-features';
 // Separate single-feature source the cursor-following label (see
 // CURSOR_LABEL_TEXT_OFFSET) is driven from — its data is a lngLat updated on
 // every mousemove, independent of the real feature geometry, so it can't
 // share LAYER_IDS.hoverLabel's SOURCE_ID-backed, geometry-anchored layer.
-const HOVER_CURSOR_SOURCE_ID = 'mapinski-features-hover-cursor';
+const HOVER_CURSOR_SOURCE_ID = 'mad-maps-features-hover-cursor';
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 // Stable reference for the "no selection" case — returning a fresh `[]`
 // literal from the Zustand selector below would make every snapshot look
@@ -26,15 +26,15 @@ const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureColl
 // ("Maximum update depth exceeded").
 const EMPTY_FEATURE_IDS: string[] = [];
 const LAYER_IDS = {
-  polygonFill: 'mapinski-features-polygon-fill',
-  polygonOutline: 'mapinski-features-polygon-outline',
-  line: 'mapinski-features-line',
-  lineHitArea: 'mapinski-features-line-hit-area',
+  polygonFill: 'mad-maps-features-polygon-fill',
+  polygonOutline: 'mad-maps-features-polygon-outline',
+  line: 'mad-maps-features-line',
+  lineHitArea: 'mad-maps-features-line-hit-area',
   point: FEATURE_POINT_LAYER_ID,
-  pointHover: 'mapinski-features-point-hover',
-  geometryHover: 'mapinski-features-geometry-hover',
-  hoverLabel: 'mapinski-features-hover-label',
-  hoverLabelCursor: 'mapinski-features-hover-label-cursor',
+  pointHover: 'mad-maps-features-point-hover',
+  geometryHover: 'mad-maps-features-geometry-hover',
+  hoverLabel: 'mad-maps-features-hover-label',
+  hoverLabelCursor: 'mad-maps-features-hover-label-cursor',
 };
 // Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
 // instead of the visible line layer, since a thin rendered line is a hard

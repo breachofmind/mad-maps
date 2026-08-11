@@ -1,4 +1,4 @@
-import type { LayerDTO, LayerStyleConfig, PmtilesMetadata } from '@mapinski/shared';
+import type { LayerDTO, LayerStyleConfig, PmtilesMetadata } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface UpdateLayerInput {

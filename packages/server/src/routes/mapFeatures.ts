@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { batchDeleteFeaturesSchema, batchUpdateFeaturesSchema, geometrySchema, mapFeaturePropertiesSchema } from '@mapinski/shared';
+import { batchDeleteFeaturesSchema, batchUpdateFeaturesSchema, geometrySchema, mapFeaturePropertiesSchema } from '@mad-maps/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {

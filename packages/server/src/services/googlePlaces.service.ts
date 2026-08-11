@@ -1,4 +1,4 @@
-import type { PlaceResultDTO } from '@mapinski/shared';
+import type { PlaceResultDTO } from '@mad-maps/shared';
 import { env } from '../config/env';
 
 const SEARCH_TEXT_URL = 'https://places.googleapis.com/v1/places:searchText';

@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { LayerDTO, PmtilesMetadata } from '@mapinski/shared';
+import type { LayerDTO, PmtilesMetadata } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { layers, maps, type Layer, type LayerStyleConfig } from '../db/schema';
 import { getMapForOwner } from './maps.service';

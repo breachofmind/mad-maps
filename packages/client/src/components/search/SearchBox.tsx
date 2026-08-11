@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
-import type { LayerDTO, PlaceResultDTO } from '@mapinski/shared';
+import type { LayerDTO, PlaceResultDTO } from '@mad-maps/shared';
 import type mapboxgl from 'mapbox-gl';
 import { mapboxgl as mapboxglRuntime } from '../../lib/map/mapbox';
 import { searchPlaces } from '../../lib/search/api';

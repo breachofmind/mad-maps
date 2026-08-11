@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { passport } from './passport';
 import type { User } from '../db/schema';
-import type { UserDTO } from '@mapinski/shared';
+import type { UserDTO } from '@mad-maps/shared';
 import { env } from '../config/env';
 
 export const authRouter = Router();

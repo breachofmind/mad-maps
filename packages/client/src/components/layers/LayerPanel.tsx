@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mapinski/shared';
+import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mad-maps/shared';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';

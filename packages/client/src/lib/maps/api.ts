@@ -1,4 +1,4 @@
-import type { MapDTO } from '@mapinski/shared';
+import type { MapDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface CreateMapInput {

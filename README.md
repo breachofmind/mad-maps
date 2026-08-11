@@ -1,4 +1,4 @@
-# Mapinski
+# Mad Maps
 
 A web app for creating and viewing custom maps on Mapbox — a more flexible, modern alternative to Google's "My Maps" that can export to KML. See `docs/SDD.md` for the full spec.
 

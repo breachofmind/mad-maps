@@ -1,4 +1,4 @@
-import type { MapFeatureDTO, MapFeaturePropertiesDTO } from '@mapinski/shared';
+import type { MapFeatureDTO, MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface CreateFeatureInput {

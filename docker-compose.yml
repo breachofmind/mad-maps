@@ -3,9 +3,9 @@ services:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
     environment:
-      POSTGRES_USER: mapinski
-      POSTGRES_PASSWORD: mapinski
-      POSTGRES_DB: mapinski
+      POSTGRES_USER: madmaps
+      POSTGRES_PASSWORD: madmaps
+      POSTGRES_DB: madmaps
     ports:
       - "5433:5432"
     volumes:

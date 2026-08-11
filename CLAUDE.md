@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mapinski is a web app for creating and viewing custom maps on Mapbox — a more flexible alternative to
+Mad Maps is a web app for creating and viewing custom maps on Mapbox — a more flexible alternative to
 Google's "My Maps" that can export to KML/GeoJSON. Full feature spec in `docs/SDD.md`.
 
 ## Stack & Monorepo layout
 
 npm workspaces, three packages:
 
-- `packages/shared` (`@mapinski/shared`, ESM) — types + Zod GeoJSON schemas shared by client and server.
-- `packages/server` (`@mapinski/server`, CommonJS) — Express + TypeScript + Drizzle ORM + PostGIS.
-- `packages/client` (`@mapinski/client`, ESM) — Vite + React + TypeScript + MUI + Mapbox GL JS + Zustand + TanStack Query.
+- `packages/shared` (`@mad-maps/shared`, ESM) — types + Zod GeoJSON schemas shared by client and server.
+- `packages/server` (`@mad-maps/server`, CommonJS) — Express + TypeScript + Drizzle ORM + PostGIS.
+- `packages/client` (`@mad-maps/client`, ESM) — Vite + React + TypeScript + MUI + Mapbox GL JS + Zustand + TanStack Query.
 
 ## Commands
 
@@ -48,7 +48,7 @@ cd packages/client && npx jest src/lib/map/__tests__/geometryAnchor.test.ts
 
 ### Type checking
 
-Each workspace exposes `npm run typecheck --workspace=@mapinski/<pkg>` (`tsc --noEmit`). The client's
+Each workspace exposes `npm run typecheck --workspace=@mad-maps/<pkg>` (`tsc --noEmit`). The client's
 `build` script also runs a full typecheck before `vite build`.
 
 ## Architecture

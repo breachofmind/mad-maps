@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { MapDTO } from '@mapinski/shared';
+import type { MapDTO } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { maps, type LngLat, type Map } from '../db/schema';
 

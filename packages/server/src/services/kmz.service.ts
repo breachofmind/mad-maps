@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import JSZip from 'jszip';
 import tokml from 'tokml';
-import { getMakiIconMarkup, isMakiIconName } from '@mapinski/shared';
+import { getMakiIconMarkup, isMakiIconName } from '@mad-maps/shared';
 import { getMapForOwner } from './maps.service';
 import { listLayersForMap } from './layers.service';
 import { listFeaturesForLayer, toMapFeatureDTO } from './features.service';

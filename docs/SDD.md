@@ -1,7 +1,7 @@
-# Mapinski
+# Mad Maps
 
 ## Purpose
-"Mapinski" is a web application that is for creating and viewing custom maps using the Mapbox client API.
+"Mad Maps" is a web application that is for creating and viewing custom maps using the Mapbox client API.
 It is similar to Google's "My Maps" application, in that it allows users to create unique maps that
 can be seen in the Google Maps Platform.
 
@@ -10,7 +10,7 @@ it a lot in the near future. However, I use the "My Maps" application and want t
 application that gives me more flexibility and can export to a KML format for use inside of Google Maps.
 
 ## Features
-Mapinski should provide the following features:
+Mad Maps should provide the following features:
 
 1. Full-page / full-screen map view.
 2. Ability to change the map base layer (such as terrain or satellite) and styling.

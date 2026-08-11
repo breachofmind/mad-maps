@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { MapFeaturePropertiesDTO } from '@mapinski/shared';
+import type { MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';

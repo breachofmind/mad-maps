@@ -1,4 +1,4 @@
-import { externalGeoJsonFeatureCollectionSchema } from '@mapinski/shared';
+import { externalGeoJsonFeatureCollectionSchema } from '@mad-maps/shared';
 import { safeFetch, UnsafeUrlError } from '../lib/safeFetch';
 
 const FETCH_TIMEOUT_MS = 10_000;

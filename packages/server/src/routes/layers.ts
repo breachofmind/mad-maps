@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { isMakiIconName, pmtilesMetadataSchema } from '@mapinski/shared';
+import { isMakiIconName, pmtilesMetadataSchema } from '@mad-maps/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {

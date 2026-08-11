@@ -12,7 +12,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import type { LayerColorStop, LayerDTO, LayerIconRule, LayerStyleConfig } from '@mapinski/shared';
+import type { LayerColorStop, LayerDTO, LayerIconRule, LayerStyleConfig } from '@mad-maps/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { usePmtilesSourceFeatures } from '../../lib/map/usePmtilesSourceFeatures';
 import { collectDistinctValues, collectPropertyStats, numericRange, pmtilesPropertyStats } from '../../lib/layers/propertyStats';

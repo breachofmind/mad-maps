@@ -1,6 +1,6 @@
 import { DOMParser } from '@xmldom/xmldom';
 import { kmlWithFolders, type Folder, type F as KmlFeature } from '@tmcw/togeojson';
-import { geoJsonFeatureCollectionSchema, geometryToFeatureType, type Geometry } from '@mapinski/shared';
+import { geoJsonFeatureCollectionSchema, geometryToFeatureType, type Geometry } from '@mad-maps/shared';
 import type { MapFeatureProperties, Layer } from '../db/schema';
 import { getMapForOwner, createMap } from './maps.service';
 import { createLayer } from './layers.service';

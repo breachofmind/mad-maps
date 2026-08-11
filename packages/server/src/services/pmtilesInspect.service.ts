@@ -1,5 +1,5 @@
 import { PMTiles, TileType } from 'pmtiles';
-import type { PmtilesLayerMeta, PmtilesMetadata } from '@mapinski/shared';
+import type { PmtilesLayerMeta, PmtilesMetadata } from '@mad-maps/shared';
 import { SafeFetchSource } from '../lib/pmtilesSource';
 import { UnsafeUrlError } from '../lib/safeFetch';
 

@@ -14,7 +14,7 @@ const ICON_RASTER_SIZE = 64;
 // and "parking", which is exactly the set this app's icon picker also
 // uses. An unprefixed id would silently resolve to Mapbox's own (non-SDF,
 // wrong-sized, uncolored) sprite instead of ours.
-const IMAGE_ID_PREFIX = 'mapinski-icon';
+const IMAGE_ID_PREFIX = 'mad-maps-icon';
 
 function normalizeIconName(name: string): string {
   if (isMakiIconName(name)) return name;

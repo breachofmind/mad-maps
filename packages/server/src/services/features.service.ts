@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { MapFeatureDTO } from '@mapinski/shared';
-import { geometryToFeatureType, type Geometry } from '@mapinski/shared';
+import type { MapFeatureDTO } from '@mad-maps/shared';
+import { geometryToFeatureType, type Geometry } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { layers, maps, mapFeatures, type MapFeatureProperties } from '../db/schema';
 import { findLayerForOwner } from './layers.service';
