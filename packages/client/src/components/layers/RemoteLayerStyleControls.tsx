@@ -1,8 +1,9 @@
-import { useMemo, type ReactNode } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
@@ -283,13 +284,15 @@ export function RemoteLayerStyleControls({
         {styleConfig.iconProperty && (
           <Stack spacing={1} mt={1}>
             {styleConfig.iconRules.map((rule, index) => (
-              <IconRuleRow
-                key={rule.value}
-                rule={rule}
-                failed={failedIconUrls.has(rule.iconUrl)}
-                onChange={(iconUrl) => updateIconRule(index, iconUrl)}
-                onRemove={() => removeIconRule(index)}
-              />
+              <Fragment key={rule.value}>
+                <IconRuleRow
+                  rule={rule}
+                  failed={failedIconUrls.has(rule.iconUrl)}
+                  onChange={(iconUrl) => updateIconRule(index, iconUrl)}
+                  onRemove={() => removeIconRule(index)}
+                />
+                <Divider />
+              </Fragment>
             ))}
             {unmappedIconValues.length > 0 && (
               <FormControl size="small" fullWidth>
