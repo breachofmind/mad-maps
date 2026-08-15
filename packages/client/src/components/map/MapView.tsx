@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { mapboxgl, MAP_STYLE_OPTIONS } from '../../lib/map/mapbox';
-import { StyleSwitcher } from './StyleSwitcher';
+import { mapboxgl } from '../../lib/map/mapbox';
 
 export interface MapViewChange {
   center: { lng: number; lat: number };
@@ -14,25 +13,12 @@ interface MapViewProps {
   initialZoom: number;
   initialStyleUrl: string;
   onMoveEnd?: (change: MapViewChange) => void;
-  onStyleChange?: (styleUrl: string) => void;
   onMapReady?: (map: mapboxgl.Map) => void;
 }
 
-function styleIdForUrl(styleUrl: string): string {
-  return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? '';
-}
-
-export function MapView({
-  initialCenter,
-  initialZoom,
-  initialStyleUrl,
-  onMoveEnd,
-  onStyleChange,
-  onMapReady,
-}: MapViewProps) {
+export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd, onMapReady }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const [activeStyleId, setActiveStyleId] = useState(styleIdForUrl(initialStyleUrl));
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -66,27 +52,20 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Style selection lives in BaseLayerPanel (SideBar) and CustomStyleDialog,
+  // both of which persist the choice to map.baseStyle — this effect is the
+  // single place that applies it to the live map instance once that refetch
+  // flows back down as a new initialStyleUrl.
   const lastAppliedStyleUrlRef = useRef(initialStyleUrl);
   useEffect(() => {
     if (initialStyleUrl === lastAppliedStyleUrlRef.current) return;
     lastAppliedStyleUrlRef.current = initialStyleUrl;
     mapRef.current?.setStyle(initialStyleUrl);
-    setActiveStyleId(styleIdForUrl(initialStyleUrl));
   }, [initialStyleUrl]);
-
-  function handleStyleChange(styleId: string) {
-    const option = MAP_STYLE_OPTIONS.find((s) => s.id === styleId);
-    if (!option || !mapRef.current) return;
-    lastAppliedStyleUrlRef.current = option.styleUrl;
-    mapRef.current.setStyle(option.styleUrl);
-    setActiveStyleId(styleId);
-    onStyleChange?.(option.styleUrl);
-  }
 
   return (
     <Box position="relative" width="100%" height="100%">
       <Box ref={containerRef} width="100%" height="100%" />
-      <StyleSwitcher activeStyleId={activeStyleId} onChange={handleStyleChange} />
     </Box>
   );
 }

@@ -30,6 +30,9 @@ import { RemoteLayer } from './RemoteLayer';
 import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
 import { MapTitleBar } from './MapTitleBar';
+import { BaseLayerPanel } from './BaseLayerPanel';
+import { CustomStyleDialog } from './CustomStyleDialog';
+import { MAP_STYLE_OPTIONS, styleIdForUrl } from '../../lib/map/mapStyles';
 
 // Width of the fixed MenuBar (53px) + SideBar (240px) shell — the map area
 // is offset by this much instead of spanning the full viewport.
@@ -57,6 +60,7 @@ export function MapEditorPage() {
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -253,9 +257,11 @@ export function MapEditorPage() {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });
   }, 500);
 
-  const persistStyle = useDebouncedCallback((styleUrl: string) => {
-    patchMutation.mutate({ baseStyle: styleUrl });
-  }, 500);
+  function handleBaseLayerChange(styleId: string) {
+    const option = MAP_STYLE_OPTIONS.find((o) => o.id === styleId);
+    if (!option) return;
+    patchMutation.mutate({ baseStyle: option.styleUrl });
+  }
 
   if (isLoading || !map) {
     return (
@@ -270,12 +276,24 @@ export function MapEditorPage() {
       <MenuBar onLogoClick={() => navigate('/')} onDownloadClick={(e) => setMenuAnchorEl(e.currentTarget)} />
       <SideBar>
         <MapTitleBar title={map.title} onSubmit={(title) => patchMutation.mutate({ title })} />
+        <SearchBox map={mapInstance} activeLayer={activeLayer} />
+        <BaseLayerPanel
+          activeStyleId={styleIdForUrl(map.baseStyle)}
+          onChange={handleBaseLayerChange}
+          onAddCustomStyle={() => setCustomStyleDialogOpen(true)}
+        />
       </SideBar>
       <MapMenu
         mapId={map.id}
         currentStyleUrl={map.baseStyle}
         anchorEl={menuAnchorEl}
         onClose={() => setMenuAnchorEl(null)}
+      />
+      <CustomStyleDialog
+        open={customStyleDialogOpen}
+        onClose={() => setCustomStyleDialogOpen(false)}
+        mapId={map.id}
+        currentStyleUrl={map.baseStyle}
       />
 
       <Box position="absolute" top={0} left={SHELL_WIDTH} width={`calc(100vw - ${SHELL_WIDTH}px)`} height="100vh">
@@ -284,7 +302,6 @@ export function MapEditorPage() {
           initialZoom={map.defaultZoom}
           initialStyleUrl={map.baseStyle}
           onMoveEnd={persistViewport}
-          onStyleChange={persistStyle}
           onMapReady={setMapInstance}
         />
         <RemoteLayer map={mapInstance} layers={layers ?? []} />
@@ -318,7 +335,6 @@ export function MapEditorPage() {
         )}
       </Box>
 
-      <SearchBox map={mapInstance} activeLayer={activeLayer} />
       <LayerPanel mapId={map.id} map={mapInstance} />
       {selectedFeatures.length === 1 && singleSelectedFeature && (
         <FeaturePropertiesPanel

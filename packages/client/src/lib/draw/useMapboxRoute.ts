@@ -93,9 +93,9 @@ export function useMapboxRoute({ map, active, profile, onCreate }: UseMapboxRout
     // batch, marking the style briefly dirty. The map is only ever handed
     // to this hook after MapView's 'load' event, so the base style is
     // already parsed and safe to add to. The 'style.load' listener below is
-    // solely for re-adding these layers after a *later* style switch (e.g.
-    // via StyleSwitcher), which wipes all runtime-added layers/sources —
-    // mirrors FeatureLayer.tsx's ensureLayersAdded/handleStyleLoad split.
+    // solely for re-adding these layers after a *later* base-layer switch,
+    // which wipes all runtime-added layers/sources — mirrors
+    // FeatureLayer.tsx's ensureLayersAdded/handleStyleLoad split.
     ensureLayers();
     map.on('style.load', ensureLayers);
     return () => {

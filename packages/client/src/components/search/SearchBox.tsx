@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
-import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
@@ -143,18 +142,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
   }
 
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        position: 'absolute',
-        top: 16,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1,
-        width: 360,
-        p: 1,
-      }}
-    >
+    <Box sx={{ px: 2, py: 2, borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
       <Autocomplete
         options={options ?? []}
         getOptionLabel={(option) => option.name}
@@ -179,6 +167,11 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
             {...params}
             placeholder="Search for a place"
             size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b', borderRadius: 1, color: 'common.white' },
+              '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '& .MuiSvgIcon-root': { color: 'common.white' },
+            }}
             InputProps={{
               ...params.InputProps,
               endAdornment: (
@@ -193,7 +186,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
       />
       {selectedPlace && (
         <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} spacing={1}>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 220 }}>
+          <Typography variant="caption" color="rgba(255,255,255,0.7)" noWrap sx={{ maxWidth: 180 }}>
             {selectedPlace.formattedAddress}
           </Typography>
           <Tooltip
@@ -219,6 +212,6 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
           </Tooltip>
         </Stack>
       )}
-    </Paper>
+    </Box>
   );
 }
