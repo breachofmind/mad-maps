@@ -21,7 +21,9 @@ import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
-import { Panel, PanelHeader, PanelBody } from '../common/Panel';
+import { PanelHeader, PanelBody } from '../common/Panel';
+import { SelectedItemPill } from '../common/SelectedItemPill';
+import { FeatureIconGlyph } from './FeatureIconGlyph';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -137,9 +139,9 @@ export function FeaturePropertiesPanel({
   );
 
   return (
-    <Panel side="left" width={320} maxHeight="75vh">
+    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
       <PanelHeader
-        title={`${FEATURE_TYPE_LABELS[feature.featureType]} details`}
+        title={`${FEATURE_TYPE_LABELS[feature.featureType]} Properties`}
         actions={headerActions}
         onClose={onClose}
         closeLabel="Close feature details"
@@ -147,6 +149,11 @@ export function FeaturePropertiesPanel({
 
       <PanelBody>
         <Stack spacing={2}>
+          <SelectedItemPill
+            icon={<FeatureIconGlyph name={feature.properties.icon} color={feature.properties.color} />}
+            label={feature.properties.title || 'Untitled'}
+          />
+
           <TextField
             label="Title"
             size="small"
@@ -264,10 +271,10 @@ export function FeaturePropertiesPanel({
             startIcon={<DeleteIcon fontSize="small" />}
             onClick={() => deleteMutation.mutate()}
           >
-            Delete Feature
+            Delete
           </Button>
         </Stack>
       </PanelBody>
-    </Panel>
+    </Box>
   );
 }

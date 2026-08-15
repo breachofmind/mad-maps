@@ -13,7 +13,7 @@ import type { LineStyle } from '@mad-maps/shared';
 import { deleteFeaturesBatch, featuresQueryKey, updateFeaturesBatch } from '../../lib/mapFeatures/api';
 import { IconPicker } from './IconPicker';
 import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
-import { Panel, PanelHeader, PanelBody } from '../common/Panel';
+import { PanelHeader, PanelBody } from '../common/Panel';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -86,7 +86,7 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
   });
 
   return (
-    <Panel side="left" width={320} maxHeight="75vh">
+    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
       <PanelHeader title={`${features.length} items selected`} onClose={onClose} closeLabel="Close bulk edit" />
 
       <PanelBody>
@@ -186,6 +186,6 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
           </Button>
         </Stack>
       </PanelBody>
-    </Panel>
+    </Box>
   );
 }

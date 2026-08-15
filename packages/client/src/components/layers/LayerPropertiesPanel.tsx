@@ -10,7 +10,9 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { LayerDTO, LayerStyleConfig } from '@mad-maps/shared';
 import { IconPicker } from '../mapFeatures/IconPicker';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
-import { Panel, PanelHeader, PanelBody } from '../common/Panel';
+import { PanelHeader, PanelBody } from '../common/Panel';
+import { SelectedItemPill } from '../common/SelectedItemPill';
+import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
 import { RemoteLayerStyleControls } from './RemoteLayerStyleControls';
 
 interface LayerPropertiesPanelProps {
@@ -49,11 +51,20 @@ export function LayerPropertiesPanel({
   const isRemote = layer.sourceType !== 'local';
 
   return (
-    <Panel side="left" width={360} maxHeight="75vh">
-      <PanelHeader title={layer.name} onClose={onClose} closeLabel="Close layer details" />
+    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+      <PanelHeader
+        title={isRemote ? 'Data Layer Properties' : 'Layer Properties'}
+        onClose={onClose}
+        closeLabel="Close layer details"
+      />
 
       <PanelBody>
         <Stack spacing={2}>
+          <SelectedItemPill
+            icon={<FeatureIconGlyph name={layer.defaultIcon} color={layer.color} />}
+            label={layer.name}
+          />
+
           {isRemote && (
             <RemoteLayerStyleControls
               layer={layer}
@@ -111,10 +122,10 @@ export function LayerPropertiesPanel({
           <Divider />
 
           <Button size="small" color="error" startIcon={<DeleteIcon fontSize="small" />} onClick={onDelete}>
-            Delete Layer
+            {isRemote ? 'Delete Data Layer' : 'Delete Layer'}
           </Button>
         </Stack>
       </PanelBody>
-    </Panel>
+    </Box>
   );
 }

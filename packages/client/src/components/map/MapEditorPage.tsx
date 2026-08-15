@@ -283,6 +283,23 @@ export function MapEditorPage() {
           onAddCustomStyle={() => setCustomStyleDialogOpen(true)}
         />
         <LayerPanel mapId={map.id} map={mapInstance} />
+        {selectedFeatures.length === 1 && singleSelectedFeature && (
+          <FeaturePropertiesPanel
+            key={singleSelectedFeature.feature.id}
+            feature={singleSelectedFeature.feature}
+            layerId={singleSelectedFeature.layer.id}
+            onClose={() => setSelection(null)}
+            isEditingVertices={isEditingVertices}
+            onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
+          />
+        )}
+        {selectedFeatures.length >= 2 && (
+          <BulkFeaturePropertiesPanel
+            key={selectedFeatures.map((f) => f.feature.id).join(',')}
+            features={selectedFeatures}
+            onClose={() => setSelection(null)}
+          />
+        )}
       </SideBar>
       <MapMenu
         mapId={map.id}
@@ -335,24 +352,6 @@ export function MapEditorPage() {
           />
         )}
       </Box>
-
-      {selectedFeatures.length === 1 && singleSelectedFeature && (
-        <FeaturePropertiesPanel
-          key={singleSelectedFeature.feature.id}
-          feature={singleSelectedFeature.feature}
-          layerId={singleSelectedFeature.layer.id}
-          onClose={() => setSelection(null)}
-          isEditingVertices={isEditingVertices}
-          onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
-        />
-      )}
-      {selectedFeatures.length >= 2 && (
-        <BulkFeaturePropertiesPanel
-          key={selectedFeatures.map((f) => f.feature.id).join(',')}
-          features={selectedFeatures}
-          onClose={() => setSelection(null)}
-        />
-      )}
     </Box>
   );
 }

@@ -630,13 +630,38 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
         </Box>
       </Box>
 
-      {/* LayerPanel itself now lives inside SideBar's dark ThemeProvider
-          (see MapEditorPage), but AddExternalLayerDialog and
-          LayerPropertiesPanel haven't been redesigned for the dark sidebar
-          yet (that's Phase 4) — portal them out to document.body and
-          re-apply the light app theme so they keep looking exactly as
-          before, positioned over the map rather than clipped by SideBar's
-          own overflow. */}
+      {selectedLayer && (
+        <LayerPropertiesPanel
+          layer={selectedLayer}
+          map={map}
+          canMoveUp={selectedIndex > 0}
+          canMoveDown={layers != null && selectedIndex < layers.length - 1}
+          isRefreshing={
+            refreshExternalLayerMutation.isPending && refreshExternalLayerMutation.variables === selectedLayer.id
+          }
+          onMoveUp={() => move(selectedIndex, -1)}
+          onMoveDown={() => move(selectedIndex, 1)}
+          externalData={externalDataQueries[selectedIndex]?.data}
+          onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
+          onDefaultIconChange={(defaultIcon) =>
+            updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
+          }
+          onStyleConfigChange={(styleConfig) =>
+            updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
+          }
+          onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
+          onDelete={() => {
+            deleteMutation.mutate(selectedLayer.id);
+            setSelectedLayerId(null);
+          }}
+          onClose={() => setSelectedLayerId(null)}
+        />
+      )}
+
+      {/* AddExternalLayerDialog hasn't been redesigned for the dark sidebar
+          (out of scope — it's a full add-layer form, not a properties
+          panel), so portal it out and re-apply the light app theme to keep
+          it looking exactly as before. */}
       {createPortal(
         <ThemeProvider theme={theme}>
           <AddExternalLayerDialog
@@ -644,33 +669,6 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
             onClose={() => setAddExternalDialogOpen(false)}
             mapId={mapId}
           />
-          {selectedLayer && (
-            <LayerPropertiesPanel
-              layer={selectedLayer}
-              map={map}
-              canMoveUp={selectedIndex > 0}
-              canMoveDown={layers != null && selectedIndex < layers.length - 1}
-              isRefreshing={
-                refreshExternalLayerMutation.isPending && refreshExternalLayerMutation.variables === selectedLayer.id
-              }
-              onMoveUp={() => move(selectedIndex, -1)}
-              onMoveDown={() => move(selectedIndex, 1)}
-              externalData={externalDataQueries[selectedIndex]?.data}
-              onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
-              onDefaultIconChange={(defaultIcon) =>
-                updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
-              }
-              onStyleConfigChange={(styleConfig) =>
-                updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
-              }
-              onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
-              onDelete={() => {
-                deleteMutation.mutate(selectedLayer.id);
-                setSelectedLayerId(null);
-              }}
-              onClose={() => setSelectedLayerId(null)}
-            />
-          )}
         </ThemeProvider>,
         document.body,
       )}
