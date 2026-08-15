@@ -4,14 +4,11 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import CloseIcon from '@mui/icons-material/Close';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import type { LayerColorStop, LayerDTO, LayerIconRule, LayerStyleConfig } from '@mad-maps/shared';
 import { useEditorStore } from '../../lib/state/editorStore';
 import { usePmtilesSourceFeatures } from '../../lib/map/usePmtilesSourceFeatures';
@@ -119,25 +116,21 @@ function IconRuleRow({
 interface RemoteLayerStyleControlsProps {
   layer: LayerDTO;
   map: mapboxgl.Map | null;
-  isRefreshing: boolean;
   externalData?: GeoJSON.FeatureCollection;
   onStyleConfigChange: (styleConfig: LayerStyleConfig) => void;
-  onRefresh: () => void;
 }
 
-// Style controls (label, colorize-by-value, icon-by-value, data source) for
-// a geojson-url or pmtiles-url layer — the "local" layers this panel also
-// renders don't have a remote source or a styleConfig to edit, so this whole
-// block only ever mounts for LayerPropertiesPanel's isRemote case. The
-// layer's flat color lives in LayerPropertiesPanel's shared color chip
-// (same control local layers use), not here.
+// Style controls (label, colorize-by-value, icon-by-value) for a geojson-url
+// or pmtiles-url layer — the "local" layers this panel also renders don't
+// have a remote source or a styleConfig to edit, so this whole block only
+// ever mounts for LayerPropertiesPanel's isRemote case. The layer's flat
+// color and data-source/refresh controls live in LayerPropertiesPanel
+// itself (shared color chip, refresh icon next to move up/down), not here.
 export function RemoteLayerStyleControls({
   layer,
   map,
-  isRefreshing,
   externalData,
   onStyleConfigChange,
-  onRefresh,
 }: RemoteLayerStyleControlsProps) {
   const isPmtiles = layer.sourceType === 'pmtiles-url';
   // Merged rather than a plain `?? EMPTY_STYLE_CONFIG` fallback so a
@@ -316,27 +309,6 @@ export function RemoteLayerStyleControls({
         )}
       </Box>
 
-      <Box>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Data source
-        </Typography>
-        {layer.sourceUrl && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, wordBreak: 'break-all' }}>
-            {layer.sourceUrl}
-          </Typography>
-        )}
-        {layer.sourceType === 'geojson-url' && (
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={isRefreshing}
-            startIcon={isRefreshing ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
-            onClick={onRefresh}
-          >
-            Refresh data
-          </Button>
-        )}
-      </Box>
     </>
   );
 }

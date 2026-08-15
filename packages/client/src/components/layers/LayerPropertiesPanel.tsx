@@ -2,14 +2,17 @@ import { useState } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import CircularProgress from '@mui/material/CircularProgress';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import type { LayerDTO, LayerStyleConfig } from '@mad-maps/shared';
 import { IconPicker } from '../mapFeatures/IconPicker';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
@@ -91,7 +94,27 @@ export function LayerPropertiesPanel({
                 </IconButton>
               </span>
             </Tooltip>
+            {isRemote && layer.sourceType === 'geojson-url' && (
+              <Tooltip title="Refresh data">
+                <span>
+                  <IconButton size="small" disabled={isRefreshing} onClick={onRefresh} aria-label="Refresh data">
+                    {isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
           </Stack>
+
+          {isRemote && layer.sourceUrl && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                Data source
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>
+                {layer.sourceUrl}
+              </Typography>
+            </Box>
+          )}
 
           <Stack direction="row" spacing={1} alignItems="center">
             <IconPicker iconOnly value={layer.defaultIcon} color={layer.color} onChange={onDefaultIconChange} />
@@ -115,10 +138,8 @@ export function LayerPropertiesPanel({
             <RemoteLayerStyleControls
               layer={layer}
               map={map}
-              isRefreshing={isRefreshing}
               externalData={externalData}
               onStyleConfigChange={onStyleConfigChange}
-              onRefresh={onRefresh}
             />
           )}
 
