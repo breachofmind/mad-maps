@@ -32,6 +32,7 @@ import { MapMenu } from './MapMenu';
 import { MapTitleBar } from './MapTitleBar';
 import { BaseLayerPanel } from './BaseLayerPanel';
 import { CustomStyleDialog } from './CustomStyleDialog';
+import { AccountMenu } from '../common/AccountMenu';
 import { MAP_STYLE_OPTIONS, styleIdForUrl } from '../../lib/map/mapStyles';
 
 // Width of the fixed MenuBar (53px) + SideBar (240px) shell — the map area
@@ -60,6 +61,7 @@ export function MapEditorPage() {
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [accountAnchorEl, setAccountAnchorEl] = useState<HTMLElement | null>(null);
   const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   const { data: map, isLoading } = useQuery({
@@ -273,7 +275,11 @@ export function MapEditorPage() {
 
   return (
     <Box position="relative" width="100vw" height="100vh">
-      <MenuBar onLogoClick={() => navigate('/')} onDownloadClick={(e) => setMenuAnchorEl(e.currentTarget)} />
+      <MenuBar
+        onLogoClick={() => navigate('/')}
+        onDownloadClick={(e) => setMenuAnchorEl(e.currentTarget)}
+        onAccountClick={(e) => setAccountAnchorEl(e.currentTarget)}
+      />
       <SideBar>
         <MapTitleBar title={map.title} onSubmit={(title) => patchMutation.mutate({ title })} />
         <SearchBox map={mapInstance} activeLayer={activeLayer} />
@@ -313,6 +319,7 @@ export function MapEditorPage() {
         mapId={map.id}
         currentStyleUrl={map.baseStyle}
       />
+      <AccountMenu anchorEl={accountAnchorEl} onClose={() => setAccountAnchorEl(null)} />
 
       <Box position="absolute" top={0} left={SHELL_WIDTH} width={`calc(100vw - ${SHELL_WIDTH}px)`} height="100vh">
         <MapView
