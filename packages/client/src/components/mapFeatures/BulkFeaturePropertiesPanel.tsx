@@ -86,7 +86,16 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
   });
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+    <Box
+      sx={{
+        borderTop: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
       <PanelHeader title={`${features.length} items selected`} onClose={onClose} closeLabel="Close bulk edit" />
 
       <PanelBody>

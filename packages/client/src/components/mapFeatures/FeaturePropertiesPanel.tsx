@@ -138,7 +138,16 @@ export function FeaturePropertiesPanel({
   );
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+    <Box
+      sx={{
+        borderTop: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
       <PanelHeader
         title={`${FEATURE_TYPE_LABELS[feature.featureType]} Properties`}
         actions={headerActions}

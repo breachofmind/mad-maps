@@ -8,7 +8,16 @@ import { PanelHeader, PanelBody } from '../common/Panel';
 // it (FeaturePropertiesPanel, BulkFeaturePropertiesPanel, LayerPropertiesPanel).
 export function PropertiesEmptyState() {
   return (
-    <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+    <Box
+      sx={{
+        borderTop: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
       <PanelHeader title="Properties" />
       <PanelBody>
         <Typography variant="body2" color="text.secondary">

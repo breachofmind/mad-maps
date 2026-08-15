@@ -5,6 +5,7 @@ import Box, { type BoxProps } from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
+import { useAutoHideScrollbar, scrollbarAutoHideSx } from '../../lib/useAutoHideScrollbar';
 
 interface PanelHeaderProps {
   title: ReactNode;
@@ -40,10 +41,24 @@ export function PanelHeader({ title, actions, onClose, closeLabel = 'Close panel
   );
 }
 
-// Scrollable remainder of the panel, below the fixed PanelHeader.
+// Scrollable remainder of the panel, below the fixed PanelHeader — fills
+// whatever height its flex-column parent gives it (flex:1, minHeight:0) and
+// scrolls independently within that, rather than growing to fit its content
+// and pushing everything else (including PanelHeader) off-screen along with
+// it. Callers must be a flex column with a bounded height for this to take
+// effect — see LayerPropertiesPanel/FeaturePropertiesPanel/etc.'s root Box.
 export function PanelBody({ sx, children, ...rest }: BoxProps) {
+  const { isScrolling, onScroll } = useAutoHideScrollbar();
   return (
-    <Box sx={{ overflowY: 'auto', px: 2, pt: 2, pb: 2, ...sx }} {...rest}>
+    <Box
+      {...rest}
+      onScroll={onScroll}
+      data-scrolling={isScrolling}
+      sx={[
+        { flex: 1, minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2, ...scrollbarAutoHideSx },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
+    >
       {children}
     </Box>
   );
