@@ -14,12 +14,13 @@ const CIRCLE_SX = {
   '&::-moz-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
 };
 
-// Full-width button showing its own current color, for the properties-panel
-// color picker (matches Figma's ColorSwatchPicker) rather than a small
-// circular swatch alongside other controls.
+// Button showing its own current color with its hex value overlaid
+// (matches Figma's ColorSwatchPicker) rather than a small circular swatch
+// alongside other controls. Defaults to filling its container (the
+// properties-panel color picker); pass a fixed `width` for a smaller inline
+// chip, e.g. a gradient stop row's color — Figma sizes those at 65px.
 const CHIP_SX = {
   display: 'block',
-  width: '100%',
   height: 31,
   p: 0,
   border: 'none',
@@ -35,9 +36,16 @@ interface ColorSwatchInputProps {
   onChange: (color: string) => void;
   ariaLabel: string;
   variant?: 'circle' | 'chip';
+  width?: number | string;
 }
 
-export function ColorSwatchInput({ value, onChange, ariaLabel, variant = 'circle' }: ColorSwatchInputProps) {
+export function ColorSwatchInput({
+  value,
+  onChange,
+  ariaLabel,
+  variant = 'circle',
+  width = '100%',
+}: ColorSwatchInputProps) {
   const input = (
     <Box
       component="input"
@@ -45,14 +53,14 @@ export function ColorSwatchInput({ value, onChange, ariaLabel, variant = 'circle
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label={ariaLabel}
-      sx={variant === 'chip' ? CHIP_SX : CIRCLE_SX}
+      sx={variant === 'chip' ? { ...CHIP_SX, width } : CIRCLE_SX}
     />
   );
 
   if (variant !== 'chip') return input;
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box sx={{ position: 'relative', width, flexShrink: 0 }}>
       {input}
       <Typography
         variant="caption"

@@ -38,13 +38,17 @@ const DARK_SELECT_SX = {
   '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
 };
 
+// Shared by InlineFieldRow and GradientStopRow so "Label"/"Colorize" line up
+// with "High"/"Low" in the column below them.
+const PROPERTY_LABEL_WIDTH = 60;
+
 // Caption to the left, control filling the rest of the row — matches
 // Figma's Label/Colorize rows (a stacked caption-above-control layout is
 // only used for Icon by Value, which Figma shows as its own heading).
 function InlineFieldRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography variant="caption" color="text.secondary" sx={{ width: 60, flexShrink: 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ width: PROPERTY_LABEL_WIDTH, flexShrink: 0 }}>
         {label}
       </Typography>
       {children}
@@ -63,7 +67,7 @@ function GradientStopRow({
 }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography variant="body2" color="text.secondary" sx={{ width: 36, flexShrink: 0 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ width: PROPERTY_LABEL_WIDTH, flexShrink: 0 }}>
         {label}
       </Typography>
       <TextField
@@ -75,6 +79,8 @@ function GradientStopRow({
         slotProps={{ htmlInput: { 'aria-label': `${label} gradient value` } }}
       />
       <ColorSwatchInput
+        variant="chip"
+        width={65}
         value={stop.color}
         onChange={(color) => onChange({ ...stop, color })}
         ariaLabel={`${label} gradient color`}
