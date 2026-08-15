@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -29,6 +29,20 @@ const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
 };
 const DEFAULT_LOW_COLOR = '#1976d2';
 const DEFAULT_HIGH_COLOR = '#d32f2f';
+
+// Caption to the left, control filling the rest of the row — matches
+// Figma's Label/Colorize rows (a stacked caption-above-control layout is
+// only used for Icon by Value, which Figma shows as its own heading).
+function InlineFieldRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Typography variant="caption" color="text.secondary" sx={{ width: 60, flexShrink: 0 }}>
+        {label}
+      </Typography>
+      {children}
+    </Stack>
+  );
+}
 
 function GradientStopRow({
   label,
@@ -209,10 +223,7 @@ export function RemoteLayerStyleControls({
 
   return (
     <>
-      <Box>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Label
-        </Typography>
+      <InlineFieldRow label="Label">
         <FormControl size="small" fullWidth>
           <Select
             value={styleConfig.labelProperty ?? ''}
@@ -228,31 +239,30 @@ export function RemoteLayerStyleControls({
             ))}
           </Select>
         </FormControl>
-      </Box>
+      </InlineFieldRow>
 
       <Box>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Colorize by value
-        </Typography>
-        <FormControl size="small" fullWidth>
-          <Select
-            value={styleConfig.colorProperty ?? ''}
-            displayEmpty
-            onChange={handleColorPropertyChange}
-            disabled={stats.numeric.length === 0}
-          >
-            <MenuItem value="">Flat color</MenuItem>
-            {stats.numeric.map((key) => (
-              <MenuItem key={key} value={key}>
-                {key}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <InlineFieldRow label="Colorize">
+          <FormControl size="small" fullWidth>
+            <Select
+              value={styleConfig.colorProperty ?? ''}
+              displayEmpty
+              onChange={handleColorPropertyChange}
+              disabled={stats.numeric.length === 0}
+            >
+              <MenuItem value="">Flat color</MenuItem>
+              {stats.numeric.map((key) => (
+                <MenuItem key={key} value={key}>
+                  {key}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </InlineFieldRow>
         {styleConfig.colorProperty && lowStop && highStop && (
           <Stack spacing={1} mt={1}>
-            <GradientStopRow label="Low" stop={lowStop} onChange={(stop) => updateColorStop(0, stop)} />
             <GradientStopRow label="High" stop={highStop} onChange={(stop) => updateColorStop(1, stop)} />
+            <GradientStopRow label="Low" stop={lowStop} onChange={(stop) => updateColorStop(0, stop)} />
             {gradientRangeInvalid && (
               <Typography variant="caption" color="error">
                 Low value must be less than high value — using the flat color until fixed.
@@ -264,7 +274,7 @@ export function RemoteLayerStyleControls({
 
       <Box>
         <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Icon by value
+          Icon by Value
         </Typography>
         <FormControl size="small" fullWidth>
           <Select
