@@ -33,6 +33,7 @@ import { MapTitleBar } from './MapTitleBar';
 import { BaseLayerPanel } from './BaseLayerPanel';
 import { CustomStyleDialog } from './CustomStyleDialog';
 import { AccountMenu } from '../common/AccountMenu';
+import { PropertiesEmptyState } from './PropertiesEmptyState';
 import { MAP_STYLE_OPTIONS, styleIdForUrl } from '../../lib/map/mapStyles';
 
 // Width of the fixed MenuBar (60px) + SideBar (400px) shell — the map area
@@ -58,6 +59,7 @@ export function MapEditorPage() {
   const drawMode = useEditorStore((s) => s.drawMode);
   const setDrawMode = useEditorStore((s) => s.setDrawMode);
   const setSelection = useEditorStore((s) => s.setSelection);
+  const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -306,6 +308,7 @@ export function MapEditorPage() {
             onClose={() => setSelection(null)}
           />
         )}
+        {selectedFeatures.length === 0 && !selectedLayerId && <PropertiesEmptyState />}
       </SideBar>
       <MapMenu
         mapId={map.id}
