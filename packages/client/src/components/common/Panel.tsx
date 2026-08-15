@@ -13,6 +13,12 @@ interface PanelProps extends PaperProps {
   maxHeight: string;
 }
 
+// TRANSITIONAL: left-side offset past the new SideBar (53px MenuBar + 240px
+// SideBar) so LayerPropertiesPanel/FeaturePropertiesPanel/BulkFeaturePropertiesPanel
+// don't render underneath it. Panel itself (and this offset) goes away once
+// those panels are reparented inside SideBar directly.
+const SIDEBAR_CLEARANCE = 309;
+
 // Shared absolute-positioned shell for the layer list, layer properties,
 // feature properties, and bulk-edit panels — anchors to a top corner of the
 // map and caps its own height so PanelHeader can stay fixed while PanelBody
@@ -24,7 +30,7 @@ export function Panel({ side, width, maxHeight, sx, children, ...rest }: PanelPr
       sx={{
         position: 'absolute',
         top: 72,
-        [side]: 16,
+        [side]: side === 'left' ? SIDEBAR_CLEARANCE : 16,
         zIndex: 1,
         width,
         maxHeight,

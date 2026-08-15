@@ -5,12 +5,6 @@ import type mapboxgl from 'mapbox-gl';
 import type { MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import Paper from '@mui/material/Paper';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchMap, updateMap, type UpdateMapInput } from '../../lib/maps/api';
 import { fetchLayers, layersQueryKey } from '../../lib/layers/api';
 import { createFeature, featuresQueryKey, updateFeature } from '../../lib/mapFeatures/api';
@@ -28,11 +22,18 @@ import { FeaturePropertiesPanel } from '../mapFeatures/FeaturePropertiesPanel';
 import { BulkFeaturePropertiesPanel } from '../mapFeatures/BulkFeaturePropertiesPanel';
 import { useSelectedFeatures } from '../../lib/mapFeatures/useSelectedFeatures';
 import { SearchBox } from '../search/SearchBox';
+import { MenuBar } from '../common/MenuBar';
+import { SideBar } from '../common/SideBar';
 import { MapView, type MapViewChange } from './MapView';
 import { FeatureLayer } from './FeatureLayer';
 import { RemoteLayer } from './RemoteLayer';
 import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
+import { MapTitleBar } from './MapTitleBar';
+
+// Width of the fixed MenuBar (53px) + SideBar (240px) shell — the map area
+// is offset by this much instead of spanning the full viewport.
+const SHELL_WIDTH = 293;
 
 // Verb suffixed onto a finished route's prefilled description (e.g. "8 min
 // drive") so it reads naturally regardless of which profile was used.
@@ -55,8 +56,7 @@ export function MapEditorPage() {
   const setSelection = useEditorStore((s) => s.setSelection);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleValue, setTitleValue] = useState('');
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -257,13 +257,6 @@ export function MapEditorPage() {
     patchMutation.mutate({ baseStyle: styleUrl });
   }, 500);
 
-  function submitTitle() {
-    setIsEditingTitle(false);
-    const trimmed = titleValue.trim();
-    if (!trimmed || trimmed === map?.title) return;
-    patchMutation.mutate({ title: trimmed });
-  }
-
   if (isLoading || !map) {
     return (
       <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
@@ -274,81 +267,59 @@ export function MapEditorPage() {
 
   return (
     <Box position="relative" width="100vw" height="100vh">
-      <MapView
-        initialCenter={map.defaultCenter}
-        initialZoom={map.defaultZoom}
-        initialStyleUrl={map.baseStyle}
-        onMoveEnd={persistViewport}
-        onStyleChange={persistStyle}
-        onMapReady={setMapInstance}
+      <MenuBar onLogoClick={() => navigate('/')} onDownloadClick={(e) => setMenuAnchorEl(e.currentTarget)} />
+      <SideBar>
+        <MapTitleBar title={map.title} onSubmit={(title) => patchMutation.mutate({ title })} />
+      </SideBar>
+      <MapMenu
+        mapId={map.id}
+        currentStyleUrl={map.baseStyle}
+        anchorEl={menuAnchorEl}
+        onClose={() => setMenuAnchorEl(null)}
       />
-      <RemoteLayer map={mapInstance} layers={layers ?? []} />
-      <FeatureLayer
-        map={mapInstance}
-        layers={layers ?? []}
-        editingFeatureId={
-          isEditingVertices && singleSelectedFeature && singleSelectedFeature.feature.featureType !== 'point'
-            ? singleSelectedFeature.feature.id
-            : null
-        }
-      />
-      <SearchBox map={mapInstance} activeLayer={activeLayer} />
-      <FeaturePopup
-        map={mapInstance}
-        feature={singleSelectedFeature?.feature ?? null}
-        onClose={() => setSelection(null)}
-      />
-      <Paper
-        elevation={3}
-        sx={{ position: 'absolute', top: 16, left: 16, zIndex: 1, px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}
-      >
-        <Tooltip title="Back to maps">
-          <IconButton size="small" onClick={() => navigate('/')} aria-label="Back to maps">
-            <ArrowBackIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        {isEditingTitle ? (
-          <TextField
-            autoFocus
-            size="small"
-            variant="standard"
-            value={titleValue}
-            onChange={(e) => setTitleValue(e.target.value)}
-            onBlur={submitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitTitle();
-              if (e.key === 'Escape') setIsEditingTitle(false);
-            }}
-          />
-        ) : (
-          <Typography
-            variant="subtitle1"
-            onDoubleClick={() => {
-              setTitleValue(map.title);
-              setIsEditingTitle(true);
-            }}
-            sx={{ cursor: 'text' }}
-          >
-            {map.title}
-          </Typography>
-        )}
-        <MapMenu mapId={map.id} currentStyleUrl={map.baseStyle} />
-      </Paper>
-      <LayerPanel mapId={map.id} map={mapInstance} />
-      <DrawControls setMode={setMode} disabled={!canAddFeatures} />
-      {drawMode === 'route' && (
-        <RouteControls
-          profile={routeProfile}
-          onProfileChange={setRouteProfile}
-          waypointCount={waypointCount}
-          isFetching={isFetching}
-          distanceMeters={distanceMeters}
-          durationSeconds={durationSeconds}
-          error={error}
-          onFinish={finish}
-          onCancel={cancel}
+
+      <Box position="absolute" top={0} left={SHELL_WIDTH} width={`calc(100vw - ${SHELL_WIDTH}px)`} height="100vh">
+        <MapView
+          initialCenter={map.defaultCenter}
+          initialZoom={map.defaultZoom}
+          initialStyleUrl={map.baseStyle}
+          onMoveEnd={persistViewport}
+          onStyleChange={persistStyle}
+          onMapReady={setMapInstance}
         />
-      )}
+        <RemoteLayer map={mapInstance} layers={layers ?? []} />
+        <FeatureLayer
+          map={mapInstance}
+          layers={layers ?? []}
+          editingFeatureId={
+            isEditingVertices && singleSelectedFeature && singleSelectedFeature.feature.featureType !== 'point'
+              ? singleSelectedFeature.feature.id
+              : null
+          }
+        />
+        <FeaturePopup
+          map={mapInstance}
+          feature={singleSelectedFeature?.feature ?? null}
+          onClose={() => setSelection(null)}
+        />
+        <DrawControls setMode={setMode} disabled={!canAddFeatures} />
+        {drawMode === 'route' && (
+          <RouteControls
+            profile={routeProfile}
+            onProfileChange={setRouteProfile}
+            waypointCount={waypointCount}
+            isFetching={isFetching}
+            distanceMeters={distanceMeters}
+            durationSeconds={durationSeconds}
+            error={error}
+            onFinish={finish}
+            onCancel={cancel}
+          />
+        )}
+      </Box>
+
+      <SearchBox map={mapInstance} activeLayer={activeLayer} />
+      <LayerPanel mapId={map.id} map={mapInstance} />
       {selectedFeatures.length === 1 && singleSelectedFeature && (
         <FeaturePropertiesPanel
           key={singleSelectedFeature.feature.id}

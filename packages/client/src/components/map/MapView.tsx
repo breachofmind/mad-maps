@@ -84,7 +84,7 @@ export function MapView({
   }
 
   return (
-    <Box position="relative" width="100vw" height="100vh">
+    <Box position="relative" width="100%" height="100%">
       <Box ref={containerRef} width="100%" height="100%" />
       <StyleSwitcher activeStyleId={activeStyleId} onChange={handleStyleChange} />
     </Box>

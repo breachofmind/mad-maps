@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import PaletteIcon from '@mui/icons-material/Palette';
@@ -17,36 +14,36 @@ import { CustomStyleDialog } from './CustomStyleDialog';
 interface MapMenuProps {
   mapId: string;
   currentStyleUrl: string;
+  anchorEl: HTMLElement | null;
+  onClose: () => void;
 }
 
-export function MapMenu({ mapId, currentStyleUrl }: MapMenuProps) {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+// Controlled by its trigger (MenuBar's download icon in MapEditorPage) —
+// this component only owns the Menu content and the dialogs it opens, not
+// the button that opens it, so the trigger can live in the shell's icon rail
+// instead of here.
+export function MapMenu({ mapId, currentStyleUrl, anchorEl, onClose }: MapMenuProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   async function handleExport(format: ExportFormat) {
-    setAnchorEl(null);
+    onClose();
     await downloadMapExport(mapId, format);
   }
 
   function handleImportClick() {
-    setAnchorEl(null);
+    onClose();
     setImportDialogOpen(true);
   }
 
   function handleCustomStyleClick() {
-    setAnchorEl(null);
+    onClose();
     setCustomStyleDialogOpen(true);
   }
 
   return (
     <>
-      <Tooltip title="More options">
-        <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} aria-label="More options">
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
         <MenuItem onClick={() => handleExport('geojson')}>
           <ListItemIcon>
             <DownloadIcon fontSize="small" />
