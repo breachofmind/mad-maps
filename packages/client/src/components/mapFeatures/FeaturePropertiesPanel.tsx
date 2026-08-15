@@ -176,20 +176,19 @@ export function FeaturePropertiesPanel({
             </Box>
           )}
 
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ bgcolor: '#1a1c1b', borderRadius: 1, pl: 0.5, pr: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <IconPicker
               iconOnly
               value={feature.properties.icon}
               onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
             />
             <TextField
-              variant="standard"
+              size="small"
               fullWidth
               placeholder="Untitled"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              slotProps={{ input: { disableUnderline: true } }}
-              sx={{ '& .MuiInputBase-input': { color: 'common.white', fontSize: 12, py: 1 } }}
+              sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
             />
           </Stack>
 
