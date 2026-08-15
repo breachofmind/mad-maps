@@ -75,7 +75,7 @@ function GradientStopRow({
         type="number"
         value={stop.value}
         onChange={(e) => onChange({ ...stop, value: Number(e.target.value) })}
-        sx={{ width: 100, '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
+        sx={{ flex: 1, minWidth: 0, '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
         slotProps={{ htmlInput: { 'aria-label': `${label} gradient value` } }}
       />
       <ColorSwatchInput
