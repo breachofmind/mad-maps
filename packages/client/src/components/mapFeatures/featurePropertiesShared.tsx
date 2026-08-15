@@ -22,6 +22,20 @@ export function MeasurementStat({ label, value }: { label: string; value: string
   );
 }
 
+// Single-line label+value row (matches Figma's PropertyReadOnly) — label
+// left, value right, both on one line, rather than MeasurementStat's
+// label-above-value stack.
+export function PropertyReadOnlyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="caption">{value}</Typography>
+    </Stack>
+  );
+}
+
 export function UnitSelect<T extends string>({
   label,
   value,

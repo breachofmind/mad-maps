@@ -20,10 +20,9 @@ import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
-import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
+import { MeasurementStat, PropertyReadOnlyRow, UnitSelect } from './featurePropertiesShared';
 import { PanelHeader, PanelBody } from '../common/Panel';
-import { SelectedItemPill } from '../common/SelectedItemPill';
-import { FeatureIconGlyph } from './FeatureIconGlyph';
+import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import {
   AREA_UNIT_OPTIONS,
   DISTANCE_UNIT_OPTIONS,
@@ -149,20 +148,7 @@ export function FeaturePropertiesPanel({
 
       <PanelBody>
         <Stack spacing={2}>
-          <SelectedItemPill
-            icon={<FeatureIconGlyph name={feature.properties.icon} color={feature.properties.color} />}
-            label={feature.properties.title || 'Untitled'}
-          />
-
-          <TextField
-            label="Title"
-            size="small"
-            fullWidth
-            value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-          />
-
-          {coordinates && <MeasurementStat label="Coordinates" value={coordinates} />}
+          {coordinates && <PropertyReadOnlyRow label="Coordinates" value={coordinates} />}
 
           {measurements && (
             <Box>
@@ -190,32 +176,31 @@ export function FeaturePropertiesPanel({
             </Box>
           )}
 
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Description
-            </Typography>
-            <RichTextEditor key={feature.id} value={description} onChange={handleDescriptionChange} />
-          </Box>
-
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Icon
-            </Typography>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ bgcolor: '#1a1c1b', borderRadius: 1, pl: 0.5, pr: 1.5 }}>
             <IconPicker
+              iconOnly
               value={feature.properties.icon}
               onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
             />
-          </Box>
-
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Color
-            </Typography>
-            <ColorSwatchRow
-              value={feature.properties.color}
-              onSelect={(color) => updateMutation.mutate({ properties: { color } })}
+            <TextField
+              variant="standard"
+              fullWidth
+              placeholder="Untitled"
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              slotProps={{ input: { disableUnderline: true } }}
+              sx={{ '& .MuiInputBase-input': { color: 'common.white', fontSize: 12, py: 1 } }}
             />
-          </Box>
+          </Stack>
+
+          <ColorSwatchInput
+            variant="chip"
+            value={feature.properties.color}
+            onChange={(color) => updateMutation.mutate({ properties: { color } })}
+            ariaLabel={`Change ${feature.properties.title || 'feature'} color`}
+          />
+
+          <RichTextEditor key={feature.id} value={description} onChange={handleDescriptionChange} />
 
           {showStroke && (
             <>

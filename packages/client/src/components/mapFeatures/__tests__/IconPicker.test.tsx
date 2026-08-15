@@ -56,4 +56,21 @@ describe('IconPicker', () => {
     render(<IconPicker value="not-a-real-icon" onChange={() => {}} />);
     expect(screen.getByRole('button', { name: 'Marker' })).toBeInTheDocument();
   });
+
+  it('iconOnly renders just the glyph trigger, still opening the same picker', async () => {
+    const user = userEventModule.setup();
+    const onChange = jest.fn();
+    render(<IconPicker iconOnly value="marker" onChange={onChange} />);
+
+    const trigger = screen.getByRole('button', { name: 'Change icon (Marker)' });
+    expect(trigger).toBeInTheDocument();
+    // The full (non-iconOnly) variant renders the label as visible text too.
+    expect(screen.queryByText('Marker', { selector: 'button *' })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await user.type(screen.getByPlaceholderText('Search icons'), 'lighthouse');
+    await user.click(screen.getByRole('button', { name: 'Lighthouse' }));
+
+    expect(onChange).toHaveBeenCalledWith('maki:lighthouse');
+  });
 });

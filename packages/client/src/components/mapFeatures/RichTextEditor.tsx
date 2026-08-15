@@ -155,7 +155,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   if (!editor) return null;
 
   return (
-    <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+    <Box sx={{ bgcolor: '#1a1c1b', borderRadius: 1 }}>
       <Stack
         direction="row"
         spacing={0.25}

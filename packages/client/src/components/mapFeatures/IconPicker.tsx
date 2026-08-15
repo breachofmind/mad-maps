@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Popover from '@mui/material/Popover';
 import { FEATURE_ICON_NAMES, type FeatureIconName } from '../../lib/mapFeatures/icons';
 import { formatMakiIconLabel, isMakiIconName, type MakiIconName } from '../../lib/mapFeatures/makiIcons';
@@ -9,6 +11,10 @@ import { MakiIconGrid } from './MakiIconGrid';
 interface IconPickerProps {
   value: string;
   onChange: (icon: MakiIconName) => void;
+  // Trigger is just the glyph in an IconButton (no outline/label) — for
+  // compositing into a denser control, e.g. FeaturePropertiesPanel's
+  // icon+title pill, rather than standing alone.
+  iconOnly?: boolean;
 }
 
 const LABEL_OVERRIDES: Partial<Record<FeatureIconName, string>> = {
@@ -26,7 +32,7 @@ function formatIconLabel(name: string): string {
 // an MUI-keyed icon (e.g. "restaurant") keep resolving and rendering
 // correctly; formatIconLabel/FeatureIconGlyph below still understand those
 // keys for that reason.
-export function IconPicker({ value, onChange }: IconPickerProps) {
+export function IconPicker({ value, onChange, iconOnly = false }: IconPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const selectedName = isMakiIconName(value) || (FEATURE_ICON_NAMES as readonly string[]).includes(value) ? value : 'marker';
@@ -42,15 +48,27 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
 
   return (
     <>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        startIcon={<FeatureIconGlyph name={selectedName} />}
-        sx={{ textTransform: 'none' }}
-      >
-        {formatIconLabel(selectedName)}
-      </Button>
+      {iconOnly ? (
+        <Tooltip title={`Change icon (${formatIconLabel(selectedName)})`}>
+          <IconButton
+            size="small"
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+            aria-label={`Change icon (${formatIconLabel(selectedName)})`}
+          >
+            <FeatureIconGlyph name={selectedName} />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          startIcon={<FeatureIconGlyph name={selectedName} />}
+          sx={{ textTransform: 'none' }}
+        >
+          {formatIconLabel(selectedName)}
+        </Button>
+      )}
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
