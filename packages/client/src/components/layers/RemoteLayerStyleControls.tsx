@@ -99,13 +99,13 @@ function IconRuleRow({
 }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
+      <PinPicker value={rule.iconUrl} onChange={onChange} failed={failed} />
       <Typography
         variant="body2"
-        sx={{ width: 64, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
         {rule.value}
       </Typography>
-      <PinPicker value={rule.iconUrl} onChange={onChange} failed={failed} />
       <IconButton size="small" onClick={onRemove} aria-label={`Remove icon for ${rule.value}`}>
         <CloseIcon fontSize="small" />
       </IconButton>
