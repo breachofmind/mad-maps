@@ -71,7 +71,7 @@ function GradientStopRow({
         type="number"
         value={stop.value}
         onChange={(e) => onChange({ ...stop, value: Number(e.target.value) })}
-        sx={{ width: 100 }}
+        sx={{ width: 100, '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
         slotProps={{ htmlInput: { 'aria-label': `${label} gradient value` } }}
       />
       <ColorSwatchInput
@@ -106,27 +106,6 @@ function IconRuleRow({
       <IconButton size="small" onClick={onRemove} aria-label={`Remove icon for ${rule.value}`}>
         <CloseIcon fontSize="small" />
       </IconButton>
-    </Stack>
-  );
-}
-
-function DefaultIconRow({
-  iconUrl,
-  failed,
-  onChange,
-}: {
-  iconUrl: string | null;
-  failed: boolean;
-  onChange: (iconUrl: string | null) => void;
-}) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      <PinPicker value={iconUrl ?? ''} onChange={(next) => onChange(next === '' ? null : next)} failed={failed} />
-      {iconUrl && (
-        <IconButton size="small" onClick={() => onChange(null)} aria-label="Clear default pin icon">
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      )}
     </Stack>
   );
 }
@@ -329,17 +308,6 @@ export function RemoteLayerStyleControls({
             )}
           </Stack>
         )}
-      </Box>
-
-      <Box>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Default pin icon
-        </Typography>
-        <DefaultIconRow
-          iconUrl={styleConfig.defaultIconUrl}
-          failed={Boolean(styleConfig.defaultIconUrl && failedIconUrls.has(styleConfig.defaultIconUrl))}
-          onChange={(defaultIconUrl) => onStyleConfigChange({ ...styleConfig, defaultIconUrl })}
-        />
       </Box>
 
       <Box>
