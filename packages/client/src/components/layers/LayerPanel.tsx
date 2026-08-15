@@ -23,7 +23,6 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
@@ -152,16 +151,13 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
     });
   }
 
-  // The draggable element is a small handle icon, but the drag preview
-  // should look like the whole row it belongs to. Passing the live row
-  // element to setDragImage isn't enough — browsers can render the preview
-  // influenced by the row's scrollable/overflow ancestor (this panel's
-  // Paper), pulling in more than just that row. Cloning the row into a
-  // detached, explicitly-sized element isolates the snapshot to exactly
-  // that row's own markup.
+  // Passing the live row element to setDragImage isn't enough — browsers
+  // can render the preview influenced by the row's scrollable/overflow
+  // ancestor (this panel's Paper), pulling in more than just that row.
+  // Cloning the row into a detached, explicitly-sized element isolates
+  // the snapshot to exactly that row's own markup.
   function setRowAsDragImage(e: DragEvent<HTMLElement>) {
-    const row = e.currentTarget.parentElement;
-    if (!row) return;
+    const row = e.currentTarget;
     const rect = row.getBoundingClientRect();
     const clone = row.cloneNode(true) as HTMLElement;
     clone.style.position = 'fixed';
@@ -488,36 +484,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                         gap: 0.5,
                       }}
                     >
-                      <Tooltip title={collapsed ? 'Expand layer' : 'Collapse layer'}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
-                            disabled={features.length === 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLayerCollapsed(layer.id);
-                            }}
-                          >
-                            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-
-                      <Tooltip title={layer.visible ? 'Hide layer' : 'Show layer'}>
-                        <IconButton
-                          size="small"
-                          aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
-                          }}
-                        >
-                          {layer.visible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                        </IconButton>
-                      </Tooltip>
-
-                      {isRemote && (
+                      {isRemote ? (
                         <Tooltip
                           title={
                             externalQuery?.isError
@@ -527,8 +494,24 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                         >
                           <PublicIcon
                             fontSize="small"
-                            sx={{ color: externalQuery?.isError ? 'error.main' : 'text.disabled', flexShrink: 0 }}
+                            sx={{ color: externalQuery?.isError ? 'error.main' : 'text.disabled', flexShrink: 0, ml: 1 }}
                           />
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title={collapsed ? 'Expand layer' : 'Collapse layer'}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              aria-label={collapsed ? `Expand ${layer.name}` : `Collapse ${layer.name}`}
+                              disabled={features.length === 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleLayerCollapsed(layer.id);
+                              }}
+                            >
+                              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+                            </IconButton>
+                          </span>
                         </Tooltip>
                       )}
 
@@ -560,6 +543,23 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                           {layer.name}
                         </Typography>
                       )}
+
+                      <Tooltip title={layer.visible ? 'Hide layer' : 'Show layer'}>
+                        <IconButton
+                          size="small"
+                          aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleVisibilityMutation.mutate({ layerId: layer.id, visible: !layer.visible });
+                          }}
+                        >
+                          {layer.visible ? (
+                            <VisibilityIcon fontSize="small" />
+                          ) : (
+                            <VisibilityOffIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
                     </ListItem>
 
                     <Collapse in={!collapsed && features.length > 0} unmountOnExit>
@@ -579,6 +579,13 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                               />
                               <ListItemButton
                                 selected={isSelected}
+                                draggable
+                                onDragStart={(e) => {
+                                  setRowAsDragImage(e);
+                                  setDraggedFeature({ featureId: feature.id, layerId: layer.id });
+                                  e.dataTransfer.effectAllowed = 'move';
+                                }}
+                                onDragEnd={resetDragState}
                                 onClick={(e) =>
                                   e.shiftKey ? toggleFeatureInSelection(feature) : selectFeature(feature)
                                 }
@@ -591,23 +598,8 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
                                   if (useEditorStore.getState().hoveredFeatureId === feature.id)
                                     setHoveredFeatureId(null);
                                 }}
-                                sx={{ pl: 5, py: 0.5, gap: 1, bgcolor: isHovered ? 'action.hover' : undefined }}
+                                sx={{ pl: 5, py: 0.5, gap: 1, cursor: 'grab', bgcolor: isHovered ? 'action.hover' : undefined }}
                               >
-                                <Box
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.stopPropagation();
-                                    setRowAsDragImage(e);
-                                    setDraggedFeature({ featureId: feature.id, layerId: layer.id });
-                                    e.dataTransfer.effectAllowed = 'move';
-                                  }}
-                                  onDragEnd={resetDragState}
-                                  onClick={(e) => e.stopPropagation()}
-                                  aria-label={`Reorder ${feature.properties.title || 'feature'}`}
-                                  sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}
-                                >
-                                  <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-                                </Box>
                                 <FeatureTypeIcon featureType={feature.featureType} />
                                 <FeatureIconGlyph name={feature.properties.icon} color={feature.properties.color} />
                                 <Typography
