@@ -15,6 +15,10 @@ interface IconPickerProps {
   // compositing into a denser control, e.g. FeaturePropertiesPanel's
   // icon+title pill, rather than standing alone.
   iconOnly?: boolean;
+  // Tints the trigger glyph to match the feature/layer's own color, e.g.
+  // FeaturePropertiesPanel passes the selected pin's color so the icon next
+  // to the title reflects it. Left unset (inherits default) elsewhere.
+  color?: string;
 }
 
 const LABEL_OVERRIDES: Partial<Record<FeatureIconName, string>> = {
@@ -32,7 +36,7 @@ function formatIconLabel(name: string): string {
 // an MUI-keyed icon (e.g. "restaurant") keep resolving and rendering
 // correctly; formatIconLabel/FeatureIconGlyph below still understand those
 // keys for that reason.
-export function IconPicker({ value, onChange, iconOnly = false }: IconPickerProps) {
+export function IconPicker({ value, onChange, iconOnly = false, color }: IconPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const selectedName = isMakiIconName(value) || (FEATURE_ICON_NAMES as readonly string[]).includes(value) ? value : 'marker';
@@ -55,7 +59,7 @@ export function IconPicker({ value, onChange, iconOnly = false }: IconPickerProp
             onClick={(e) => setAnchorEl(e.currentTarget)}
             aria-label={`Change icon (${formatIconLabel(selectedName)})`}
           >
-            <FeatureIconGlyph name={selectedName} />
+            <FeatureIconGlyph name={selectedName} color={color} />
           </IconButton>
         </Tooltip>
       ) : (
@@ -63,7 +67,7 @@ export function IconPicker({ value, onChange, iconOnly = false }: IconPickerProp
           size="small"
           variant="outlined"
           onClick={(e) => setAnchorEl(e.currentTarget)}
-          startIcon={<FeatureIconGlyph name={selectedName} />}
+          startIcon={<FeatureIconGlyph name={selectedName} color={color} />}
           sx={{ textTransform: 'none' }}
         >
           {formatIconLabel(selectedName)}

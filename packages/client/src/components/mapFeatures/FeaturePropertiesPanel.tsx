@@ -180,6 +180,7 @@ export function FeaturePropertiesPanel({
             <IconPicker
               iconOnly
               value={feature.properties.icon}
+              color={feature.properties.color}
               onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
             />
             <TextField

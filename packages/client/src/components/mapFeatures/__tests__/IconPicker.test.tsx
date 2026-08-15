@@ -57,6 +57,13 @@ describe('IconPicker', () => {
     expect(screen.getByRole('button', { name: 'Marker' })).toBeInTheDocument();
   });
 
+  it('iconOnly tints the trigger glyph with the given color', () => {
+    render(<IconPicker iconOnly value="marker" onChange={() => {}} color="#ff0000" />);
+
+    const glyph = screen.getByRole('button', { name: 'Change icon (Marker)' }).querySelector('svg, span');
+    expect(glyph && getComputedStyle(glyph).color).toBe('rgb(255, 0, 0)');
+  });
+
   it('iconOnly renders just the glyph trigger, still opening the same picker', async () => {
     const user = userEventModule.setup();
     const onChange = jest.fn();
