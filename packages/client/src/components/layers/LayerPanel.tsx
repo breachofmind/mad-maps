@@ -636,6 +636,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
 
       {selectedLayer && (
         <LayerPropertiesPanel
+          key={selectedLayer.id}
           layer={selectedLayer}
           map={map}
           canMoveUp={selectedIndex > 0}
@@ -646,6 +647,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
           onMoveUp={() => move(selectedIndex, -1)}
           onMoveDown={() => move(selectedIndex, 1)}
           externalData={externalDataQueries[selectedIndex]?.data}
+          onNameChange={(name) => updateMutation.mutate({ layerId: selectedLayer.id, input: { name } })}
           onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
           onDefaultIconChange={(defaultIcon) =>
             updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })

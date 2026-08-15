@@ -114,22 +114,21 @@ interface RemoteLayerStyleControlsProps {
   map: mapboxgl.Map | null;
   isRefreshing: boolean;
   externalData?: GeoJSON.FeatureCollection;
-  onColorChange: (color: string) => void;
   onStyleConfigChange: (styleConfig: LayerStyleConfig) => void;
   onRefresh: () => void;
 }
 
-// Style controls (color, label, colorize-by-value, icon-by-value, data
-// source) for a geojson-url or pmtiles-url layer — the "local" layers this
-// panel also renders don't have a remote source or a styleConfig to edit,
-// so this whole block only ever mounts for LayerPropertiesPanel's isRemote
-// case.
+// Style controls (label, colorize-by-value, icon-by-value, data source) for
+// a geojson-url or pmtiles-url layer — the "local" layers this panel also
+// renders don't have a remote source or a styleConfig to edit, so this whole
+// block only ever mounts for LayerPropertiesPanel's isRemote case. The
+// layer's flat color lives in LayerPropertiesPanel's shared color chip
+// (same control local layers use), not here.
 export function RemoteLayerStyleControls({
   layer,
   map,
   isRefreshing,
   externalData,
-  onColorChange,
   onStyleConfigChange,
   onRefresh,
 }: RemoteLayerStyleControlsProps) {
@@ -210,18 +209,6 @@ export function RemoteLayerStyleControls({
 
   return (
     <>
-      <Box>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-          Color
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <ColorSwatchInput value={layer.color} onChange={onColorChange} ariaLabel={`Change ${layer.name} color`} />
-          <Typography variant="body2" color="text.secondary">
-            {layer.color}
-          </Typography>
-        </Stack>
-      </Box>
-
       <Box>
         <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
           Label
