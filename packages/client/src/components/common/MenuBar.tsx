@@ -4,15 +4,20 @@ import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import DownloadIcon from '@mui/icons-material/Download';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import logoMarkup from '../../assets/mad-maps-logo.svg?raw';
 
 interface MenuBarProps {
   onLogoClick?: () => void;
   onDownloadClick?: (event: MouseEvent<HTMLElement>) => void;
   onAccountClick?: (event: MouseEvent<HTMLElement>) => void;
 }
+
+// The source SVG's paths have no fill of their own (defaults to black),
+// so recolor to currentColor here — same trick FeatureIconGlyph uses for
+// Maki icons — otherwise the mark is invisible against MenuBar's dark bg.
+const coloredLogoMarkup = logoMarkup.replace('<svg ', '<svg fill="currentColor" ');
 
 // Fixed 53px app-level icon rail, always present on the left edge of the
 // editor. Callbacks receive the click event (not just fire) so callers can
@@ -37,20 +42,12 @@ export function MenuBar({ onLogoClick, onDownloadClick, onAccountClick }: MenuBa
       }}
     >
       <Tooltip title="Your maps" placement="right">
-        <IconButton
-          onClick={onLogoClick}
-          aria-label="Back to your maps"
-          sx={{
-            width: 35,
-            height: 35,
-            border: 1,
-            borderColor: 'rgba(255,255,255,0.3)',
-            borderRadius: 1,
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ color: 'common.white', fontWeight: 700 }}>
-            M
-          </Typography>
+        <IconButton onClick={onLogoClick} aria-label="Back to your maps" sx={{ width: 35, height: 35, p: 0 }}>
+          <Box
+            aria-hidden
+            sx={{ width: '100%', height: '100%', color: 'common.white', '& svg': { width: '100%', height: '100%' } }}
+            dangerouslySetInnerHTML={{ __html: coloredLogoMarkup }}
+          />
         </IconButton>
       </Tooltip>
 
