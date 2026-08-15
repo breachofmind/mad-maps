@@ -147,7 +147,7 @@ describe('layers.service', () => {
         { value: 100, color: '#d32f2f' },
       ],
       iconProperty: 'cover',
-      iconRules: [{ value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' }],
+      iconRulesByProperty: { cover: [{ value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' }] },
       defaultIconUrl: null,
     };
     const updated = await updateLayerForOwner(created!.id, ownerId, { styleConfig });

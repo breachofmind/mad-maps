@@ -16,15 +16,8 @@ import { usePmtilesSourceFeatures } from '../../lib/map/usePmtilesSourceFeatures
 import { collectDistinctValues, collectPropertyStats, numericRange, pmtilesPropertyStats } from '../../lib/layers/propertyStats';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { PinPicker } from '../mapFeatures/PinPicker';
+import { currentIconRules, normalizeStyleConfig } from '../../lib/layers/styleConfig';
 
-const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
-  labelProperty: null,
-  colorProperty: null,
-  colorStops: [],
-  iconProperty: null,
-  iconRules: [],
-  defaultIconUrl: null,
-};
 const DEFAULT_LOW_COLOR = '#1976d2';
 const DEFAULT_HIGH_COLOR = '#d32f2f';
 
@@ -134,10 +127,8 @@ export function RemoteLayerStyleControls({
   onStyleConfigChange,
 }: RemoteLayerStyleControlsProps) {
   const isPmtiles = layer.sourceType === 'pmtiles-url';
-  // Merged rather than a plain `?? EMPTY_STYLE_CONFIG` fallback so a
-  // styleConfig saved before iconProperty/iconRules existed still has both
-  // fields defined.
-  const styleConfig: LayerStyleConfig = { ...EMPTY_STYLE_CONFIG, ...(layer.styleConfig ?? {}) };
+  const styleConfig = normalizeStyleConfig(layer.styleConfig);
+  const currentRules = currentIconRules(styleConfig);
   const failedIconUrls = useEditorStore((s) => s.failedIconUrls);
 
   // pmtiles-url layers have no server-fetched FeatureCollection (see
@@ -178,34 +169,41 @@ export function RemoteLayerStyleControls({
   const gradientRangeInvalid = Boolean(lowStop && highStop && lowStop.value >= highStop.value);
 
   function handleIconPropertyChange(e: SelectChangeEvent) {
-    const iconProperty = e.target.value || null;
-    // Rules are keyed to a specific property's value space, so switching to
-    // a different property starts fresh rather than carrying over mappings
-    // that would just never match anything.
-    const iconRules = iconProperty === styleConfig.iconProperty ? styleConfig.iconRules : [];
-    onStyleConfigChange({ ...styleConfig, iconProperty, iconRules });
+    // Rules for each property stay saved under their own key in
+    // iconRulesByProperty, so switching iconProperty just changes which
+    // one is active — switching back restores whatever was there before,
+    // rather than starting over.
+    onStyleConfigChange({ ...styleConfig, iconProperty: e.target.value || null });
+  }
+
+  function setCurrentIconRules(rules: LayerIconRule[]) {
+    if (!styleConfig.iconProperty) return;
+    onStyleConfigChange({
+      ...styleConfig,
+      iconRulesByProperty: { ...styleConfig.iconRulesByProperty, [styleConfig.iconProperty]: rules },
+    });
   }
 
   function addIconRule(value: string) {
     if (!value) return;
-    onStyleConfigChange({ ...styleConfig, iconRules: [...styleConfig.iconRules, { value, iconUrl: '' }] });
+    setCurrentIconRules([...currentRules, { value, iconUrl: '' }]);
   }
 
   function updateIconRule(index: number, iconUrl: string) {
-    const iconRules = [...styleConfig.iconRules];
-    iconRules[index] = { ...iconRules[index], iconUrl };
-    onStyleConfigChange({ ...styleConfig, iconRules });
+    const rules = [...currentRules];
+    rules[index] = { ...rules[index], iconUrl };
+    setCurrentIconRules(rules);
   }
 
   function removeIconRule(index: number) {
-    onStyleConfigChange({ ...styleConfig, iconRules: styleConfig.iconRules.filter((_, i) => i !== index) });
+    setCurrentIconRules(currentRules.filter((_, i) => i !== index));
   }
 
   const distinctIconValues = useMemo(
     () => (styleConfig.iconProperty ? collectDistinctValues(effectiveData, styleConfig.iconProperty) : []),
     [effectiveData, styleConfig.iconProperty],
   );
-  const mappedIconValues = new Set(styleConfig.iconRules.map((rule) => rule.value));
+  const mappedIconValues = new Set(currentRules.map((rule) => rule.value));
   const unmappedIconValues = distinctIconValues.filter((value) => !mappedIconValues.has(value));
 
   return (
@@ -283,7 +281,7 @@ export function RemoteLayerStyleControls({
         </FormControl>
         {styleConfig.iconProperty && (
           <Stack spacing={1} mt={1}>
-            {styleConfig.iconRules.map((rule, index) => (
+            {currentRules.map((rule, index) => (
               <Fragment key={rule.value}>
                 <IconRuleRow
                   rule={rule}

@@ -17,6 +17,7 @@ import {
 import { ensureExternalIconImages, externalIconImageId } from '../../lib/map/externalIconImages';
 import { ensureFeatureIconImages, featureIconImageId } from '../../lib/map/featureIconImages';
 import { REMOTE_LAYER_ID_PREFIX } from '../../lib/map/featureLayerIds';
+import { currentIconRules, normalizeStyleConfig } from '../../lib/layers/styleConfig';
 import { RemoteFeaturePopup, type RemoteFeatureSelection } from './RemoteFeaturePopup';
 
 // Local features have no arbitrary property bag (MapFeaturePropertiesDTO is a
@@ -124,8 +125,9 @@ function isIconUsable(value: string, loadedIconUrls: ReadonlySet<string>): boole
 // referencing a url that 404'd or lacks CORS support falls back to the
 // default pin (or circle marker) rather than rendering nothing.
 function usableIconRules(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>) {
-  if (!styleConfig?.iconProperty) return [];
-  return (styleConfig.iconRules ?? []).filter((rule) => rule.iconUrl && isIconUsable(rule.iconUrl, loadedIconUrls));
+  return currentIconRules(normalizeStyleConfig(styleConfig)).filter(
+    (rule) => rule.iconUrl && isIconUsable(rule.iconUrl, loadedIconUrls),
+  );
 }
 
 function defaultIconUsable(styleConfig: LayerStyleConfig | null, loadedIconUrls: ReadonlySet<string>): boolean {
@@ -406,10 +408,15 @@ export function RemoteLayer({ map, layers }: RemoteLayerProps) {
       });
       layerMetaBySubLayerRef.current = meta;
 
-      const iconValues = currentLayers.flatMap((l) => [
-        ...(l.styleConfig?.iconRules ?? []).map((r) => ({ value: r.iconUrl, color: l.color })),
-        ...(l.styleConfig?.defaultIconUrl ? [{ value: l.styleConfig.defaultIconUrl, color: l.color }] : []),
-      ]).filter((ref) => ref.value);
+      const iconValues = currentLayers
+        .flatMap((l) => {
+          const normalized = normalizeStyleConfig(l.styleConfig);
+          return [
+            ...currentIconRules(normalized).map((r) => ({ value: r.iconUrl, color: l.color })),
+            ...(normalized.defaultIconUrl ? [{ value: normalized.defaultIconUrl, color: l.color }] : []),
+          ];
+        })
+        .filter((ref) => ref.value);
 
       // Maki icons are rasterized locally and can't fail to load (see
       // isIconUsable), so they're registered independently of the

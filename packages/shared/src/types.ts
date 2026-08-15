@@ -56,7 +56,11 @@ export interface LayerStyleConfig {
   colorProperty: string | null;
   colorStops: LayerColorStop[];
   iconProperty: string | null;
-  iconRules: LayerIconRule[];
+  // Icon-by-value rules, keyed by property name — a layer remembers each
+  // property's rules even while only `iconProperty` is the active one, so
+  // switching iconProperty back to a previously-configured property
+  // restores its rules instead of discarding them.
+  iconRulesByProperty: Record<string, LayerIconRule[]>;
   // Fallback icon (image URL or "maki:"-prefixed icon name, see
   // LayerIconRule.iconUrl) for points that don't match any iconRule, or when
   // iconProperty isn't set at all — the "default pin" for this remote layer.

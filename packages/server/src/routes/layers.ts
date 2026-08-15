@@ -60,22 +60,29 @@ const pinValueSchema = z
     message: 'Must be a valid image URL or a maki: icon name',
   });
 
+const iconRulesSchema = z
+  .array(
+    z.object({
+      value: z.string().max(200),
+      // Empty string is a valid in-progress state (a value added before its
+      // icon is picked) — anything non-empty must pass pinValueSchema.
+      iconUrl: z.union([z.literal(''), pinValueSchema]),
+    }),
+  )
+  .max(30);
+
 const styleConfigSchema = z
   .object({
     labelProperty: z.string().max(200).nullable(),
     colorProperty: z.string().max(200).nullable(),
     colorStops: z.array(z.object({ value: z.number(), color: z.string().min(1).max(32) })).max(8),
     iconProperty: z.string().max(200).nullable(),
-    iconRules: z
-      .array(
-        z.object({
-          value: z.string().max(200),
-          // Empty string is a valid in-progress state (a value added before its
-          // icon is picked) — anything non-empty must pass pinValueSchema.
-          iconUrl: z.union([z.literal(''), pinValueSchema]),
-        }),
-      )
-      .max(30),
+    // Keyed by property name, so a layer remembers each property's
+    // icon-by-value rules even while only `iconProperty` is active — capped
+    // at 20 distinct properties tracked at once.
+    iconRulesByProperty: z.record(z.string().max(200), iconRulesSchema).refine((rules) => Object.keys(rules).length <= 20, {
+      message: 'Too many properties with icon rules',
+    }),
     defaultIconUrl: pinValueSchema.nullable(),
   })
   .nullable();

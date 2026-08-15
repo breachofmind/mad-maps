@@ -106,10 +106,12 @@ describe('layer routes', () => {
         { value: 100, color: '#d32f2f' },
       ],
       iconProperty: 'cover',
-      iconRules: [
-        { value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' },
-        { value: 'OVC', iconUrl: '' },
-      ],
+      iconRulesByProperty: {
+        cover: [
+          { value: 'CLR', iconUrl: 'https://example.com/icons/sun.png' },
+          { value: 'OVC', iconUrl: '' },
+        ],
+      },
       defaultIconUrl: null,
     };
     const patched = await agent
@@ -143,7 +145,7 @@ describe('layer routes', () => {
           colorProperty: null,
           colorStops: [],
           iconProperty: 'cover',
-          iconRules: [{ value: 'CLR', iconUrl: 'not-a-url' }],
+          iconRulesByProperty: { cover: [{ value: 'CLR', iconUrl: 'not-a-url' }] },
         },
       })
       .expect(400);
@@ -157,7 +159,7 @@ describe('layer routes', () => {
       colorProperty: null,
       colorStops: [],
       iconProperty: 'cover',
-      iconRules: [{ value: 'CLR', iconUrl: 'maki:restaurant' }],
+      iconRulesByProperty: { cover: [{ value: 'CLR', iconUrl: 'maki:restaurant' }] },
       defaultIconUrl: 'maki:cafe',
     };
     const patched = await agent
@@ -177,7 +179,7 @@ describe('layer routes', () => {
           colorProperty: null,
           colorStops: [],
           iconProperty: 'cover',
-          iconRules: [{ value: 'CLR', iconUrl: 'maki:not-a-real-icon' }],
+          iconRulesByProperty: { cover: [{ value: 'CLR', iconUrl: 'maki:not-a-real-icon' }] },
         },
       })
       .expect(400);

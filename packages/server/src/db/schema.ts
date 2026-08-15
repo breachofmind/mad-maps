@@ -64,7 +64,10 @@ export interface LayerStyleConfig {
   colorProperty: string | null;
   colorStops: LayerColorStop[];
   iconProperty: string | null;
-  iconRules: LayerIconRule[];
+  // Icon-by-value rules, keyed by property name — see the identical field on
+  // @mad-maps/shared's LayerStyleConfig (this type is duplicated here for
+  // the Drizzle column annotation, kept in sync manually).
+  iconRulesByProperty: Record<string, LayerIconRule[]>;
   // Image URL or "maki:"-prefixed icon name — see LayerIconRule.iconUrl.
   defaultIconUrl: string | null;
 }
