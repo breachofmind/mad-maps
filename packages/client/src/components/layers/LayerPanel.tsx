@@ -31,6 +31,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../lib/state/editorStore';
+import { useAutoHideScrollbar, scrollbarAutoHideSx } from '../../lib/useAutoHideScrollbar';
 import { theme } from '../../lib/theme';
 import { geometryBounds } from '../../lib/map/geometryBounds';
 import { mapboxgl } from '../../lib/map/mapbox';
@@ -111,6 +112,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const [addExternalDialogOpen, setAddExternalDialogOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const { isScrolling: isLayerListScrolling, onScroll: onLayerListScroll } = useAutoHideScrollbar();
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
   const [draggedFeature, setDraggedFeature] = useState<{ featureId: string; layerId: string } | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
@@ -416,7 +418,9 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
         </Stack>
 
         <Box
-          sx={{ overflowY: 'auto', px: 0, pb: 0 }}
+          onScroll={onLayerListScroll}
+          data-scrolling={isLayerListScrolling}
+          sx={{ overflowY: 'auto', px: 0, pb: 0, ...scrollbarAutoHideSx }}
           onDragOver={(e) => {
             // A catch-all so the cursor never flashes "not-allowed" while
             // dragging over gaps between rows that don't have their own more

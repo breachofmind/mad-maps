@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { sidebarTheme } from '../../lib/sidebarTheme';
+import { useAutoHideScrollbar, scrollbarAutoHideSx } from '../../lib/useAutoHideScrollbar';
 
 interface SideBarProps {
   children?: ReactNode;
@@ -14,11 +15,15 @@ interface SideBarProps {
 // Wrapped in sidebarTheme (dark mode) so children get correct light-on-dark
 // MUI defaults without each one hand-overriding text/icon colors.
 export function SideBar({ children }: SideBarProps) {
+  const { isScrolling, onScroll } = useAutoHideScrollbar();
+
   return (
     <ThemeProvider theme={sidebarTheme}>
       <Box
         component="aside"
         aria-label="Map tools"
+        onScroll={onScroll}
+        data-scrolling={isScrolling}
         sx={{
           position: 'fixed',
           top: 0,
@@ -31,6 +36,7 @@ export function SideBar({ children }: SideBarProps) {
           display: 'flex',
           flexDirection: 'column',
           zIndex: 2,
+          ...scrollbarAutoHideSx,
         }}
       >
         {children}
