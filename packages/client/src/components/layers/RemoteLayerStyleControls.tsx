@@ -30,6 +30,14 @@ const EMPTY_STYLE_CONFIG: LayerStyleConfig = {
 const DEFAULT_LOW_COLOR = '#1976d2';
 const DEFAULT_HIGH_COLOR = '#d32f2f';
 
+// Matches BaseLayerPanel's dropdown — dark fill, no visible border — so
+// every select in the sidebar looks like the same family of dark inputs.
+const DARK_SELECT_SX = {
+  bgcolor: '#1a1c1b',
+  borderRadius: 1,
+  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+};
+
 // Caption to the left, control filling the rest of the row — matches
 // Figma's Label/Colorize rows (a stacked caption-above-control layout is
 // only used for Icon by Value, which Figma shows as its own heading).
@@ -230,6 +238,7 @@ export function RemoteLayerStyleControls({
             displayEmpty
             onChange={handleLabelPropertyChange}
             disabled={stats.all.length === 0}
+            sx={DARK_SELECT_SX}
           >
             <MenuItem value="">None</MenuItem>
             {stats.all.map((key) => (
@@ -249,6 +258,7 @@ export function RemoteLayerStyleControls({
               displayEmpty
               onChange={handleColorPropertyChange}
               disabled={stats.numeric.length === 0}
+              sx={DARK_SELECT_SX}
             >
               <MenuItem value="">Flat color</MenuItem>
               {stats.numeric.map((key) => (
@@ -282,6 +292,7 @@ export function RemoteLayerStyleControls({
             displayEmpty
             onChange={handleIconPropertyChange}
             disabled={stats.all.length === 0}
+            sx={DARK_SELECT_SX}
           >
             <MenuItem value="">Default marker</MenuItem>
             {stats.all.map((key) => (
@@ -304,7 +315,7 @@ export function RemoteLayerStyleControls({
             ))}
             {unmappedIconValues.length > 0 && (
               <FormControl size="small" fullWidth>
-                <Select value="" displayEmpty onChange={(e) => addIconRule(e.target.value)}>
+                <Select value="" displayEmpty onChange={(e) => addIconRule(e.target.value)} sx={DARK_SELECT_SX}>
                   <MenuItem value="" disabled>
                     Add a value…
                   </MenuItem>
