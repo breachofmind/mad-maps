@@ -32,7 +32,7 @@ export function MenuBar({ onLogoClick, onDownloadClick, onAccountClick }: MenuBa
         position: 'fixed',
         top: 0,
         left: 0,
-        width: 53,
+        width: 60,
         height: '100vh',
         bgcolor: '#232523',
         alignItems: 'center',

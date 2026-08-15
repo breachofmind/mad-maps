@@ -35,9 +35,9 @@ import { CustomStyleDialog } from './CustomStyleDialog';
 import { AccountMenu } from '../common/AccountMenu';
 import { MAP_STYLE_OPTIONS, styleIdForUrl } from '../../lib/map/mapStyles';
 
-// Width of the fixed MenuBar (53px) + SideBar (240px) shell — the map area
+// Width of the fixed MenuBar (60px) + SideBar (400px) shell — the map area
 // is offset by this much instead of spanning the full viewport.
-const SHELL_WIDTH = 293;
+const SHELL_WIDTH = 460;
 
 // Verb suffixed onto a finished route's prefilled description (e.g. "8 min
 // drive") so it reads naturally regardless of which profile was used.

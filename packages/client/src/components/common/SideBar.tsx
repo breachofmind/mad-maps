@@ -7,7 +7,7 @@ interface SideBarProps {
   children?: ReactNode;
 }
 
-// Fixed 240px tool sidebar, docked to the right of MenuBar. Later phases
+// Fixed 400px tool sidebar, docked to the right of MenuBar. Later phases
 // stack Search/BaseLayer/Layers/Properties sections here as plain children
 // in document flow — unlike the old Panel.tsx, this container itself has no
 // per-section positioning, each section just occupies its natural place.
@@ -22,8 +22,8 @@ export function SideBar({ children }: SideBarProps) {
         sx={{
           position: 'fixed',
           top: 0,
-          left: 53,
-          width: 240,
+          left: 60,
+          width: 400,
           height: '100vh',
           bgcolor: 'rgba(35,37,35,0.86)',
           color: 'common.white',
