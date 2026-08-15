@@ -1,6 +1,8 @@
 import { useState, type DragEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mad-maps/shared';
+import { ThemeProvider } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -29,6 +31,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../lib/state/editorStore';
+import { theme } from '../../lib/theme';
 import { geometryBounds } from '../../lib/map/geometryBounds';
 import { mapboxgl } from '../../lib/map/mapbox';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../../lib/mapFeatures/api';
@@ -44,7 +47,6 @@ import {
   updateLayer,
   type UpdateLayerInput,
 } from '../../lib/layers/api';
-import { Panel, PanelHeader, PanelBody } from '../common/Panel';
 import { AddExternalLayerDialog } from './AddExternalLayerDialog';
 import { LayerPropertiesPanel } from './LayerPropertiesPanel';
 
@@ -384,36 +386,37 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
 
   return (
     <>
-      <Panel side="right" width={360} maxHeight="60vh">
-        <PanelHeader
-          title="Layers"
-          actions={
-            <>
-              <Tooltip title="Add layer">
-                <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
-                  <AddIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
-                <MenuItem onClick={handleBlankLayerClick}>
-                  <ListItemIcon>
-                    <CreateNewFolderIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText>Blank layer</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handleAddDataLayerClick}>
-                  <ListItemIcon>
-                    <CloudDownloadIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText>Add data layer…</ListItemText>
-                </MenuItem>
-              </Menu>
-            </>
-          }
-        />
+      <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)', maxHeight: '40vh', display: 'flex', flexDirection: 'column' }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ px: 2, pt: 2, pb: 1, flexShrink: 0 }}
+        >
+          <Typography variant="subtitle2">Layers</Typography>
+          <Tooltip title="Add layer">
+            <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
+            <MenuItem onClick={handleBlankLayerClick}>
+              <ListItemIcon>
+                <CreateNewFolderIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Blank layer</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={handleAddDataLayerClick}>
+              <ListItemIcon>
+                <CloudDownloadIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Add data layer…</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Stack>
 
-        <PanelBody
-          sx={{ px: 0, pb: 0 }}
+        <Box
+          sx={{ overflowY: 'auto', px: 0, pb: 0 }}
           onDragOver={(e) => {
             // A catch-all so the cursor never flashes "not-allowed" while
             // dragging over gaps between rows that don't have their own more
@@ -624,41 +627,52 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
               })}
             </List>
           )}
-        </PanelBody>
+        </Box>
+      </Box>
 
-        <AddExternalLayerDialog
-          open={addExternalDialogOpen}
-          onClose={() => setAddExternalDialogOpen(false)}
-          mapId={mapId}
-        />
-      </Panel>
-
-      {selectedLayer && (
-        <LayerPropertiesPanel
-          layer={selectedLayer}
-          map={map}
-          canMoveUp={selectedIndex > 0}
-          canMoveDown={layers != null && selectedIndex < layers.length - 1}
-          isRefreshing={
-            refreshExternalLayerMutation.isPending && refreshExternalLayerMutation.variables === selectedLayer.id
-          }
-          onMoveUp={() => move(selectedIndex, -1)}
-          onMoveDown={() => move(selectedIndex, 1)}
-          externalData={externalDataQueries[selectedIndex]?.data}
-          onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
-          onDefaultIconChange={(defaultIcon) =>
-            updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
-          }
-          onStyleConfigChange={(styleConfig) =>
-            updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
-          }
-          onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
-          onDelete={() => {
-            deleteMutation.mutate(selectedLayer.id);
-            setSelectedLayerId(null);
-          }}
-          onClose={() => setSelectedLayerId(null)}
-        />
+      {/* LayerPanel itself now lives inside SideBar's dark ThemeProvider
+          (see MapEditorPage), but AddExternalLayerDialog and
+          LayerPropertiesPanel haven't been redesigned for the dark sidebar
+          yet (that's Phase 4) — portal them out to document.body and
+          re-apply the light app theme so they keep looking exactly as
+          before, positioned over the map rather than clipped by SideBar's
+          own overflow. */}
+      {createPortal(
+        <ThemeProvider theme={theme}>
+          <AddExternalLayerDialog
+            open={addExternalDialogOpen}
+            onClose={() => setAddExternalDialogOpen(false)}
+            mapId={mapId}
+          />
+          {selectedLayer && (
+            <LayerPropertiesPanel
+              layer={selectedLayer}
+              map={map}
+              canMoveUp={selectedIndex > 0}
+              canMoveDown={layers != null && selectedIndex < layers.length - 1}
+              isRefreshing={
+                refreshExternalLayerMutation.isPending && refreshExternalLayerMutation.variables === selectedLayer.id
+              }
+              onMoveUp={() => move(selectedIndex, -1)}
+              onMoveDown={() => move(selectedIndex, 1)}
+              externalData={externalDataQueries[selectedIndex]?.data}
+              onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
+              onDefaultIconChange={(defaultIcon) =>
+                updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
+              }
+              onStyleConfigChange={(styleConfig) =>
+                updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
+              }
+              onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
+              onDelete={() => {
+                deleteMutation.mutate(selectedLayer.id);
+                setSelectedLayerId(null);
+              }}
+              onClose={() => setSelectedLayerId(null)}
+            />
+          )}
+        </ThemeProvider>,
+        document.body,
       )}
     </>
   );

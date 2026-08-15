@@ -7,12 +7,11 @@ afterEach(() => {
 });
 
 describe('editorStore', () => {
-  it('starts with no active layer, no draw mode, no selection, and the panel open', () => {
+  it('starts with no active layer, no draw mode, and no selection', () => {
     const state = useEditorStore.getState();
     expect(state.activeLayerId).toBeNull();
     expect(state.drawMode).toBe('none');
     expect(state.selection).toBeNull();
-    expect(state.isLayerPanelOpen).toBe(true);
   });
 
   it('sets the active layer id', () => {
@@ -58,14 +57,6 @@ describe('editorStore', () => {
 
     useEditorStore.getState().setSelectedLayerId(null);
     expect(useEditorStore.getState().selectedLayerId).toBeNull();
-  });
-
-  it('toggles the layer panel open state', () => {
-    expect(useEditorStore.getState().isLayerPanelOpen).toBe(true);
-    useEditorStore.getState().toggleLayerPanel();
-    expect(useEditorStore.getState().isLayerPanelOpen).toBe(false);
-    useEditorStore.getState().toggleLayerPanel();
-    expect(useEditorStore.getState().isLayerPanelOpen).toBe(true);
   });
 
   it('pops move history entries in LIFO order and returns undefined once empty', () => {

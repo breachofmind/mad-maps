@@ -282,6 +282,7 @@ export function MapEditorPage() {
           onChange={handleBaseLayerChange}
           onAddCustomStyle={() => setCustomStyleDialogOpen(true)}
         />
+        <LayerPanel mapId={map.id} map={mapInstance} />
       </SideBar>
       <MapMenu
         mapId={map.id}
@@ -335,7 +336,6 @@ export function MapEditorPage() {
         )}
       </Box>
 
-      <LayerPanel mapId={map.id} map={mapInstance} />
       {selectedFeatures.length === 1 && singleSelectedFeature && (
         <FeaturePropertiesPanel
           key={singleSelectedFeature.feature.id}

@@ -29,16 +29,9 @@ export function BaseLayerPanel({ activeStyleId, onChange, onAddCustomStyle }: Ba
   return (
     <Box sx={{ px: 2, py: 2, borderTop: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
-          Base Layer
-        </Typography>
+        <Typography variant="subtitle2">Base Layer</Typography>
         <Tooltip title="Add a custom base style">
-          <IconButton
-            size="small"
-            onClick={onAddCustomStyle}
-            aria-label="Add a custom base style"
-            sx={{ color: 'common.white' }}
-          >
+          <IconButton size="small" onClick={onAddCustomStyle} aria-label="Add a custom base style">
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -52,9 +45,7 @@ export function BaseLayerPanel({ activeStyleId, onChange, onAddCustomStyle }: Ba
           sx={{
             bgcolor: '#1a1c1b',
             borderRadius: 1,
-            color: 'common.white',
             '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-            '& .MuiSvgIcon-root': { color: 'common.white' },
           }}
         >
           {MAP_STYLE_OPTIONS.map((option) => (

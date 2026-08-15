@@ -168,9 +168,8 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
             placeholder="Search for a place"
             size="small"
             sx={{
-              '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b', borderRadius: 1, color: 'common.white' },
+              '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b', borderRadius: 1 },
               '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-              '& .MuiSvgIcon-root': { color: 'common.white' },
             }}
             InputProps={{
               ...params.InputProps,
@@ -186,7 +185,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
       />
       {selectedPlace && (
         <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} spacing={1}>
-          <Typography variant="caption" color="rgba(255,255,255,0.7)" noWrap sx={{ maxWidth: 180 }}>
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
             {selectedPlace.formattedAddress}
           </Typography>
           <Tooltip

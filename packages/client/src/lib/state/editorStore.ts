@@ -29,7 +29,6 @@ interface EditorState {
   // mutually exclusive with a feature selection (see LayerPanel.tsx and
   // FeatureLayer.tsx, which clear one when the other is set).
   selectedLayerId: string | null;
-  isLayerPanelOpen: boolean;
   hoveredFeatureId: string | null;
   // Icon-by-value URLs that RemoteLayer failed to load onto the map (404,
   // no CORS support, etc). Lives here rather than as local state because
@@ -46,7 +45,6 @@ interface EditorState {
   setSelection: (selection: FeatureSelection | null) => void;
   toggleFeatureSelection: (featureId: string) => void;
   setSelectedLayerId: (layerId: string | null) => void;
-  toggleLayerPanel: () => void;
   setHoveredFeatureId: (featureId: string | null) => void;
   setFailedIconUrls: (urls: Set<string>) => void;
   pushMoveHistory: (entry: MoveHistoryEntry) => void;
@@ -58,7 +56,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   drawMode: 'none',
   selection: null,
   selectedLayerId: null,
-  isLayerPanelOpen: true,
   hoveredFeatureId: null,
   failedIconUrls: new Set(),
   moveHistory: [],
@@ -74,7 +71,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return { selection: next.length > 0 ? { type: 'feature', featureIds: next } : null };
     }),
   setSelectedLayerId: (layerId) => set({ selectedLayerId: layerId }),
-  toggleLayerPanel: () => set((state) => ({ isLayerPanelOpen: !state.isLayerPanelOpen })),
   setHoveredFeatureId: (featureId) => set({ hoveredFeatureId: featureId }),
   setFailedIconUrls: (urls) => set({ failedIconUrls: urls }),
   pushMoveHistory: (entry) =>

@@ -37,7 +37,6 @@ export function MapTitleBar({ title, onSubmit }: MapTitleBarProps) {
             if (e.key === 'Enter') submit();
             if (e.key === 'Escape') setIsEditing(false);
           }}
-          sx={{ input: { color: 'common.white' } }}
         />
       ) : (
         <Typography
