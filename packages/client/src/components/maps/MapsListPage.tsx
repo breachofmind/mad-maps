@@ -63,6 +63,7 @@ export function MapsListPage() {
         <Typography variant="h4">Your Maps</Typography>
         <Stack direction="row" spacing={2} alignItems="center">
           {user && <Typography color="text.secondary">{user.email}</Typography>}
+          <Button onClick={() => navigate('/map-styles')}>Map Styles</Button>
           <Button onClick={() => logout()}>Sign out</Button>
         </Stack>
       </Stack>

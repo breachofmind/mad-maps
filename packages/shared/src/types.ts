@@ -21,6 +21,15 @@ export interface MapDTO {
   updatedAt: string;
 }
 
+export interface MapStyleDTO {
+  id: string;
+  ownerId: string;
+  name: string;
+  styleUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type LayerSourceType = 'local' | 'geojson-url' | 'pmtiles-url';
 
 export interface PmtilesLayerMeta {

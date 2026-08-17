@@ -11,6 +11,7 @@ import { users } from './db/schema';
 import { passport } from './auth/passport';
 import { authRouter } from './auth/routes';
 import { mapsRouter } from './routes/maps';
+import { mapStylesRouter } from './routes/mapStyles';
 import { layersRouter, mapLayersRouter } from './routes/layers';
 import { layerMapFeaturesRouter, mapFeaturesRouter } from './routes/mapFeatures';
 import { searchRouter } from './routes/search';
@@ -53,6 +54,7 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
   app.use('/api/maps', mapsRouter);
+  app.use('/api/map-styles', mapStylesRouter);
   app.use('/api/maps/:mapId/layers', mapLayersRouter);
   app.use('/api/layers', layersRouter);
   app.use('/api/layers/:layerId/mapFeatures', layerMapFeaturesRouter);

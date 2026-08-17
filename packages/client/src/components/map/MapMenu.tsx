@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -9,11 +10,9 @@ import UploadIcon from '@mui/icons-material/Upload';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { downloadMapExport, type ExportFormat } from '../../lib/export/api';
 import { ImportDialog } from '../import/ImportDialog';
-import { CustomStyleDialog } from './CustomStyleDialog';
 
 interface MapMenuProps {
   mapId: string;
-  currentStyleUrl: string;
   anchorEl: HTMLElement | null;
   onClose: () => void;
 }
@@ -22,9 +21,9 @@ interface MapMenuProps {
 // this component only owns the Menu content and the dialogs it opens, not
 // the button that opens it, so the trigger can live in the shell's icon rail
 // instead of here.
-export function MapMenu({ mapId, currentStyleUrl, anchorEl, onClose }: MapMenuProps) {
+export function MapMenu({ mapId, anchorEl, onClose }: MapMenuProps) {
+  const navigate = useNavigate();
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   async function handleExport(format: ExportFormat) {
     onClose();
@@ -36,9 +35,9 @@ export function MapMenu({ mapId, currentStyleUrl, anchorEl, onClose }: MapMenuPr
     setImportDialogOpen(true);
   }
 
-  function handleCustomStyleClick() {
+  function handleManageStylesClick() {
     onClose();
-    setCustomStyleDialogOpen(true);
+    navigate('/map-styles');
   }
 
   return (
@@ -70,20 +69,14 @@ export function MapMenu({ mapId, currentStyleUrl, anchorEl, onClose }: MapMenuPr
           <ListItemText>Import layer from file</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={handleCustomStyleClick}>
+        <MenuItem onClick={handleManageStylesClick}>
           <ListItemIcon>
             <PaletteIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Custom style URL…</ListItemText>
+          <ListItemText>Manage map styles…</ListItemText>
         </MenuItem>
       </Menu>
       <ImportDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} mapId={mapId} />
-      <CustomStyleDialog
-        open={customStyleDialogOpen}
-        onClose={() => setCustomStyleDialogOpen(false)}
-        mapId={mapId}
-        currentStyleUrl={currentStyleUrl}
-      />
     </>
   );
 }

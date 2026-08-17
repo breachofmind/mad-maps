@@ -32,10 +32,8 @@ import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
 import { MapTitleBar } from './MapTitleBar';
 import { BaseLayerPanel } from './BaseLayerPanel';
-import { CustomStyleDialog } from './CustomStyleDialog';
 import { AccountMenu } from '../common/AccountMenu';
 import { PropertiesEmptyState } from './PropertiesEmptyState';
-import { MAP_STYLE_OPTIONS, styleIdForUrl } from '../../lib/map/mapStyles';
 
 // Width of the fixed MenuBar (60px) + SideBar (400px) shell — the map area
 // is offset by this much instead of spanning the full viewport.
@@ -67,7 +65,6 @@ export function MapEditorPage() {
   const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving');
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [accountAnchorEl, setAccountAnchorEl] = useState<HTMLElement | null>(null);
-  const [customStyleDialogOpen, setCustomStyleDialogOpen] = useState(false);
 
   const { data: map, isLoading } = useQuery({
     queryKey: ['maps', mapId],
@@ -301,10 +298,8 @@ export function MapEditorPage() {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });
   }, 500);
 
-  function handleBaseLayerChange(styleId: string) {
-    const option = MAP_STYLE_OPTIONS.find((o) => o.id === styleId);
-    if (!option) return;
-    patchMutation.mutate({ baseStyle: option.styleUrl });
+  function handleBaseLayerChange(styleUrl: string) {
+    patchMutation.mutate({ baseStyle: styleUrl });
   }
 
   if (isLoading || !map) {
@@ -326,9 +321,9 @@ export function MapEditorPage() {
         <MapTitleBar title={map.title} onSubmit={(title) => patchMutation.mutate({ title })} />
         <SearchBox map={mapInstance} activeLayer={activeLayer} />
         <BaseLayerPanel
-          activeStyleId={styleIdForUrl(map.baseStyle)}
+          activeStyleUrl={map.baseStyle}
           onChange={handleBaseLayerChange}
-          onAddCustomStyle={() => setCustomStyleDialogOpen(true)}
+          onManageStyles={() => navigate('/map-styles')}
         />
         <LayerPanel mapId={map.id} map={mapInstance} externalPropertiesCollapsed={propertiesCollapsed} />
         {selectedFeatures.length === 1 && singleSelectedFeature && (
@@ -361,15 +356,8 @@ export function MapEditorPage() {
       </SideBar>
       <MapMenu
         mapId={map.id}
-        currentStyleUrl={map.baseStyle}
         anchorEl={menuAnchorEl}
         onClose={() => setMenuAnchorEl(null)}
-      />
-      <CustomStyleDialog
-        open={customStyleDialogOpen}
-        onClose={() => setCustomStyleDialogOpen(false)}
-        mapId={map.id}
-        currentStyleUrl={map.baseStyle}
       />
       <AccountMenu anchorEl={accountAnchorEl} onClose={() => setAccountAnchorEl(null)} />
 

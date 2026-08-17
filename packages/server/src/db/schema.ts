@@ -48,6 +48,20 @@ export const maps = pgTable('maps', {
 export type Map = typeof maps.$inferSelect;
 export type NewMap = typeof maps.$inferInsert;
 
+export const mapStyles = pgTable('map_styles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerId: uuid('owner_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  styleUrl: text('style_url').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MapStyle = typeof mapStyles.$inferSelect;
+export type NewMapStyle = typeof mapStyles.$inferInsert;
+
 export interface LayerColorStop {
   value: number;
   color: string;

@@ -12,10 +12,3 @@ export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
 ];
 
 export const DEFAULT_MAP_STYLE = MAP_STYLE_OPTIONS[0];
-
-// '' when styleUrl doesn't match any preset (e.g. a custom style URL saved
-// via CustomStyleDialog) — callers render that as "Custom style" rather than
-// highlighting one of the presets.
-export function styleIdForUrl(styleUrl: string): string {
-  return MAP_STYLE_OPTIONS.find((s) => s.styleUrl === styleUrl)?.id ?? '';
-}

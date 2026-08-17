@@ -52,10 +52,10 @@ export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Style selection lives in BaseLayerPanel (SideBar) and CustomStyleDialog,
-  // both of which persist the choice to map.baseStyle — this effect is the
-  // single place that applies it to the live map instance once that refetch
-  // flows back down as a new initialStyleUrl.
+  // Style selection lives in BaseLayerPanel (SideBar), which persists the
+  // choice to map.baseStyle — this effect is the single place that applies
+  // it to the live map instance once that refetch flows back down as a new
+  // initialStyleUrl.
   const lastAppliedStyleUrlRef = useRef(initialStyleUrl);
   useEffect(() => {
     if (initialStyleUrl === lastAppliedStyleUrlRef.current) return;

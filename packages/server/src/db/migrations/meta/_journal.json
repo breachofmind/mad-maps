@@ -64,6 +64,13 @@
       "when": 1785642122400,
       "tag": "0008_damp_jamie_braddock",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786984212261,
+      "tag": "0009_perfect_logan",
+      "breakpoints": true
     }
   ]
 }
