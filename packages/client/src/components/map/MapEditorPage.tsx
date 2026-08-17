@@ -25,8 +25,9 @@ import { SearchBox } from '../search/SearchBox';
 import { MenuBar } from '../common/MenuBar';
 import { SideBar } from '../common/SideBar';
 import { MapView, type MapViewChange } from './MapView';
-import { FeatureLayer } from './FeatureLayer';
-import { RemoteLayer } from './RemoteLayer';
+import { FeatureLayer, FEATURE_LAYER_Z_ORDER_IDS } from './FeatureLayer';
+import { RemoteLayer, remoteLayerZOrderIds } from './RemoteLayer';
+import { syncLayerZOrder } from '../../lib/map/layerZOrder';
 import { FeaturePopup } from './FeaturePopup';
 import { MapMenu } from './MapMenu';
 import { MapTitleBar } from './MapTitleBar';
@@ -88,6 +89,27 @@ export function MapEditorPage() {
     const firstLocalLayer = layers.find((l) => l.sourceType === 'local');
     setActiveLayerId((firstLocalLayer ?? layers[0]).id);
   }, [layers, activeLayerId, setActiveLayerId]);
+
+  // FeatureLayer and RemoteLayer each add their own Mapbox layers with no
+  // regard for each other's stacking, and neither repositions existing
+  // layers when orderIndex changes — this is the pass that actually makes
+  // the map's draw order match the panel's layer order. Runs after both
+  // children have synced for this commit (child effects fire before the
+  // parent's), and again on every basemap switch, since a style reload
+  // recreates every layer from scratch in their own default order.
+  useEffect(() => {
+    if (!mapInstance) return;
+    const currentLayers = layers ?? [];
+    function applyZOrder() {
+      if (!mapInstance) return;
+      syncLayerZOrder(mapInstance, currentLayers, FEATURE_LAYER_Z_ORDER_IDS, remoteLayerZOrderIds);
+    }
+    applyZOrder();
+    mapInstance.on('style.load', applyZOrder);
+    return () => {
+      mapInstance.off('style.load', applyZOrder);
+    };
+  }, [mapInstance, layers]);
 
   const patchMutation = useMutation({
     mutationFn: (input: UpdateMapInput) => updateMap(mapId!, input),

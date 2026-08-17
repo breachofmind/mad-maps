@@ -36,6 +36,21 @@ const LAYER_IDS = {
   hoverLabel: 'mad-maps-features-hover-label',
   hoverLabelCursor: 'mad-maps-features-hover-label-cursor',
 };
+// Bottom-to-top order these are added in by ensureLayersAdded below — used
+// by lib/map/layerZOrder.ts to reposition this whole local-layers block
+// (all local layers share this one Mapbox layer set) relative to remote
+// layers' own groups when the user reorders layers in the panel.
+export const FEATURE_LAYER_Z_ORDER_IDS = [
+  LAYER_IDS.polygonFill,
+  LAYER_IDS.geometryHover,
+  LAYER_IDS.polygonOutline,
+  LAYER_IDS.line,
+  LAYER_IDS.lineHitArea,
+  LAYER_IDS.point,
+  LAYER_IDS.pointHover,
+  LAYER_IDS.hoverLabel,
+  LAYER_IDS.hoverLabelCursor,
+];
 // Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
 // instead of the visible line layer, since a thin rendered line is a hard
 // target to click precisely — see lineHitArea's paint below.
@@ -229,7 +244,12 @@ function buildFeatureCollection(
 ): { collection: GeoJSON.FeatureCollection; iconRefs: FeatureIconRef[] } {
   const features: GeoJSON.Feature[] = [];
   const iconRefs: FeatureIconRef[] = [];
-  for (const layer of layers) {
+  // All local layers share one Mapbox layer/source, so within it, stacking
+  // is purely a function of array order (later features draw on top).
+  // `layers` is top-of-panel-first (highest priority first) — push in
+  // reverse so the topmost-in-panel layer's features end up last, and thus
+  // on top.
+  for (const layer of [...layers].reverse()) {
     if (!layer.visible) continue;
     for (const feature of featuresByLayer.get(layer.id) ?? []) {
       if (feature.id === editingFeatureId) continue;

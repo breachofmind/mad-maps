@@ -88,6 +88,14 @@ function subLayerIds(layerId: string) {
   };
 }
 
+// Bottom-to-top order this layer's sublayers are added in by
+// ensureRemoteLayerAdded below — used by lib/map/layerZOrder.ts to
+// reposition this layer's whole group relative to other layers' groups.
+export function remoteLayerZOrderIds(layerId: string): string[] {
+  const ids = subLayerIds(layerId);
+  return [ids.fill, ids.outline, ids.line, ids.point, ids.icon, ids.label];
+}
+
 // Falls back to the flat layer color unless a numeric colorProperty with two
 // valid (ascending) stops is configured, in which case features are
 // colorized by interpolating between the low/high stops. `to-number` guards
@@ -347,8 +355,9 @@ interface RemoteLayerProps {
 // Renders layers backed by an external GeoJSON URL (see AddExternalLayerDialog)
 // directly from fetched data, without persisting individual features to
 // map_features — a sibling to FeatureLayer, which owns the user-drawn data.
-// Mounted before FeatureLayer in MapEditorPage so remote overlays render
-// beneath the user's own local layers.
+// Z-order between this component's layers, FeatureLayer's, and each other is
+// not decided here — see lib/map/layerZOrder.ts, applied by MapEditorPage
+// after both have synced.
 export function RemoteLayer({ map, layers }: RemoteLayerProps) {
   const remoteLayers = layers.filter((layer) => layer.sourceType === 'geojson-url' || layer.sourceType === 'pmtiles-url');
   const queryClient = useQueryClient();
