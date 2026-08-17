@@ -426,9 +426,9 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
   // Text is geometrically a Point (draggable/movable the same as a marker)
   // but rendered as bare centered text instead of an icon — see
   // buildFeatureCollection's featureType/fontSize properties. The zoom
-  // interpolate factor makes the label "breathe" with zoom like a basemap
-  // label while still being dominated by the user's chosen fontSize; zoom
-  // 12 is the reference point where fontSize reads as literal on-screen px.
+  // interpolate factor scales the label noticeably with zoom (0.25x-3.2x)
+  // while still being anchored on the user's chosen fontSize; zoom 12 is
+  // the reference point where fontSize reads as literal on-screen px.
   // Shared by LAYER_IDS.textHover below so its box sizes against the exact
   // same rendered text size as the visible layer.
   const textSizeExpression: mapboxgl.ExpressionSpecification = [
@@ -436,15 +436,15 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     ['linear'],
     ['zoom'],
     0,
-    ['*', ['get', 'fontSize'], 0.6],
+    ['*', ['get', 'fontSize'], 0.01],
     8,
-    ['*', ['get', 'fontSize'], 0.85],
+    ['*', ['get', 'fontSize'], 0.6],
     12,
     ['get', 'fontSize'],
     16,
-    ['*', ['get', 'fontSize'], 1.3],
+    ['*', ['get', 'fontSize'], 1.8],
     22,
-    ['*', ['get', 'fontSize'], 1.7],
+    ['*', ['get', 'fontSize'], 6.0],
   ];
   if (!map.hasImage(TEXT_SELECTION_BOX_IMAGE_ID)) {
     const contentInset = TEXT_SELECTION_BOX_INSET;
