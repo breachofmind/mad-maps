@@ -13,12 +13,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import type { LayerDTO, LayerStyleConfig } from '@mad-maps/shared';
+import type { FeatureType, LayerDTO, LayerStyleConfig } from '@mad-maps/shared';
 import { IconPicker } from '../mapFeatures/IconPicker';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { PanelHeader, PanelBody } from '../common/Panel';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RemoteLayerStyleControls } from './RemoteLayerStyleControls';
+import { FEATURE_TYPE_ICONS, FEATURE_TYPE_LABELS } from '../../lib/mapFeatures/featureTypeMeta';
 
 interface LayerPropertiesPanelProps {
   layer: LayerDTO;
@@ -27,6 +28,10 @@ interface LayerPropertiesPanelProps {
   canMoveDown: boolean;
   isRefreshing: boolean;
   externalData?: GeoJSON.FeatureCollection;
+  // Item counts by type for the currently-selected layer — see
+  // LayerPanel's selectedLayerFeatureCounts. undefined while feature data
+  // is still loading.
+  featureCounts?: Partial<Record<FeatureType, number>>;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onNameChange: (name: string) => void;
@@ -49,6 +54,7 @@ export function LayerPropertiesPanel({
   canMoveDown,
   isRefreshing,
   externalData,
+  featureCounts,
   onMoveUp,
   onMoveDown,
   onNameChange,
@@ -120,6 +126,32 @@ export function LayerPropertiesPanel({
               </Tooltip>
             )}
           </Stack>
+
+          {featureCounts && (
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              {(Object.keys(FEATURE_TYPE_LABELS) as FeatureType[])
+                .filter((type) => (featureCounts[type] ?? 0) > 0)
+                .map((type) => {
+                  const Icon = FEATURE_TYPE_ICONS[type];
+                  const count = featureCounts[type]!;
+                  return (
+                    <Tooltip key={type} title={`${count} ${FEATURE_TYPE_LABELS[type]}${count === 1 ? '' : 's'}`}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Icon fontSize="inherit" sx={{ color: 'text.disabled' }} />
+                        <Typography variant="caption" color="text.secondary">
+                          {count}
+                        </Typography>
+                      </Stack>
+                    </Tooltip>
+                  );
+                })}
+              {Object.values(featureCounts).every((count) => !count) && (
+                <Typography variant="caption" color="text.secondary">
+                  No items yet
+                </Typography>
+              )}
+            </Stack>
+          )}
 
           {isRemote && layer.sourceUrl && (
             <Box>

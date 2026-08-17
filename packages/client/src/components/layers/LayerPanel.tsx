@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useMemo, useState, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureType, LayerDTO, MapFeatureDTO } from '@mad-maps/shared';
@@ -23,10 +23,6 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import PlaceIcon from '@mui/icons-material/Place';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import PentagonIcon from '@mui/icons-material/Pentagon';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
 import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
@@ -38,6 +34,7 @@ import { geometryBounds } from '../../lib/map/geometryBounds';
 import { mapboxgl } from '../../lib/map/mapbox';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../../lib/mapFeatures/api';
 import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
+import { FEATURE_TYPE_ICONS, FEATURE_TYPE_LABELS } from '../../lib/mapFeatures/featureTypeMeta';
 import { PanelHeader } from '../common/Panel';
 import {
   createLayer,
@@ -83,20 +80,26 @@ function DropIndicatorLine({ show }: { show: boolean }) {
   return <Box sx={{ borderTop: '2px dashed', borderColor: 'primary.main', mx: 1 }} />;
 }
 
-// Matches the icons DrawControls already uses for these tools, so the
-// same shape means "point"/"line"/"polygon" everywhere in the app.
-const FEATURE_TYPE_ICONS: Record<FeatureType, typeof PlaceIcon> = {
-  point: PlaceIcon,
-  line: TimelineIcon,
-  polygon: PentagonIcon,
-  text: TextFieldsIcon,
-};
-const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
-  point: 'Pin',
-  line: 'Line',
-  polygon: 'Polygon',
-  text: 'Text',
-};
+// Remote/external layers carry raw GeoJSON geometry rather than a stored
+// featureType, and (unlike local map_features) may legitimately use Multi*
+// geometry types — see externalGeometrySchema in packages/shared/geojson.ts.
+// Mapbox's own geometry-type filters (RemoteLayer.tsx) already collapse
+// Multi* into their singular counterpart, so this does the same for counting.
+function remoteGeometryToFeatureType(geometryType: string | undefined): 'point' | 'line' | 'polygon' | undefined {
+  switch (geometryType) {
+    case 'Point':
+    case 'MultiPoint':
+      return 'point';
+    case 'LineString':
+    case 'MultiLineString':
+      return 'line';
+    case 'Polygon':
+    case 'MultiPolygon':
+      return 'polygon';
+    default:
+      return undefined;
+  }
+}
 
 function FeatureTypeIcon({ featureType }: { featureType: FeatureType }) {
   const Icon = FEATURE_TYPE_ICONS[featureType];
@@ -403,6 +406,26 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
   // MapEditorPage rendered alongside this one.
   const propertiesAreCollapsed = selectedLayer ? layerPropertiesCollapsed : externalPropertiesCollapsed;
 
+  // Item counts by type, shown in LayerPropertiesPanel's header when a
+  // layer's selected — local layers count their stored featureType directly,
+  // remote layers derive it from raw GeoJSON geometry (see
+  // remoteGeometryToFeatureType).
+  const selectedLayerFeatureCounts = useMemo((): Partial<Record<FeatureType, number>> | undefined => {
+    if (!selectedLayer) return undefined;
+    const counts: Partial<Record<FeatureType, number>> = {};
+    if (selectedLayer.sourceType === 'local') {
+      for (const feature of featureQueries[selectedIndex]?.data ?? []) {
+        counts[feature.featureType] = (counts[feature.featureType] ?? 0) + 1;
+      }
+    } else {
+      for (const feature of externalDataQueries[selectedIndex]?.data?.features ?? []) {
+        const featureType = remoteGeometryToFeatureType(feature.geometry?.type);
+        if (featureType) counts[featureType] = (counts[featureType] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [selectedLayer, selectedIndex, featureQueries, externalDataQueries]);
+
   return (
     <>
       <Box
@@ -676,6 +699,7 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
           onMoveUp={() => move(selectedIndex, -1)}
           onMoveDown={() => move(selectedIndex, 1)}
           externalData={externalDataQueries[selectedIndex]?.data}
+          featureCounts={selectedLayerFeatureCounts}
           onNameChange={(name) => updateMutation.mutate({ layerId: selectedLayer.id, input: { name } })}
           onColorChange={(color) => updateMutation.mutate({ layerId: selectedLayer.id, input: { color } })}
           onDefaultIconChange={(defaultIcon) =>
