@@ -160,29 +160,30 @@ export function FeaturePropertiesPanel({
           {coordinates && <PropertyReadOnlyRow label="Coordinates" value={coordinates} />}
 
           {measurements && (
-            <Box>
-              <Stack direction="row" spacing={2} mb={1}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
                 <UnitSelect
                   label="Distance unit"
                   value={distanceUnit}
                   options={DISTANCE_UNIT_OPTIONS}
                   onChange={setDistanceUnit}
                 />
-                {measurements.kind === 'polygon' && (
+                <MeasurementStat
+                  label={measurements.kind === 'line' ? 'Length' : 'Perimeter'}
+                  value={formatDistance(
+                    measurements.kind === 'line' ? measurements.length : measurements.perimeter,
+                    distanceUnit,
+                  )}
+                  align="right"
+                />
+              </Stack>
+              {measurements.kind === 'polygon' && (
+                <Stack direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
                   <UnitSelect label="Area unit" value={areaUnit} options={AREA_UNIT_OPTIONS} onChange={setAreaUnit} />
-                )}
-              </Stack>
-              <Stack direction="row" spacing={2}>
-                {measurements.kind === 'line' ? (
-                  <MeasurementStat label="Length" value={formatDistance(measurements.length, distanceUnit)} />
-                ) : (
-                  <>
-                    <MeasurementStat label="Perimeter" value={formatDistance(measurements.perimeter, distanceUnit)} />
-                    <MeasurementStat label="Area" value={formatArea(measurements.area, areaUnit)} />
-                  </>
-                )}
-              </Stack>
-            </Box>
+                  <MeasurementStat label="Area" value={formatArea(measurements.area, areaUnit)} align="right" />
+                </Stack>
+              )}
+            </Stack>
           )}
 
           <Stack direction="row" spacing={1} alignItems="center">

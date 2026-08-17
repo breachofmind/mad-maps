@@ -11,9 +11,17 @@ import MenuItem from '@mui/material/MenuItem';
 import { FEATURE_COLORS, normalizeHexColor } from '../../lib/mapFeatures/colors';
 import { ColorSwatchInput } from '../common/ColorSwatchInput';
 
-export function MeasurementStat({ label, value }: { label: string; value: string }) {
+export function MeasurementStat({
+  label,
+  value,
+  align = 'left',
+}: {
+  label: string;
+  value: string;
+  align?: 'left' | 'right';
+}) {
   return (
-    <Box>
+    <Box sx={{ textAlign: align }}>
       <Typography variant="caption" color="text.secondary" display="block">
         {label}
       </Typography>
