@@ -344,7 +344,10 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     return;
   }
 
-  map.addSource(SOURCE_ID, { type: 'geojson', data });
+  // dynamic:true enables updateData() below — dragging patches just the
+  // one moving feature instead of re-sending/re-tiling this whole
+  // collection (which can be hundreds of features) on every mousemove.
+  map.addSource(SOURCE_ID, { type: 'geojson', data, dynamic: true });
   map.addLayer({
     id: LAYER_IDS.polygonFill,
     type: 'fill',
@@ -804,16 +807,18 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         dragState.moved = true;
         clearCursorLabel(map);
         const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
-        if (source) {
-          const patched: GeoJSON.FeatureCollection = {
-            ...dataRef.current,
-            features: dataRef.current.features.map((feature) =>
-              feature.properties?.featureId === dragState.featureId
-                ? { ...feature, geometry: { type: 'Point', coordinates: [e.lngLat.lng, e.lngLat.lat] } }
-                : feature,
-            ),
-          };
-          source.setData(patched);
+        const draggedFeature = dataRef.current.features.find(
+          (feature) => feature.properties?.featureId === dragState.featureId,
+        );
+        if (source && draggedFeature) {
+          // updateData patches just this one feature (matched by its `id`
+          // — see buildFeatureCollection) instead of setData's full
+          // re-send/re-tile of every feature across every local layer,
+          // which is what made dragging jerky on maps with many features.
+          source.updateData({
+            type: 'FeatureCollection',
+            features: [{ ...draggedFeature, geometry: { type: 'Point', coordinates: [e.lngLat.lng, e.lngLat.lat] } }],
+          });
         }
         return;
       }
