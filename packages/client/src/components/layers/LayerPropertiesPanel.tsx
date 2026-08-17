@@ -154,7 +154,13 @@ export function LayerPropertiesPanel({
 
           <Divider />
 
-          <Button size="small" color="error" startIcon={<DeleteIcon fontSize="small" />} onClick={onDelete}>
+          <Button
+            size="small"
+            color="error"
+            startIcon={<DeleteIcon fontSize="small" />}
+            onClick={onDelete}
+            sx={{ alignSelf: 'flex-start' }}
+          >
             {isRemote ? 'Delete Data Layer' : 'Delete Layer'}
           </Button>
         </Stack>

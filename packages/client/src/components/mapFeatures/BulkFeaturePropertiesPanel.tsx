@@ -190,6 +190,7 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
             color="error"
             startIcon={<DeleteIcon fontSize="small" />}
             onClick={() => deleteMutation.mutate()}
+            sx={{ alignSelf: 'flex-start' }}
           >
             Delete {features.length} features
           </Button>

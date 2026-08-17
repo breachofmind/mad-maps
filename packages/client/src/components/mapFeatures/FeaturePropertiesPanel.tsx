@@ -264,6 +264,7 @@ export function FeaturePropertiesPanel({
             color="error"
             startIcon={<DeleteIcon fontSize="small" />}
             onClick={() => deleteMutation.mutate()}
+            sx={{ alignSelf: 'flex-start' }}
           >
             Delete
           </Button>
