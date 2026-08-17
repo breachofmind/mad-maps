@@ -105,6 +105,22 @@ describe('features.service geometry round-trip', () => {
     expect(updated?.featureType).toBe('line');
     expect(toMapFeatureDTO(updated!).geometry).toEqual(newLine);
   });
+
+  it('preserves featureType "text" across a Point-to-Point geometry update (e.g. a drag)', async () => {
+    const point: Geometry = { type: 'Point', coordinates: [0, 0] };
+    const created = await createFeature(layerId, ownerId, {
+      geometry: point,
+      featureType: 'text',
+      properties: defaultProperties,
+    });
+    expect(created?.featureType).toBe('text');
+
+    const movedPoint: Geometry = { type: 'Point', coordinates: [1, 1] };
+    const updated = await updateFeatureForOwner(created!.id, ownerId, { geometry: movedPoint });
+
+    expect(updated?.featureType).toBe('text');
+    expect(toMapFeatureDTO(updated!).geometry).toEqual(movedPoint);
+  });
 });
 
 describe('features.service CRUD and ownership', () => {

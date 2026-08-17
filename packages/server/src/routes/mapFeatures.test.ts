@@ -88,6 +88,47 @@ describe('map feature routes', () => {
     await agent.delete(`/api/mapFeatures/${featureId}`).expect(404);
   });
 
+  it('creates a text feature on Point geometry and preserves its type across a drag', async () => {
+    const createRes = await agent
+      .post(`/api/layers/${layerId}/mapFeatures`)
+      .send({
+        geometry: { type: 'Point', coordinates: [-122.4, 37.8] },
+        featureType: 'text',
+        properties: { title: 'Hello', fontSize: 24 },
+      })
+      .expect(201);
+
+    expect(createRes.body.featureType).toBe('text');
+    expect(createRes.body.properties.title).toBe('Hello');
+    expect(createRes.body.properties.fontSize).toBe(24);
+
+    const featureId = createRes.body.id as string;
+
+    const patchRes = await agent
+      .patch(`/api/mapFeatures/${featureId}`)
+      .send({ geometry: { type: 'Point', coordinates: [-122.5, 37.9] } })
+      .expect(200);
+    expect(patchRes.body.featureType).toBe('text');
+
+    await agent.delete(`/api/mapFeatures/${featureId}`).expect(204);
+  });
+
+  it('rejects featureType "text" on non-Point geometry with 400', async () => {
+    await agent
+      .post(`/api/layers/${layerId}/mapFeatures`)
+      .send({
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [1, 1],
+          ],
+        },
+        featureType: 'text',
+      })
+      .expect(400);
+  });
+
   it('returns 404 when listing features for a layer owned by another user', async () => {
     const [otherUser] = await db
       .insert(users)

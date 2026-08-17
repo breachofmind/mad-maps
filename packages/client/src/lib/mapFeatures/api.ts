@@ -1,8 +1,9 @@
-import type { MapFeatureDTO, MapFeaturePropertiesDTO } from '@mad-maps/shared';
+import type { FeatureType, MapFeatureDTO, MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface CreateFeatureInput {
   geometry: GeoJSON.Geometry;
+  featureType?: FeatureType;
   properties?: Partial<MapFeaturePropertiesDTO>;
 }
 

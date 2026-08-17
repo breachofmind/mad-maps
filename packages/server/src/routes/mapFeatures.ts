@@ -1,6 +1,13 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { batchDeleteFeaturesSchema, batchUpdateFeaturesSchema, geometrySchema, mapFeaturePropertiesSchema } from '@mad-maps/shared';
+import {
+  batchDeleteFeaturesSchema,
+  batchUpdateFeaturesSchema,
+  featureTypeSchema,
+  geometryToFeatureType,
+  geometrySchema,
+  mapFeaturePropertiesSchema,
+} from '@mad-maps/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {
@@ -18,10 +25,19 @@ function currentUser(req: import('express').Request): User {
   return req.user as User;
 }
 
-const createFeatureSchema = z.object({
-  geometry: geometrySchema,
-  properties: mapFeaturePropertiesSchema.partial().optional(),
-});
+const createFeatureSchema = z
+  .object({
+    geometry: geometrySchema,
+    featureType: featureTypeSchema.optional(),
+    properties: mapFeaturePropertiesSchema.partial().optional(),
+  })
+  .refine(
+    (data) =>
+      !data.featureType ||
+      data.featureType === geometryToFeatureType(data.geometry) ||
+      (data.featureType === 'text' && data.geometry.type === 'Point'),
+    { message: "featureType must match the geometry's derived type, or be 'text' for Point geometry", path: ['featureType'] },
+  );
 
 const updateFeatureSchema = z.object({
   geometry: geometrySchema.optional(),
@@ -49,6 +65,7 @@ layerMapFeaturesRouter.post('/', async (req: Request<{ layerId: string }>, res) 
   const properties = mapFeaturePropertiesSchema.parse(parsed.data.properties ?? {});
   const created = await createFeature(req.params.layerId, currentUser(req).id, {
     geometry: parsed.data.geometry,
+    featureType: parsed.data.featureType,
     properties,
   });
   if (!created) return res.status(404).json({ error: 'Layer not found' });

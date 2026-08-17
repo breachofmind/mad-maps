@@ -111,6 +111,7 @@ export interface MapFeatureProperties {
   color: string;
   strokeWidth?: number;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  fontSize?: number;
 }
 
 export const mapFeatures = pgTable('map_features', {

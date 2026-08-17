@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { MapFeatureDTO } from '@mad-maps/shared';
+import type { FeatureType, MapFeatureDTO } from '@mad-maps/shared';
 import { geometryToFeatureType, type Geometry } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { layers, maps, mapFeatures, type MapFeatureProperties } from '../db/schema';
@@ -42,6 +42,7 @@ function geometryToSql(geometry: Geometry) {
 
 export interface CreateFeatureInput {
   geometry: Geometry;
+  featureType?: FeatureType;
   properties: MapFeatureProperties;
 }
 
@@ -78,7 +79,7 @@ export async function createFeature(
     .values({
       layerId,
       orderIndex: count,
-      featureType: geometryToFeatureType(input.geometry),
+      featureType: input.featureType ?? geometryToFeatureType(input.geometry),
       geometry: geometryToSql(input.geometry),
       properties: sanitizeProperties(input.properties),
     })
@@ -112,7 +113,13 @@ export async function updateFeatureForOwner(
     .update(mapFeatures)
     .set({
       ...(input.geometry
-        ? { geometry: geometryToSql(input.geometry), featureType: geometryToFeatureType(input.geometry) }
+        ? {
+            geometry: geometryToSql(input.geometry),
+            featureType:
+              input.geometry.type === 'Point' && existing.featureType === 'text'
+                ? 'text'
+                : geometryToFeatureType(input.geometry),
+          }
         : {}),
       ...(nextProperties ? { properties: nextProperties } : {}),
       updatedAt: new Date(),

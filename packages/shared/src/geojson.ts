@@ -25,7 +25,7 @@ export const geometrySchema = z.discriminatedUnion('type', [
 
 export type Geometry = z.infer<typeof geometrySchema>;
 
-export const featureTypeSchema = z.enum(['point', 'line', 'polygon']);
+export const featureTypeSchema = z.enum(['point', 'line', 'polygon', 'text']);
 
 export const mapFeaturePropertiesSchema = z.object({
   title: z.string().max(200).default(''),
@@ -34,6 +34,7 @@ export const mapFeaturePropertiesSchema = z.object({
   color: z.string().default('#1976d2'),
   strokeWidth: z.number().positive().optional(),
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+  fontSize: z.number().min(8).max(64).optional(),
 });
 
 export const batchUpdateFeaturesSchema = z.object({

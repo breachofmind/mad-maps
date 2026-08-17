@@ -7,6 +7,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
 import { useEditorStore, type DrawMode } from '../../lib/state/editorStore';
 import type { DrawToolMode } from '../../lib/draw/useMapboxDraw';
 
@@ -18,6 +19,7 @@ const MODE_TO_DRAW_MODE: Record<DrawMode, DrawToolMode> = {
   line: 'draw_line_string',
   polygon: 'draw_polygon',
   route: 'simple_select',
+  text: 'draw_point',
 };
 
 export const DRAW_MODE_TO_EDITOR_MODE: Record<DrawToolMode, DrawMode> = {
@@ -53,6 +55,11 @@ export function DrawControls({ setMode, disabled }: DrawControlsProps) {
         <Tooltip title="Draw point">
           <ToggleButton value="point" aria-label="Draw point">
             <PlaceIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Add text label">
+          <ToggleButton value="text" aria-label="Add text label">
+            <TextFieldsIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
         <Tooltip title="Draw line">

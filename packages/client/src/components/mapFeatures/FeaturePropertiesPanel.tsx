@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import Stack from '@mui/material/Stack';
@@ -39,9 +39,11 @@ const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   point: 'Pin',
   line: 'Line',
   polygon: 'Polygon',
+  text: 'Text',
 };
 
 const DEFAULT_STROKE_WIDTH = 3;
+const DEFAULT_TEXT_FONT_SIZE = 16;
 
 const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
   { value: 'solid', label: 'Solid' },
@@ -72,6 +74,8 @@ export function FeaturePropertiesPanel({
   const [title, setTitle] = useState(feature.properties.title);
   const [description, setDescription] = useState(feature.properties.descriptionHtml);
   const [strokeWidth, setStrokeWidth] = useState(feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH);
+  const [fontSize, setFontSize] = useState(feature.properties.fontSize ?? DEFAULT_TEXT_FONT_SIZE);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
   const areaUnit = useUnitsStore((s) => s.areaUnit);
@@ -92,6 +96,16 @@ export function FeaturePropertiesPanel({
   }, [feature.geometry]);
 
   const coordinates = feature.geometry.type === 'Point' ? formatCoordinates(feature.geometry.coordinates) : null;
+
+  // Jump straight into typing after placing a new text feature — a
+  // freshly-placed one always has an empty title, so this never refocuses
+  // an already-titled feature on reselection.
+  useEffect(() => {
+    if (feature.featureType === 'text' && feature.properties.title === '') {
+      titleInputRef.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id]);
 
   const updateMutation = useMutation({
     mutationFn: (input: UpdateFeatureInput) => updateFeature(feature.id, input),
@@ -126,7 +140,8 @@ export function FeaturePropertiesPanel({
     persistDescription(html);
   }
 
-  const showStroke = feature.featureType !== 'point';
+  const showStroke = feature.featureType === 'line' || feature.featureType === 'polygon';
+  const showFontSize = feature.featureType === 'text';
 
   const headerActions = showStroke && (
     <Tooltip title={isEditingVertices ? 'Stop editing vertices' : 'Edit vertices'}>
@@ -194,18 +209,21 @@ export function FeaturePropertiesPanel({
           )}
 
           <Stack direction="row" spacing={1} alignItems="center">
-            <IconPicker
-              iconOnly
-              value={feature.properties.icon}
-              color={feature.properties.color}
-              onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
-            />
+            {feature.featureType !== 'text' && (
+              <IconPicker
+                iconOnly
+                value={feature.properties.icon}
+                color={feature.properties.color}
+                onChange={(icon) => updateMutation.mutate({ properties: { icon } })}
+              />
+            )}
             <TextField
               size="small"
               fullWidth
-              placeholder="Untitled"
+              placeholder={feature.featureType === 'text' ? 'Text' : 'Untitled'}
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
+              inputRef={titleInputRef}
               sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
             />
           </Stack>
@@ -218,6 +236,28 @@ export function FeaturePropertiesPanel({
           />
 
           <RichTextEditor key={feature.id} value={description} onChange={handleDescriptionChange} />
+
+          {showFontSize && (
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Font size
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {fontSize}px
+                </Typography>
+              </Stack>
+              <Slider
+                size="small"
+                min={8}
+                max={64}
+                step={1}
+                value={fontSize}
+                onChange={(_e, value) => setFontSize(value as number)}
+                onChangeCommitted={(_e, value) => updateMutation.mutate({ properties: { fontSize: value as number } })}
+              />
+            </Box>
+          )}
 
           {showStroke && (
             <>

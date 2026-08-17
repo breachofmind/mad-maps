@@ -31,6 +31,8 @@ const LAYER_IDS = {
   line: 'mad-maps-features-line',
   lineHitArea: 'mad-maps-features-line-hit-area',
   point: FEATURE_POINT_LAYER_ID,
+  textHover: 'mad-maps-features-text-hover',
+  text: 'mad-maps-features-text',
   pointHover: 'mad-maps-features-point-hover',
   geometryHover: 'mad-maps-features-geometry-hover',
   hoverLabel: 'mad-maps-features-hover-label',
@@ -47,6 +49,8 @@ export const FEATURE_LAYER_Z_ORDER_IDS = [
   LAYER_IDS.line,
   LAYER_IDS.lineHitArea,
   LAYER_IDS.point,
+  LAYER_IDS.textHover,
+  LAYER_IDS.text,
   LAYER_IDS.pointHover,
   LAYER_IDS.hoverLabel,
   LAYER_IDS.hoverLabelCursor,
@@ -54,8 +58,9 @@ export const FEATURE_LAYER_Z_ORDER_IDS = [
 // Click/hover hit-testing uses the invisible, much-wider lineHitArea layer
 // instead of the visible line layer, since a thin rendered line is a hard
 // target to click precisely — see lineHitArea's paint below.
-const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.lineHitArea, LAYER_IDS.point];
+const CLICKABLE_LAYER_IDS = [LAYER_IDS.polygonFill, LAYER_IDS.lineHitArea, LAYER_IDS.point, LAYER_IDS.text];
 const POINT_ICON_SIZE = 0.4;
+const DEFAULT_TEXT_FONT_SIZE = 16;
 const POINT_HOVER_RADIUS = 18;
 const POINT_HOVER_STROKE_WIDTH = 5;
 const GEOMETRY_HOVER_WIDTH = 11;
@@ -84,6 +89,41 @@ const CURSOR_LABEL_OFFSET_EM: [number, number] = [1.1, 0.8];
 // matches, and the effective cursor otherwise falls back to a generic
 // "move" state that only kicks in after a vertex has been dragged once.
 const DRAW_VERTEX_LAYER_IDS = ['gl-draw-vertex-inner.hot', 'gl-draw-vertex-inner.cold'];
+
+// Raster used as the hover/selection indicator behind a text feature (see
+// LAYER_IDS.textHover) — a small rounded-rect stroke, registered once per
+// style as an SDF image (so its color can be tinted at render time via
+// icon-color, matching pointHover/geometryHover's contrast-sampled
+// highlight color) and stretched via icon-text-fit to wrap whatever text
+// it's paired with, in place of the circular ring points get.
+const TEXT_SELECTION_BOX_IMAGE_ID = 'mad-maps-text-selection-box';
+const TEXT_SELECTION_BOX_SIZE = 24;
+const TEXT_SELECTION_BOX_RADIUS = 6;
+const TEXT_SELECTION_BOX_STROKE = 2;
+// Inset far enough from the edge that the rounded corner is never part of
+// the stretched middle strip — used for both the 9-slice content region and
+// stretchX/stretchY below, so the corners stay crisp at any box size.
+const TEXT_SELECTION_BOX_INSET = TEXT_SELECTION_BOX_RADIUS + TEXT_SELECTION_BOX_STROKE;
+
+function createTextSelectionBoxImage(): ImageData {
+  const canvas = document.createElement('canvas');
+  canvas.width = TEXT_SELECTION_BOX_SIZE;
+  canvas.height = TEXT_SELECTION_BOX_SIZE;
+  const ctx = canvas.getContext('2d')!;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = TEXT_SELECTION_BOX_STROKE;
+  const inset = TEXT_SELECTION_BOX_STROKE / 2;
+  ctx.beginPath();
+  ctx.roundRect(
+    inset,
+    inset,
+    TEXT_SELECTION_BOX_SIZE - inset * 2,
+    TEXT_SELECTION_BOX_SIZE - inset * 2,
+    TEXT_SELECTION_BOX_RADIUS,
+  );
+  ctx.stroke();
+  return ctx.getImageData(0, 0, TEXT_SELECTION_BOX_SIZE, TEXT_SELECTION_BOX_SIZE);
+}
 
 // mapbox's line-dasharray only accepts a fixed array per-feature (no
 // omitting it for "solid"), so a solid line is represented as one long dash
@@ -125,6 +165,17 @@ function highlightFilter(featureIds: string[], geometryTypes: string[]): mapboxg
   ];
 }
 
+// pointHover's ring only makes sense for icon markers — text gets its own
+// box (LAYER_IDS.textHover) instead, so it's excluded here even though it's
+// also Point geometry.
+function pointHighlightFilter(featureIds: string[]): mapboxgl.FilterSpecification {
+  return ['all', highlightFilter(featureIds, ['Point']), ['!=', ['get', 'featureType'], 'text']];
+}
+
+function textHighlightFilter(featureIds: string[]): mapboxgl.FilterSpecification {
+  return ['all', ['==', ['get', 'featureType'], 'text'], ['in', ['get', 'featureId'], ['literal', featureIds]]];
+}
+
 // '' never matches a real featureId, so this renders nothing when nothing's
 // hovered rather than needing a separate "none hovered" branch. Restricted
 // to Points — LineStrings/Polygons use the cursor-following label instead
@@ -134,6 +185,9 @@ function hoverLabelFilter(hoveredFeatureId: string | null): mapboxgl.FilterSpeci
   return [
     'all',
     ['==', ['geometry-type'], 'Point'],
+    // Text features already render their own title permanently — this
+    // hover-triggered label would just duplicate it.
+    ['!=', ['get', 'featureType'], 'text'],
     ['==', ['get', 'featureId'], hoveredFeatureId ?? ''],
     ['!=', ['get', 'title'], ''],
   ];
@@ -141,10 +195,13 @@ function hoverLabelFilter(hoveredFeatureId: string | null): mapboxgl.FilterSpeci
 
 function setHighlightFilters(map: mapboxgl.Map, featureIds: string[]) {
   if (map.getLayer(LAYER_IDS.pointHover)) {
-    map.setFilter(LAYER_IDS.pointHover, highlightFilter(featureIds, ['Point']));
+    map.setFilter(LAYER_IDS.pointHover, pointHighlightFilter(featureIds));
   }
   if (map.getLayer(LAYER_IDS.geometryHover)) {
     map.setFilter(LAYER_IDS.geometryHover, highlightFilter(featureIds, ['LineString', 'Polygon']));
+  }
+  if (map.getLayer(LAYER_IDS.textHover)) {
+    map.setFilter(LAYER_IDS.textHover, textHighlightFilter(featureIds));
   }
 }
 
@@ -155,6 +212,9 @@ function setHighlightOpacity(map: mapboxgl.Map, visible: boolean) {
   }
   if (map.getLayer(LAYER_IDS.geometryHover)) {
     map.setPaintProperty(LAYER_IDS.geometryHover, 'line-opacity', visible ? 1 : 0);
+  }
+  if (map.getLayer(LAYER_IDS.textHover)) {
+    map.setPaintProperty(LAYER_IDS.textHover, 'icon-opacity', visible ? 1 : 0);
   }
 }
 
@@ -255,7 +315,7 @@ function buildFeatureCollection(
       if (feature.id === editingFeatureId) continue;
       const color = feature.properties.color || layer.color;
       const icon = feature.properties.icon || 'marker';
-      iconRefs.push({ icon, color });
+      if (feature.featureType !== 'text') iconRefs.push({ icon, color });
       features.push({
         type: 'Feature',
         id: feature.id,
@@ -263,9 +323,11 @@ function buildFeatureCollection(
         properties: {
           featureId: feature.id,
           layerId: layer.id,
+          featureType: feature.featureType,
           color,
           title: feature.properties.title,
           icon: featureIconImageId(icon, color),
+          fontSize: feature.properties.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
           strokeWidth: feature.properties.strokeWidth ?? DEFAULT_STROKE_WIDTH,
           dashArray: LINE_DASH_ARRAYS[feature.properties.lineStyle ?? 'solid'],
         },
@@ -350,7 +412,7 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     id: LAYER_IDS.point,
     type: 'symbol',
     source: SOURCE_ID,
-    filter: ['==', ['geometry-type'], 'Point'],
+    filter: ['all', ['==', ['geometry-type'], 'Point'], ['!=', ['get', 'featureType'], 'text']],
     layout: {
       'icon-image': ['get', 'icon'],
       'icon-size': POINT_ICON_SIZE,
@@ -358,11 +420,90 @@ function ensureLayersAdded(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
       'icon-ignore-placement': true,
     },
   });
+  // Text is geometrically a Point (draggable/movable the same as a marker)
+  // but rendered as bare centered text instead of an icon — see
+  // buildFeatureCollection's featureType/fontSize properties. The zoom
+  // interpolate factor makes the label "breathe" with zoom like a basemap
+  // label while still being dominated by the user's chosen fontSize; zoom
+  // 12 is the reference point where fontSize reads as literal on-screen px.
+  // Shared by LAYER_IDS.textHover below so its box sizes against the exact
+  // same rendered text size as the visible layer.
+  const textSizeExpression: mapboxgl.ExpressionSpecification = [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    0,
+    ['*', ['get', 'fontSize'], 0.6],
+    8,
+    ['*', ['get', 'fontSize'], 0.85],
+    12,
+    ['get', 'fontSize'],
+    16,
+    ['*', ['get', 'fontSize'], 1.3],
+    22,
+    ['*', ['get', 'fontSize'], 1.7],
+  ];
+  if (!map.hasImage(TEXT_SELECTION_BOX_IMAGE_ID)) {
+    const contentInset = TEXT_SELECTION_BOX_INSET;
+    const contentEnd = TEXT_SELECTION_BOX_SIZE - TEXT_SELECTION_BOX_INSET;
+    map.addImage(TEXT_SELECTION_BOX_IMAGE_ID, createTextSelectionBoxImage(), {
+      sdf: true,
+      content: [contentInset, contentInset, contentEnd, contentEnd],
+      stretchX: [[contentInset, contentEnd]],
+      stretchY: [[contentInset, contentEnd]],
+    });
+  }
+  // Hover/selection indicator for text features, in place of pointHover's
+  // circle (a fixed-radius ring reads oddly around a variable-width label).
+  // Added before LAYER_IDS.text so the box renders behind the actual text.
+  // icon-text-fit stretches TEXT_SELECTION_BOX_IMAGE_ID to wrap this same
+  // layer's own (invisible — text-opacity 0) text, so the box always
+  // matches the visible layer's rendered text size exactly.
+  map.addLayer({
+    id: LAYER_IDS.textHover,
+    type: 'symbol',
+    source: SOURCE_ID,
+    filter: textHighlightFilter([]),
+    layout: {
+      'text-field': ['get', 'title'],
+      'text-size': textSizeExpression,
+      'text-anchor': 'center',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+      'icon-image': TEXT_SELECTION_BOX_IMAGE_ID,
+      'icon-text-fit': 'both',
+      'icon-text-fit-padding': [6, 8, 6, 8],
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+    paint: {
+      'text-opacity': 0,
+      'icon-color': DEFAULT_HOVER_COLOR,
+      'icon-opacity': 0,
+      'icon-opacity-transition': { duration: HIGHLIGHT_FADE_DURATION_MS },
+    },
+  });
+  map.addLayer({
+    id: LAYER_IDS.text,
+    type: 'symbol',
+    source: SOURCE_ID,
+    filter: ['==', ['get', 'featureType'], 'text'],
+    layout: {
+      'text-field': ['get', 'title'],
+      'text-size': textSizeExpression,
+      'text-anchor': 'center',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': ['get', 'color'],
+    },
+  });
   map.addLayer({
     id: LAYER_IDS.pointHover,
     type: 'circle',
     source: SOURCE_ID,
-    filter: highlightFilter([], ['Point']),
+    filter: pointHighlightFilter([]),
     paint: {
       'circle-radius': POINT_HOVER_RADIUS,
       'circle-color': DEFAULT_HOVER_COLOR,
@@ -519,6 +660,9 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         map.setPaintProperty(LAYER_IDS.pointHover, 'circle-color', color);
         map.setPaintProperty(LAYER_IDS.pointHover, 'circle-stroke-color', color);
       }
+      if (map.getLayer(LAYER_IDS.textHover)) {
+        map.setPaintProperty(LAYER_IDS.textHover, 'icon-color', color);
+      }
       const labelColors = labelColorsForHighlight(color);
       if (map.getLayer(LAYER_IDS.hoverLabel)) {
         map.setPaintProperty(LAYER_IDS.hoverLabel, 'text-color', labelColors.text);
@@ -629,8 +773,10 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
     // drag-to-pan; e.preventDefault() stops that default camera behavior
     // for this gesture.
     function handleMouseDown(e: mapboxgl.MapMouseEvent) {
-      if (!map || !map.getLayer(LAYER_IDS.point)) return;
-      const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_IDS.point] });
+      if (!map) return;
+      const draggableLayers = [LAYER_IDS.point, LAYER_IDS.text].filter((id) => map.getLayer(id));
+      if (draggableLayers.length === 0) return;
+      const hits = map.queryRenderedFeatures(e.point, { layers: draggableLayers });
       const hit = hits[0];
       const featureId = hit?.properties?.featureId;
       const layerId = hit?.properties?.layerId;
@@ -693,7 +839,7 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
         : [];
       const hit = hits[0];
       if (hit) {
-        setMapCursor(map, hit.layer?.id === LAYER_IDS.point ? 'grab' : 'pointer');
+        setMapCursor(map, hit.layer?.id === LAYER_IDS.point || hit.layer?.id === LAYER_IDS.text ? 'grab' : 'pointer');
       } else {
         setMapCursor(map, hoveringRemoteFeature(map, e.point) ? 'pointer' : '');
       }
@@ -708,7 +854,13 @@ export function FeatureLayer({ map, layers, editingFeatureId = null }: FeatureLa
       // instead, since a fixed anchor can land far from the cursor on a
       // large shape.
       const title = hit?.properties?.title;
-      if (hit && hit.layer?.id !== LAYER_IDS.point && typeof title === 'string' && title !== '') {
+      if (
+        hit &&
+        hit.layer?.id !== LAYER_IDS.point &&
+        hit.layer?.id !== LAYER_IDS.text &&
+        typeof title === 'string' &&
+        title !== ''
+      ) {
         setCursorLabel(map, e.lngLat, title);
       } else {
         clearCursorLabel(map);

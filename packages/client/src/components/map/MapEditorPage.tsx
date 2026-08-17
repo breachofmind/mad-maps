@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { MapFeaturePropertiesDTO } from '@mad-maps/shared';
+import type { FeatureType, MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchMap, updateMap, type UpdateMapInput } from '../../lib/maps/api';
@@ -48,6 +48,8 @@ const ROUTE_PROFILE_VERBS: Record<RouteProfile, string> = {
   cycling: 'ride',
   driving: 'drive',
 };
+
+const DEFAULT_TEXT_FONT_SIZE = 16;
 
 export function MapEditorPage() {
   const { mapId } = useParams<{ mapId: string }>();
@@ -122,12 +124,14 @@ export function MapEditorPage() {
     mutationFn: ({
       layerId,
       geometry,
+      featureType,
       properties,
     }: {
       layerId: string;
       geometry: GeoJSON.Geometry;
+      featureType?: FeatureType;
       properties?: Partial<MapFeaturePropertiesDTO>;
-    }) => createFeature(layerId, { geometry, properties }),
+    }) => createFeature(layerId, { geometry, featureType, properties }),
     onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: featuresQueryKey(variables.layerId) });
       if (variables.geometry.type === 'Point') {
@@ -150,10 +154,14 @@ export function MapEditorPage() {
     map: mapInstance,
     onCreate: (feature) => {
       if (!activeLayerId || !canAddFeatures || !feature.geometry) return;
+      const isText = useEditorStore.getState().drawMode === 'text';
       createFeatureMutation.mutate({
         layerId: activeLayerId,
         geometry: feature.geometry,
-        properties: { color: activeLayer!.color, icon: activeLayer!.defaultIcon },
+        featureType: isText ? 'text' : undefined,
+        properties: isText
+          ? { color: activeLayer!.color, title: '', fontSize: DEFAULT_TEXT_FONT_SIZE }
+          : { color: activeLayer!.color, icon: activeLayer!.defaultIcon },
       });
     },
     onModeChange: (mode) => {
@@ -237,7 +245,10 @@ export function MapEditorPage() {
     }
 
     const feature =
-      effectiveEditing && singleSelectedFeature?.feature.featureType !== 'point' ? singleSelectedFeature : null;
+      effectiveEditing &&
+      (singleSelectedFeature?.feature.featureType === 'line' || singleSelectedFeature?.feature.featureType === 'polygon')
+        ? singleSelectedFeature
+        : null;
     if (feature) {
       if (editingFeatureIdRef.current !== feature.feature.id) {
         editFeature(
@@ -375,14 +386,19 @@ export function MapEditorPage() {
           map={mapInstance}
           layers={layers ?? []}
           editingFeatureId={
-            isEditingVertices && singleSelectedFeature && singleSelectedFeature.feature.featureType !== 'point'
+            isEditingVertices &&
+            singleSelectedFeature &&
+            (singleSelectedFeature.feature.featureType === 'line' || singleSelectedFeature.feature.featureType === 'polygon')
               ? singleSelectedFeature.feature.id
               : null
           }
         />
         <FeaturePopup
           map={mapInstance}
-          feature={singleSelectedFeature?.feature ?? null}
+          // Text features already render their own content directly on the
+          // map (see FeatureLayer's LAYER_IDS.text) — a popup on top would
+          // just duplicate it.
+          feature={singleSelectedFeature?.feature.featureType === 'text' ? null : (singleSelectedFeature?.feature ?? null)}
           onClose={() => setSelection(null)}
         />
         <DrawControls setMode={setMode} disabled={!canAddFeatures} />

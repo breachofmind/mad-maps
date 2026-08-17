@@ -27,6 +27,7 @@ import { useUnitsStore } from '../../lib/state/unitsStore';
 import type { SelectedFeature } from '../../lib/mapFeatures/useSelectedFeatures';
 
 const DEFAULT_STROKE_WIDTH = 3;
+const DEFAULT_TEXT_FONT_SIZE = 16;
 
 const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
   { value: 'solid', label: 'Solid' },
@@ -49,6 +50,7 @@ export function BulkFeaturePropertiesPanel({
 }: BulkFeaturePropertiesPanelProps) {
   const queryClient = useQueryClient();
   const [strokeWidth, setStrokeWidth] = useState(DEFAULT_STROKE_WIDTH);
+  const [fontSize, setFontSize] = useState(DEFAULT_TEXT_FONT_SIZE);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
   const setDistanceUnit = useUnitsStore((s) => s.setDistanceUnit);
   const areaUnit = useUnitsStore((s) => s.areaUnit);
@@ -71,7 +73,10 @@ export function BulkFeaturePropertiesPanel({
     return hasLineOrPolygon ? { totalDistance, totalArea } : null;
   }, [features]);
 
-  const showStroke = features.some(({ feature }) => feature.featureType !== 'point');
+  const showStroke = features.some(
+    ({ feature }) => feature.featureType === 'line' || feature.featureType === 'polygon',
+  );
+  const showFontSize = features.some(({ feature }) => feature.featureType === 'text');
 
   function invalidateSelectedLayers() {
     const layerIds = new Set(features.map((f) => f.layer.id));
@@ -152,6 +157,28 @@ export function BulkFeaturePropertiesPanel({
             </Typography>
             <ColorSwatchRow value={null} onSelect={(color) => updateMutation.mutate({ color })} />
           </Box>
+
+          {showFontSize && (
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Font size
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {fontSize}px
+                </Typography>
+              </Stack>
+              <Slider
+                size="small"
+                min={8}
+                max={64}
+                step={1}
+                value={fontSize}
+                onChange={(_e, value) => setFontSize(value as number)}
+                onChangeCommitted={(_e, value) => updateMutation.mutate({ fontSize: value as number })}
+              />
+            </Box>
+          )}
 
           {showStroke && (
             <>

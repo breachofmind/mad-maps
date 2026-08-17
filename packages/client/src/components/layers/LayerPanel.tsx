@@ -26,6 +26,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PlaceIcon from '@mui/icons-material/Place';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PentagonIcon from '@mui/icons-material/Pentagon';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
 import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
@@ -87,11 +88,13 @@ const FEATURE_TYPE_ICONS: Record<FeatureType, typeof PlaceIcon> = {
   point: PlaceIcon,
   line: TimelineIcon,
   polygon: PentagonIcon,
+  text: TextFieldsIcon,
 };
 const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   point: 'Pin',
   line: 'Line',
   polygon: 'Polygon',
+  text: 'Text',
 };
 
 function FeatureTypeIcon({ featureType }: { featureType: FeatureType }) {

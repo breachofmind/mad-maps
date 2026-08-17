@@ -1,4 +1,4 @@
-export type FeatureType = 'point' | 'line' | 'polygon';
+export type FeatureType = 'point' | 'line' | 'polygon' | 'text';
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface UserDTO {
@@ -95,6 +95,7 @@ export interface MapFeaturePropertiesDTO {
   color: string;
   strokeWidth?: number;
   lineStyle?: LineStyle;
+  fontSize?: number;
 }
 
 export interface MapFeatureDTO {
