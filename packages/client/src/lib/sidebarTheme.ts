@@ -10,4 +10,17 @@ export const sidebarTheme = createTheme({
     background: { paper: '#1a1c1b', default: 'transparent' },
     primary: { main: '#1976d2' },
   },
+  components: {
+    // MUI's default outline has no transition, so the hover border (be it
+    // its own default, or one of the flat/no-border inputs re-adding it —
+    // see BaseLayerPanel, SearchBox, RemoteLayerStyleControls) snaps
+    // instantly instead of fading in/out.
+    MuiOutlinedInput: {
+      styleOverrides: {
+        notchedOutline: {
+          transition: 'border-color 150ms ease-in-out',
+        },
+      },
+    },
+  },
 });

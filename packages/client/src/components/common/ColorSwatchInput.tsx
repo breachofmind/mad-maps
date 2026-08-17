@@ -9,7 +9,13 @@ const CIRCLE_SX = {
   borderRadius: '50%',
   overflow: 'hidden',
   cursor: 'pointer',
-  '&:hover': { border: '1px solid #fff' },
+  // outline rather than border: a native color input appears to always
+  // paint an explicit border, even a transparent one, which ruled out
+  // fading border-color in from a transparent idle state. outline-color
+  // fades cleanly since outline-style stays 'solid' throughout.
+  outline: '1px solid transparent',
+  transition: 'outline-color 150ms ease-in-out',
+  '&:hover': { outlineColor: '#fff' },
   '&::-webkit-color-swatch-wrapper': { p: 0 },
   '&::-webkit-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
   '&::-moz-color-swatch': { border: '1px solid rgba(0,0,0,0.3)', borderRadius: '50%' },
@@ -27,7 +33,9 @@ const CHIP_SX = {
   border: 'none',
   borderRadius: 1,
   cursor: 'pointer',
-  '&:hover': { border: '1px solid #fff' },
+  outline: '1px solid transparent',
+  transition: 'outline-color 150ms ease-in-out',
+  '&:hover': { outlineColor: '#fff' },
   '&::-webkit-color-swatch-wrapper': { p: 0 },
   '&::-webkit-color-swatch': { border: 'none', borderRadius: 'inherit' },
   '&::-moz-color-swatch': { border: 'none', borderRadius: 'inherit' },
