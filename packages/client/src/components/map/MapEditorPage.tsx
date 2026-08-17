@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type mapboxgl from 'mapbox-gl';
-import type { FeatureType, MapFeaturePropertiesDTO } from '@mad-maps/shared';
+import type { BaseStyle, FeatureType, MapFeaturePropertiesDTO } from '@mad-maps/shared';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchMap, updateMap, type UpdateMapInput } from '../../lib/maps/api';
@@ -300,8 +300,8 @@ export function MapEditorPage() {
     patchMutation.mutate({ defaultCenter: change.center, defaultZoom: change.zoom });
   }, 500);
 
-  function handleBaseLayerChange(styleUrl: string) {
-    patchMutation.mutate({ baseStyle: styleUrl });
+  function handleBaseLayerChange(style: BaseStyle) {
+    patchMutation.mutate({ baseStyle: style });
   }
 
   if (isLoading || !map) {
@@ -323,7 +323,7 @@ export function MapEditorPage() {
         <MapTitleBar title={map.title} onSubmit={(title) => patchMutation.mutate({ title })} />
         <SearchBox map={mapInstance} activeLayer={activeLayer} />
         <BaseLayerPanel
-          activeStyleUrl={map.baseStyle}
+          activeStyle={map.baseStyle}
           onChange={handleBaseLayerChange}
           onManageStyles={() => navigate('/map-styles')}
         />
@@ -367,7 +367,7 @@ export function MapEditorPage() {
         <MapView
           initialCenter={map.defaultCenter}
           initialZoom={map.defaultZoom}
-          initialStyleUrl={map.baseStyle}
+          initialStyle={map.baseStyle}
           onMoveEnd={persistViewport}
           onMapReady={setMapInstance}
         />

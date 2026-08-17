@@ -8,34 +8,41 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import AddIcon from '@mui/icons-material/Add';
-import { MAP_STYLE_OPTIONS } from '../../lib/map/mapStyles';
+import type { BaseStyle } from '@mad-maps/shared';
+import { baseStyleKey, MAP_STYLE_OPTIONS } from '../../lib/map/mapStyles';
 import { fetchMapStyles, mapStylesQueryKey } from '../../lib/mapStyles/api';
 import { PanelHeader } from '../common/Panel';
 import { usePanelStore } from '../../lib/state/panelStore';
 
 interface BaseLayerPanelProps {
-  activeStyleUrl: string;
-  onChange: (styleUrl: string) => void;
+  activeStyle: BaseStyle;
+  onChange: (style: BaseStyle) => void;
   onManageStyles: () => void;
 }
 
 // SideBar section replacing the old floating StyleSwitcher toggle group.
-// Selection is now keyed by styleUrl directly (rather than a preset-only id)
-// so the dropdown can list both the built-in presets and the user's saved
-// custom styles (managed on the separate /map-styles page) in one list.
-export function BaseLayerPanel({ activeStyleUrl, onChange, onManageStyles }: BaseLayerPanelProps) {
+// Selection is keyed by baseStyleKey(style) rather than a preset-only id so the
+// dropdown can list both the built-in presets and the user's saved custom
+// styles (managed on the separate /map-styles page) in one list.
+export function BaseLayerPanel({ activeStyle, onChange, onManageStyles }: BaseLayerPanelProps) {
   const collapsed = usePanelStore((s) => s.collapsed.baseLayer);
   const setCollapsed = usePanelStore((s) => s.setCollapsed);
   const { data: customStyles } = useQuery({ queryKey: mapStylesQueryKey(), queryFn: fetchMapStyles });
 
-  const presetOption = MAP_STYLE_OPTIONS.find((option) => option.styleUrl === activeStyleUrl);
-  const customOption = customStyles?.find((style) => style.styleUrl === activeStyleUrl);
-  // Falls back to "Custom style" when activeStyleUrl doesn't match any known
+  const activeKey = baseStyleKey(activeStyle);
+  const presetOption = MAP_STYLE_OPTIONS.find((option) => baseStyleKey(option.style) === activeKey);
+  const customOption = customStyles?.find((style) => baseStyleKey(style.styleUrl) === activeKey);
+  // Falls back to "Custom style" when activeStyle doesn't match any known
   // preset or saved style (e.g. the saved style it once pointed to was deleted).
   const activeLabel = presetOption?.label ?? customOption?.name ?? 'Custom style';
 
+  const stylesByKey = new Map<string, BaseStyle>();
+  for (const option of MAP_STYLE_OPTIONS) stylesByKey.set(baseStyleKey(option.style), option.style);
+  for (const style of customStyles ?? []) stylesByKey.set(baseStyleKey(style.styleUrl), style.styleUrl);
+
   function handleChange(e: SelectChangeEvent) {
-    onChange(e.target.value);
+    const style = stylesByKey.get(e.target.value);
+    if (style !== undefined) onChange(style);
   }
 
   return (
@@ -57,7 +64,7 @@ export function BaseLayerPanel({ activeStyleUrl, onChange, onManageStyles }: Bas
         <Box sx={{ px: 2, pt: 1.5, pb: 2 }}>
           <FormControl size="small" fullWidth>
             <Select
-              value={activeStyleUrl}
+              value={activeKey}
               displayEmpty
               onChange={handleChange}
               renderValue={() => activeLabel}
@@ -69,13 +76,13 @@ export function BaseLayerPanel({ activeStyleUrl, onChange, onManageStyles }: Bas
               }}
             >
               {MAP_STYLE_OPTIONS.map((option) => (
-                <MenuItem key={option.id} value={option.styleUrl}>
+                <MenuItem key={option.id} value={baseStyleKey(option.style)}>
                   {option.label}
                 </MenuItem>
               ))}
               {customStyles && customStyles.length > 0 && <Divider />}
               {customStyles?.map((style) => (
-                <MenuItem key={style.id} value={style.styleUrl}>
+                <MenuItem key={style.id} value={baseStyleKey(style.styleUrl)}>
                   {style.name}
                 </MenuItem>
               ))}

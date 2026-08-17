@@ -17,7 +17,7 @@ import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { MapStyleDTO } from '@mad-maps/shared';
+import type { BaseStyle, MapStyleDTO } from '@mad-maps/shared';
 import { MAP_STYLE_OPTIONS } from '../../lib/map/mapStyles';
 import { normalizeMapboxStyleUrl } from '../../lib/map/mapboxStyleUrl';
 import { staticPreviewUrl } from '../../lib/mapStyles/staticPreview';
@@ -34,7 +34,7 @@ function StyleCard({
   onDelete,
 }: {
   label: string;
-  styleUrl: string;
+  styleUrl: BaseStyle;
   onDelete?: () => void;
 }) {
   const previewUrl = staticPreviewUrl(styleUrl);
@@ -194,7 +194,7 @@ export function MapStylesPage() {
       </Typography>
       <Box sx={gridSx}>
         {MAP_STYLE_OPTIONS.map((option) => (
-          <StyleCard key={option.id} label={option.label} styleUrl={option.styleUrl} />
+          <StyleCard key={option.id} label={option.label} styleUrl={option.style} />
         ))}
       </Box>
 

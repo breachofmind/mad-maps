@@ -26,13 +26,27 @@ const lngLatSchema = z.object({
   lat: z.number().min(-90).max(90),
 });
 
+const mapboxStyleUrlSchema = z
+  .string()
+  .regex(/^mapbox:\/\/styles\/[^/]+\/[^/]+$/, 'Must be a mapbox://styles/{username}/{style_id} URL');
+
+// Non-Mapbox basemaps (e.g. the USGS Topo raster style in the client's
+// lib/map/mapStyles.ts) have no mapbox://styles/... URL, so baseStyle also
+// accepts an inline Mapbox style spec object directly.
+const inlineMapStyleSchema = z
+  .object({
+    version: z.number(),
+    sources: z.record(z.unknown()),
+    layers: z.array(z.unknown()),
+  })
+  .passthrough();
+
+const baseStyleSchema = z.union([mapboxStyleUrlSchema, inlineMapStyleSchema]);
+
 const updateMapSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
-  baseStyle: z
-    .string()
-    .regex(/^mapbox:\/\/styles\/[^/]+\/[^/]+$/, 'Must be a mapbox://styles/{username}/{style_id} URL')
-    .optional(),
+  baseStyle: baseStyleSchema.optional(),
   defaultCenter: lngLatSchema.optional(),
   defaultZoom: z.number().min(0).max(24).optional(),
 });

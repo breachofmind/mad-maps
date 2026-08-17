@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type { BaseStyle } from '@mad-maps/shared';
 import { mapboxgl } from '../../lib/map/mapbox';
+import { baseStyleKey } from '../../lib/map/mapStyles';
 
 export interface MapViewChange {
   center: { lng: number; lat: number };
@@ -11,12 +13,12 @@ export interface MapViewChange {
 interface MapViewProps {
   initialCenter: { lng: number; lat: number };
   initialZoom: number;
-  initialStyleUrl: string;
+  initialStyle: BaseStyle;
   onMoveEnd?: (change: MapViewChange) => void;
   onMapReady?: (map: mapboxgl.Map) => void;
 }
 
-export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd, onMapReady }: MapViewProps) {
+export function MapView({ initialCenter, initialZoom, initialStyle, onMoveEnd, onMapReady }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
@@ -25,7 +27,10 @@ export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: initialStyleUrl,
+      // BaseStyle's inline-object variant is looser than mapboxgl's own
+      // StyleSpecification (this package doesn't depend on mapbox-gl), but
+      // mapboxgl.Map accepts a style URL string or a style object directly.
+      style: initialStyle as string | mapboxgl.StyleSpecification,
       center: [initialCenter.lng, initialCenter.lat],
       zoom: initialZoom,
       // Lets FeatureLayer read back rendered pixels to pick a highlight
@@ -55,13 +60,16 @@ export function MapView({ initialCenter, initialZoom, initialStyleUrl, onMoveEnd
   // Style selection lives in BaseLayerPanel (SideBar), which persists the
   // choice to map.baseStyle — this effect is the single place that applies
   // it to the live map instance once that refetch flows back down as a new
-  // initialStyleUrl.
-  const lastAppliedStyleUrlRef = useRef(initialStyleUrl);
+  // initialStyle. Compared by content (not reference) since an unrelated map
+  // refetch (e.g. after a title edit) hands back a brand-new baseStyle
+  // object even when the style itself hasn't changed.
+  const lastAppliedStyleRef = useRef(baseStyleKey(initialStyle));
   useEffect(() => {
-    if (initialStyleUrl === lastAppliedStyleUrlRef.current) return;
-    lastAppliedStyleUrlRef.current = initialStyleUrl;
-    mapRef.current?.setStyle(initialStyleUrl);
-  }, [initialStyleUrl]);
+    const key = baseStyleKey(initialStyle);
+    if (key === lastAppliedStyleRef.current) return;
+    lastAppliedStyleRef.current = key;
+    mapRef.current?.setStyle(initialStyle as string | mapboxgl.StyleSpecification);
+  }, [initialStyle]);
 
   return (
     <Box position="relative" width="100%" height="100%">

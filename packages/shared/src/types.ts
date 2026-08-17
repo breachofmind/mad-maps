@@ -9,12 +9,27 @@ export interface UserDTO {
   createdAt: string;
 }
 
+// Most base styles are a "mapbox://styles/{user}/{id}" URL, but a basemap
+// with no Mapbox style behind it (e.g. a raw raster tile service like USGS
+// Topo) is stored as an inline Mapbox style spec object instead. Kept loose
+// (not the full Mapbox GL StyleSpecification) since this package has no
+// mapbox-gl dependency and only needs to validate/pass it through, not
+// interpret it.
+export interface InlineMapStyle {
+  version: number;
+  sources: Record<string, unknown>;
+  layers: unknown[];
+  [key: string]: unknown;
+}
+
+export type BaseStyle = string | InlineMapStyle;
+
 export interface MapDTO {
   id: string;
   ownerId: string;
   title: string;
   description: string | null;
-  baseStyle: string;
+  baseStyle: BaseStyle;
   defaultCenter: { lng: number; lat: number };
   defaultZoom: number;
   createdAt: string;

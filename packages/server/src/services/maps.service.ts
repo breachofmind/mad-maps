@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { MapDTO } from '@mad-maps/shared';
+import type { BaseStyle, MapDTO } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { maps, type LngLat, type Map } from '../db/schema';
 
@@ -12,7 +12,7 @@ export interface CreateMapInput {
 export interface UpdateMapInput {
   title?: string;
   description?: string | null;
-  baseStyle?: string;
+  baseStyle?: BaseStyle;
   defaultCenter?: LngLat;
   defaultZoom?: number;
 }

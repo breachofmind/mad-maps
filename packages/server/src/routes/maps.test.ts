@@ -73,6 +73,24 @@ describe('GET/POST/PATCH/DELETE /api/maps', () => {
     await agent.delete(`/api/maps/${mapId}`).expect(204);
   });
 
+  it('accepts an inline Mapbox style spec object as baseStyle', async () => {
+    const createRes = await agent.post('/api/maps').send({ title: 'Inline Style Test Map' }).expect(201);
+    const mapId = createRes.body.id as string;
+
+    const inlineStyle = {
+      version: 8,
+      sources: { 'usgs-topo': { type: 'raster', tiles: ['https://example.com/{z}/{y}/{x}'], tileSize: 256 } },
+      layers: [{ id: 'usgs-topo', type: 'raster', source: 'usgs-topo' }],
+    };
+
+    const patchRes = await agent.patch(`/api/maps/${mapId}`).send({ baseStyle: inlineStyle }).expect(200);
+    expect(patchRes.body.baseStyle).toEqual(inlineStyle);
+
+    await agent.patch(`/api/maps/${mapId}`).send({ baseStyle: { version: 8 } }).expect(400);
+
+    await agent.delete(`/api/maps/${mapId}`).expect(204);
+  });
+
   it('returns 404 for a map belonging to another owner', async () => {
     const [otherUser] = await db
       .insert(users)

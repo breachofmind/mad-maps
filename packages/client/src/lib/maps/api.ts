@@ -1,4 +1,4 @@
-import type { MapDTO } from '@mad-maps/shared';
+import type { BaseStyle, MapDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface CreateMapInput {
@@ -9,7 +9,7 @@ export interface CreateMapInput {
 export interface UpdateMapInput {
   title?: string;
   description?: string | null;
-  baseStyle?: string;
+  baseStyle?: BaseStyle;
   defaultCenter?: { lng: number; lat: number };
   defaultZoom?: number;
 }

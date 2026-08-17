@@ -1,5 +1,5 @@
 import { pgTable, pgEnum, uuid, text, timestamp, doublePrecision, jsonb, integer, boolean, customType } from 'drizzle-orm/pg-core';
-import type { PmtilesMetadata } from '@mad-maps/shared';
+import type { BaseStyle, PmtilesMetadata } from '@mad-maps/shared';
 
 // Drizzle's built-in pg-core `geometry()` column only supports Point geometry
 // (its mapToDriverValue always emits `point(...)`), which doesn't fit a
@@ -38,7 +38,10 @@ export const maps = pgTable('maps', {
     .references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   description: text('description'),
-  baseStyle: text('base_style').notNull().default('mapbox://styles/mapbox/streets-v12'),
+  // A JSON value: either a "mapbox://styles/..." URL string, or an inline
+  // Mapbox style spec object for basemaps with no Mapbox style behind them
+  // (see BaseStyle in @mad-maps/shared).
+  baseStyle: jsonb('base_style').$type<BaseStyle>().notNull().default('mapbox://styles/mapbox/streets-v12'),
   defaultCenter: jsonb('default_center').$type<LngLat>().notNull().default({ lng: -98.5795, lat: 39.8283 }),
   defaultZoom: doublePrecision('default_zoom').notNull().default(3.5),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
