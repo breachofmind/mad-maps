@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import type { LayerDTO, PlaceResultDTO } from '@mad-maps/shared';
 import type mapboxgl from 'mapbox-gl';
 import { mapboxgl as mapboxglRuntime } from '../../lib/map/mapbox';
@@ -174,6 +175,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
             }}
             InputProps={{
               ...params.InputProps,
+              startAdornment: <SearchIcon fontSize="small" sx={{ color: '#fff', ml: 0.5 }} />,
               endAdornment: (
                 <>
                   {isFetching ? <CircularProgress size={16} /> : null}
