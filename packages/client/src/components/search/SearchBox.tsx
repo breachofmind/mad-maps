@@ -169,7 +169,8 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
             size="small"
             sx={{
               '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b', borderRadius: 1 },
-              '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
             }}
             InputProps={{
               ...params.InputProps,

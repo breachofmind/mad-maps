@@ -26,7 +26,8 @@ const DEFAULT_HIGH_COLOR = '#d32f2f';
 const DARK_SELECT_SX = {
   bgcolor: '#1a1c1b',
   borderRadius: 1,
-  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
 };
 
 // Shared by InlineFieldRow and GradientStopRow so "Label"/"Colorize" line up

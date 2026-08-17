@@ -45,7 +45,8 @@ export function BaseLayerPanel({ activeStyleId, onChange, onAddCustomStyle }: Ba
           sx={{
             bgcolor: '#1a1c1b',
             borderRadius: 1,
-            '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
           }}
         >
           {MAP_STYLE_OPTIONS.map((option) => (
