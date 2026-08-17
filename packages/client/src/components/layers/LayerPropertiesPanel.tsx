@@ -36,6 +36,8 @@ interface LayerPropertiesPanelProps {
   onRefresh: () => void;
   onDelete: () => void;
   onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 // Rendered with key={layer.id} by LayerPanel — switching the selected layer
@@ -56,6 +58,8 @@ export function LayerPropertiesPanel({
   onRefresh,
   onDelete,
   onClose,
+  collapsed,
+  onToggleCollapse,
 }: LayerPropertiesPanelProps) {
   const isRemote = layer.sourceType !== 'local';
   const [name, setName] = useState(layer.name);
@@ -76,7 +80,7 @@ export function LayerPropertiesPanel({
         borderColor: 'rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
-        flex: 1,
+        flex: collapsed ? '0 0 auto' : 1,
         minHeight: 0,
       }}
     >
@@ -84,9 +88,12 @@ export function LayerPropertiesPanel({
         title={isRemote ? 'Data Layer Properties' : 'Layer Properties'}
         onClose={onClose}
         closeLabel="Close layer details"
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+        collapseLabel="properties"
       />
 
-      <PanelBody>
+      {!collapsed && <PanelBody>
         <Stack spacing={2}>
           <Stack direction="row" spacing={0.5}>
             <Tooltip title="Move up">
@@ -164,7 +171,7 @@ export function LayerPropertiesPanel({
             {isRemote ? 'Delete Data Layer' : 'Delete Layer'}
           </Button>
         </Stack>
-      </PanelBody>
+      </PanelBody>}
     </Box>
   );
 }

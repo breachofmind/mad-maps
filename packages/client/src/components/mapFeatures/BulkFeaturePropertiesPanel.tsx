@@ -37,9 +37,16 @@ const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
 interface BulkFeaturePropertiesPanelProps {
   features: SelectedFeature[];
   onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePropertiesPanelProps) {
+export function BulkFeaturePropertiesPanel({
+  features,
+  onClose,
+  collapsed,
+  onToggleCollapse,
+}: BulkFeaturePropertiesPanelProps) {
   const queryClient = useQueryClient();
   const [strokeWidth, setStrokeWidth] = useState(DEFAULT_STROKE_WIDTH);
   const distanceUnit = useUnitsStore((s) => s.distanceUnit);
@@ -92,13 +99,20 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
         borderColor: 'rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
-        flex: 1,
+        flex: collapsed ? '0 0 auto' : 1,
         minHeight: 0,
       }}
     >
-      <PanelHeader title={`${features.length} items selected`} onClose={onClose} closeLabel="Close bulk edit" />
+      <PanelHeader
+        title={`${features.length} items selected`}
+        onClose={onClose}
+        closeLabel="Close bulk edit"
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+        collapseLabel="properties"
+      />
 
-      <PanelBody>
+      {!collapsed && <PanelBody>
         <Stack spacing={2}>
           {totals && (
             <Box>
@@ -195,7 +209,7 @@ export function BulkFeaturePropertiesPanel({ features, onClose }: BulkFeaturePro
             Delete {features.length} features
           </Button>
         </Stack>
-      </PanelBody>
+      </PanelBody>}
     </Box>
   );
 }

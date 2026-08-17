@@ -36,6 +36,7 @@ import { geometryBounds } from '../../lib/map/geometryBounds';
 import { mapboxgl } from '../../lib/map/mapbox';
 import { featuresQueryKey, fetchFeatures, moveFeature } from '../../lib/mapFeatures/api';
 import { FeatureIconGlyph } from '../mapFeatures/FeatureIconGlyph';
+import { PanelHeader } from '../common/Panel';
 import {
   createLayer,
   deleteLayer,
@@ -53,6 +54,15 @@ import { LayerPropertiesPanel } from './LayerPropertiesPanel';
 interface LayerPanelProps {
   mapId: string;
   map: mapboxgl.Map | null;
+  // Whether the Properties slot is currently collapsed when it's showing
+  // FeaturePropertiesPanel/BulkFeaturePropertiesPanel/PropertiesEmptyState
+  // (i.e. no layer selected here) — lifted to MapEditorPage since those
+  // three are siblings of this component, not children. Used to let this
+  // panel's own list grow past its usual 40vh cap and fill the freed space
+  // when nothing else needs it. When a layer IS selected, this panel
+  // renders its own LayerPropertiesPanel instead, and that panel's local
+  // collapsed state is used in its place — see propertiesAreCollapsed below.
+  externalPropertiesCollapsed: boolean;
 }
 
 // Caps how far selecting a feature zooms in — without this, a lone Point (a
@@ -93,7 +103,7 @@ function FeatureTypeIcon({ featureType }: { featureType: FeatureType }) {
   );
 }
 
-export function LayerPanel({ mapId, map }: LayerPanelProps) {
+export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPanelProps) {
   const queryClient = useQueryClient();
   const queryKey = layersQueryKey(mapId);
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
@@ -113,6 +123,8 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
   const [renameValue, setRenameValue] = useState('');
   const { isScrolling: isLayerListScrolling, onScroll: onLayerListScroll } = useAutoHideScrollbar();
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [layerPropertiesCollapsed, setLayerPropertiesCollapsed] = useState(false);
   const [draggedFeature, setDraggedFeature] = useState<{ featureId: string; layerId: string } | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
 
@@ -381,38 +393,57 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
 
   const selectedIndex = layers?.findIndex((l) => l.id === selectedLayerId) ?? -1;
   const selectedLayer = selectedIndex !== -1 ? layers![selectedIndex] : undefined;
+  // Whichever Properties-slot panel is currently showing — this section's
+  // own LayerPropertiesPanel when a layer's selected, otherwise whatever
+  // MapEditorPage rendered alongside this one.
+  const propertiesAreCollapsed = selectedLayer ? layerPropertiesCollapsed : externalPropertiesCollapsed;
 
   return (
     <>
-      <Box sx={{ borderTop: 1, borderColor: 'rgba(255,255,255,0.08)', maxHeight: '40vh', display: 'flex', flexDirection: 'column' }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ px: 2, pt: 2, pb: 1, flexShrink: 0 }}
-        >
-          <Typography variant="subtitle2">Layers</Typography>
-          <Tooltip title="Add layer">
-            <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
-            <MenuItem onClick={handleBlankLayerClick}>
-              <ListItemIcon>
-                <CreateNewFolderIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Blank layer</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={handleAddDataLayerClick}>
-              <ListItemIcon>
-                <CloudDownloadIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Add data layer…</ListItemText>
-            </MenuItem>
-          </Menu>
-        </Stack>
+      <Box
+        sx={{
+          borderTop: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          // Normally sized to content (capped at 40vh) so Properties gets
+          // whatever's left — only switches to flex-grow, uncapped, when
+          // Properties is collapsed and there's nothing else to give the
+          // freed space to.
+          flex: panelCollapsed ? '0 0 auto' : propertiesAreCollapsed ? 1 : '0 1 auto',
+          maxHeight: panelCollapsed || propertiesAreCollapsed ? 'none' : '40vh',
+        }}
+      >
+        <PanelHeader
+          title="Layers"
+          collapsed={panelCollapsed}
+          onToggleCollapse={() => setPanelCollapsed((c) => !c)}
+          collapseLabel="Layers"
+          actions={
+            <Tooltip title="Add layer">
+              <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          }
+        />
+        <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
+          <MenuItem onClick={handleBlankLayerClick}>
+            <ListItemIcon>
+              <CreateNewFolderIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Blank layer</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleAddDataLayerClick}>
+            <ListItemIcon>
+              <CloudDownloadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Add data layer…</ListItemText>
+          </MenuItem>
+        </Menu>
 
+        {!panelCollapsed && (
         <Box
           onScroll={onLayerListScroll}
           data-scrolling={isLayerListScrolling}
@@ -624,6 +655,7 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
             </List>
           )}
         </Box>
+        )}
       </Box>
 
       {selectedLayer && (
@@ -653,6 +685,8 @@ export function LayerPanel({ mapId, map }: LayerPanelProps) {
             setSelectedLayerId(null);
           }}
           onClose={() => setSelectedLayerId(null)}
+          collapsed={layerPropertiesCollapsed}
+          onToggleCollapse={() => setLayerPropertiesCollapsed((c) => !c)}
         />
       )}
 

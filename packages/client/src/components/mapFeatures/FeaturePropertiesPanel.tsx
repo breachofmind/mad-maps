@@ -55,6 +55,8 @@ interface FeaturePropertiesPanelProps {
   onClose: () => void;
   isEditingVertices: boolean;
   onToggleEditVertices: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 export function FeaturePropertiesPanel({
@@ -63,6 +65,8 @@ export function FeaturePropertiesPanel({
   onClose,
   isEditingVertices,
   onToggleEditVertices,
+  collapsed,
+  onToggleCollapse,
 }: FeaturePropertiesPanelProps) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feature.properties.title);
@@ -144,7 +148,7 @@ export function FeaturePropertiesPanel({
         borderColor: 'rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
-        flex: 1,
+        flex: collapsed ? '0 0 auto' : 1,
         minHeight: 0,
       }}
     >
@@ -153,9 +157,12 @@ export function FeaturePropertiesPanel({
         actions={headerActions}
         onClose={onClose}
         closeLabel="Close feature details"
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+        collapseLabel="properties"
       />
 
-      <PanelBody>
+      {!collapsed && <PanelBody>
         <Stack spacing={2}>
           {coordinates && <PropertyReadOnlyRow label="Coordinates" value={coordinates} />}
 
@@ -270,7 +277,7 @@ export function FeaturePropertiesPanel({
             Delete
           </Button>
         </Stack>
-      </PanelBody>
+      </PanelBody>}
     </Box>
   );
 }

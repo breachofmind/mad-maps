@@ -216,6 +216,13 @@ export function MapEditorPage() {
   // a fresh selection always starts out of edit mode, even if the same
   // feature is reselected later.
   const [isEditingVertices, setIsEditingVertices] = useState(false);
+  // Shared across FeaturePropertiesPanel/BulkFeaturePropertiesPanel/
+  // PropertiesEmptyState — they're mutually exclusive (see the Properties
+  // slot below), so one lifted flag covers whichever is currently mounted.
+  // Also handed to LayerPanel so it can grow its own list into the space
+  // freed up when the Properties slot is collapsed — see
+  // LayerPanel's externalPropertiesCollapsed prop.
+  const [propertiesCollapsed, setPropertiesCollapsed] = useState(false);
   const editingFeatureIdRef = useRef<string | null>(null);
   const lastSelectionIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -312,7 +319,7 @@ export function MapEditorPage() {
           onChange={handleBaseLayerChange}
           onAddCustomStyle={() => setCustomStyleDialogOpen(true)}
         />
-        <LayerPanel mapId={map.id} map={mapInstance} />
+        <LayerPanel mapId={map.id} map={mapInstance} externalPropertiesCollapsed={propertiesCollapsed} />
         {selectedFeatures.length === 1 && singleSelectedFeature && (
           <FeaturePropertiesPanel
             key={singleSelectedFeature.feature.id}
@@ -321,6 +328,8 @@ export function MapEditorPage() {
             onClose={() => setSelection(null)}
             isEditingVertices={isEditingVertices}
             onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
+            collapsed={propertiesCollapsed}
+            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
           />
         )}
         {selectedFeatures.length >= 2 && (
@@ -328,9 +337,16 @@ export function MapEditorPage() {
             key={selectedFeatures.map((f) => f.feature.id).join(',')}
             features={selectedFeatures}
             onClose={() => setSelection(null)}
+            collapsed={propertiesCollapsed}
+            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
           />
         )}
-        {selectedFeatures.length === 0 && !selectedLayerId && <PropertiesEmptyState />}
+        {selectedFeatures.length === 0 && !selectedLayerId && (
+          <PropertiesEmptyState
+            collapsed={propertiesCollapsed}
+            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
+          />
+        )}
       </SideBar>
       <MapMenu
         mapId={map.id}
