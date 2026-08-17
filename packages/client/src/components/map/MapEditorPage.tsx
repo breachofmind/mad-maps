@@ -10,6 +10,7 @@ import { fetchLayers, layersQueryKey } from '../../lib/layers/api';
 import { createFeature, featuresQueryKey, updateFeature } from '../../lib/mapFeatures/api';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { useEditorStore } from '../../lib/state/editorStore';
+import { usePanelStore } from '../../lib/state/panelStore';
 import { LayerPanel } from '../layers/LayerPanel';
 import { DrawControls, DRAW_MODE_TO_EDITOR_MODE } from '../draw/DrawControls';
 import { useMapboxDraw } from '../../lib/draw/useMapboxDraw';
@@ -227,7 +228,8 @@ export function MapEditorPage() {
   // Also handed to LayerPanel so it can grow its own list into the space
   // freed up when the Properties slot is collapsed — see
   // LayerPanel's externalPropertiesCollapsed prop.
-  const [propertiesCollapsed, setPropertiesCollapsed] = useState(false);
+  const propertiesCollapsed = usePanelStore((s) => s.collapsed.properties);
+  const setPanelCollapsed = usePanelStore((s) => s.setCollapsed);
   const editingFeatureIdRef = useRef<string | null>(null);
   const lastSelectionIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -335,7 +337,7 @@ export function MapEditorPage() {
             isEditingVertices={isEditingVertices}
             onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}
             collapsed={propertiesCollapsed}
-            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
+            onToggleCollapse={() => setPanelCollapsed('properties', !propertiesCollapsed)}
           />
         )}
         {selectedFeatures.length >= 2 && (
@@ -344,13 +346,13 @@ export function MapEditorPage() {
             features={selectedFeatures}
             onClose={() => setSelection(null)}
             collapsed={propertiesCollapsed}
-            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
+            onToggleCollapse={() => setPanelCollapsed('properties', !propertiesCollapsed)}
           />
         )}
         {selectedFeatures.length === 0 && !selectedLayerId && (
           <PropertiesEmptyState
             collapsed={propertiesCollapsed}
-            onToggleCollapse={() => setPropertiesCollapsed((c) => !c)}
+            onToggleCollapse={() => setPanelCollapsed('properties', !propertiesCollapsed)}
           />
         )}
       </SideBar>

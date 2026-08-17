@@ -31,6 +31,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useEditorStore } from '../../lib/state/editorStore';
+import { usePanelStore } from '../../lib/state/panelStore';
 import { useAutoHideScrollbar, scrollbarAutoHideSx } from '../../lib/useAutoHideScrollbar';
 import { theme } from '../../lib/theme';
 import { geometryBounds } from '../../lib/map/geometryBounds';
@@ -126,8 +127,9 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
   const [renameValue, setRenameValue] = useState('');
   const { isScrolling: isLayerListScrolling, onScroll: onLayerListScroll } = useAutoHideScrollbar();
   const [collapsedLayerIds, setCollapsedLayerIds] = useState<Set<string>>(new Set());
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
-  const [layerPropertiesCollapsed, setLayerPropertiesCollapsed] = useState(false);
+  const panelCollapsed = usePanelStore((s) => s.collapsed.layers);
+  const layerPropertiesCollapsed = usePanelStore((s) => s.collapsed.layerProperties);
+  const setPanelCollapsedState = usePanelStore((s) => s.setCollapsed);
   const [draggedFeature, setDraggedFeature] = useState<{ featureId: string; layerId: string } | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
 
@@ -421,7 +423,7 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
         <PanelHeader
           title="Layers"
           collapsed={panelCollapsed}
-          onToggleCollapse={() => setPanelCollapsed((c) => !c)}
+          onToggleCollapse={() => setPanelCollapsedState('layers', !panelCollapsed)}
           collapseLabel="Layers"
           actions={
             <Tooltip title="Add layer">
@@ -689,7 +691,7 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
           }}
           onClose={() => setSelectedLayerId(null)}
           collapsed={layerPropertiesCollapsed}
-          onToggleCollapse={() => setLayerPropertiesCollapsed((c) => !c)}
+          onToggleCollapse={() => setPanelCollapsedState('layerProperties', !layerPropertiesCollapsed)}
         />
       )}
 

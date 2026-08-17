@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
@@ -12,6 +11,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { MAP_STYLE_OPTIONS } from '../../lib/map/mapStyles';
 import { fetchMapStyles, mapStylesQueryKey } from '../../lib/mapStyles/api';
 import { PanelHeader } from '../common/Panel';
+import { usePanelStore } from '../../lib/state/panelStore';
 
 interface BaseLayerPanelProps {
   activeStyleUrl: string;
@@ -24,7 +24,8 @@ interface BaseLayerPanelProps {
 // so the dropdown can list both the built-in presets and the user's saved
 // custom styles (managed on the separate /map-styles page) in one list.
 export function BaseLayerPanel({ activeStyleUrl, onChange, onManageStyles }: BaseLayerPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = usePanelStore((s) => s.collapsed.baseLayer);
+  const setCollapsed = usePanelStore((s) => s.setCollapsed);
   const { data: customStyles } = useQuery({ queryKey: mapStylesQueryKey(), queryFn: fetchMapStyles });
 
   const presetOption = MAP_STYLE_OPTIONS.find((option) => option.styleUrl === activeStyleUrl);
@@ -42,7 +43,7 @@ export function BaseLayerPanel({ activeStyleUrl, onChange, onManageStyles }: Bas
       <PanelHeader
         title="Base Layer"
         collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((c) => !c)}
+        onToggleCollapse={() => setCollapsed('baseLayer', !collapsed)}
         collapseLabel="Base Layer"
         actions={
           <Tooltip title="Manage map styles">
