@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
-import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -49,6 +49,13 @@ interface SearchBoxProps {
 export function SearchBox({ map, activeLayer }: SearchBoxProps) {
   const activeLayerId = activeLayer?.id ?? null;
   const canAddFeatures = activeLayer?.sourceType === 'local';
+  // Shared by both "add to map" affordances (the row below the search box
+  // and the map popup) so their tooltip/disabled state stays in sync.
+  const addDisabledReason = !activeLayerId
+    ? 'Select a layer first'
+    : !canAddFeatures
+      ? 'Select one of your own layers first'
+      : null;
   const queryClient = useQueryClient();
   const setSelection = useEditorStore((s) => s.setSelection);
   const [inputValue, setInputValue] = useState('');
@@ -97,7 +104,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
     const sanitizedDescription = DOMPurify.sanitize(buildDescriptionHtml(place), SANITIZE_CONFIG);
 
     root.render(
-      <Stack spacing={0.5} sx={{ maxWidth: 240 }}>
+      <Stack spacing={1} sx={{ maxWidth: 240 }}>
         <Typography variant="subtitle2">{place.name}</Typography>
         {sanitizedDescription && (
           <Box
@@ -105,6 +112,22 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
             dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
           />
         )}
+        <Tooltip title={addDisabledReason ?? 'Add to map'}>
+          <span>
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<AddIcon fontSize="small" />}
+              disabled={Boolean(addDisabledReason) || addPinMutation.isPending}
+              onClick={() => addPinMutation.mutate(place)}
+              sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+            >
+              Add to map
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>,
     );
 
@@ -127,7 +150,7 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
       marker.remove();
       root.unmount();
     };
-  }, [map, selectedPlace]);
+  }, [map, selectedPlace, addDisabledReason, addPinMutation.isPending, addPinMutation.mutate]);
 
   function handleInputChange(_e: unknown, value: string, reason: string) {
     setInputValue(value);
@@ -187,32 +210,24 @@ export function SearchBox({ map, activeLayer }: SearchBoxProps) {
         )}
       />
       {selectedPlace && (
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} spacing={1}>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
-            {selectedPlace.formattedAddress}
-          </Typography>
-          <Tooltip
-            title={
-              !activeLayerId
-                ? 'Select a layer first'
-                : !canAddFeatures
-                  ? 'Select one of your own layers first'
-                  : 'Add pin at this location'
-            }
-          >
-            <span>
-              <IconButton
-                size="small"
-                color="primary"
-                disabled={!activeLayerId || !canAddFeatures || addPinMutation.isPending}
-                onClick={() => addPinMutation.mutate(selectedPlace)}
-                aria-label="Add pin at this location"
-              >
-                <AddIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Stack>
+        <Tooltip title={addDisabledReason ?? 'Add pin at this location'}>
+          <span>
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<AddIcon fontSize="small" />}
+              disabled={Boolean(addDisabledReason) || addPinMutation.isPending}
+              onClick={() => addPinMutation.mutate(selectedPlace)}
+              sx={{ mt: 1, textTransform: 'none', justifyContent: 'flex-start' }}
+            >
+              <Typography component="span" variant="caption" noWrap sx={{ minWidth: 0 }}>
+                {selectedPlace.formattedAddress}
+              </Typography>
+            </Button>
+          </span>
+        </Tooltip>
       )}
     </Box>
   );
