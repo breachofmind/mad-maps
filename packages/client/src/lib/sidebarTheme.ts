@@ -8,7 +8,9 @@ export const sidebarTheme = createTheme({
   palette: {
     mode: 'dark',
     background: { paper: '#1a1c1b', default: 'transparent' },
-    primary: { main: '#1976d2' },
+    // No primary override — MUI's dark-mode default (#90caf9) reads far
+    // better against this dark paper than the light-mode blue (#1976d2)
+    // would, which is what an explicit override here used to pin in place.
   },
   components: {
     // MUI's default outline has no transition, so the hover border (be it
