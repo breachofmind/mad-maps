@@ -1,0 +1,1 @@
+ALTER TABLE "map_styles" ALTER COLUMN "style_url" SET DATA TYPE jsonb USING to_jsonb("style_url");

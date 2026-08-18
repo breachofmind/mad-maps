@@ -1,17 +1,17 @@
 import { and, eq } from 'drizzle-orm';
-import type { MapStyleDTO } from '@mad-maps/shared';
+import type { BaseStyle, MapStyleDTO } from '@mad-maps/shared';
 import { db } from '../db/client';
 import { mapStyles, type MapStyle } from '../db/schema';
 
 export interface CreateMapStyleInput {
   ownerId: string;
   name: string;
-  styleUrl: string;
+  styleUrl: BaseStyle;
 }
 
 export interface UpdateMapStyleInput {
   name?: string;
-  styleUrl?: string;
+  styleUrl?: BaseStyle;
 }
 
 export async function listMapStylesForOwner(ownerId: string) {

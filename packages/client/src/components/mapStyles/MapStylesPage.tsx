@@ -13,6 +13,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -20,6 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import type { BaseStyle, MapStyleDTO } from '@mad-maps/shared';
 import { MAP_STYLE_OPTIONS } from '../../lib/map/mapStyles';
 import { normalizeMapboxStyleUrl } from '../../lib/map/mapboxStyleUrl';
+import { buildRasterTileStyle } from '../../lib/map/rasterTileStyle';
 import { staticPreviewUrl } from '../../lib/mapStyles/staticPreview';
 import {
   createMapStyle,
@@ -66,16 +69,31 @@ function StyleCard({
   );
 }
 
+type AddStyleMode = 'mapbox' | 'raster';
+
 function AddStyleDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<AddStyleMode>('mapbox');
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [tileUrl, setTileUrl] = useState('');
+  const [attribution, setAttribution] = useState('');
+  const [maxZoomInput, setMaxZoomInput] = useState('');
 
-  const normalized = normalizeMapboxStyleUrl(url);
-  const showUrlError = url.trim().length > 0 && !normalized;
+  const normalizedMapboxUrl = normalizeMapboxStyleUrl(url);
+  const parsedMaxZoom = maxZoomInput.trim() === '' ? undefined : Number(maxZoomInput);
+  const maxZoomInvalid =
+    maxZoomInput.trim() !== '' &&
+    (!Number.isInteger(parsedMaxZoom) || parsedMaxZoom! < 0 || parsedMaxZoom! > 24);
+  const rasterStyle = maxZoomInvalid ? null : buildRasterTileStyle(tileUrl, attribution, parsedMaxZoom);
+  const resolvedStyle: BaseStyle | null = mode === 'mapbox' ? normalizedMapboxUrl : rasterStyle;
+
+  const showUrlError = mode === 'mapbox' && url.trim().length > 0 && !normalizedMapboxUrl;
+  const showTileUrlError =
+    mode === 'raster' && tileUrl.trim().length > 0 && !buildRasterTileStyle(tileUrl, attribution);
 
   const createMutation = useMutation({
-    mutationFn: () => createMapStyle({ name: name.trim(), styleUrl: normalized! }),
+    mutationFn: () => createMapStyle({ name: name.trim(), styleUrl: resolvedStyle! }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mapStylesQueryKey() });
       handleClose();
@@ -84,8 +102,12 @@ function AddStyleDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
   function handleClose() {
     createMutation.reset();
+    setMode('mapbox');
     setName('');
     setUrl('');
+    setTileUrl('');
+    setAttribution('');
+    setMaxZoomInput('');
     onClose();
   }
 
@@ -101,16 +123,64 @@ function AddStyleDialog({ open, onClose }: { open: boolean; onClose: () => void 
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <TextField
+        <ToggleButtonGroup
+          exclusive
           fullWidth
-          margin="dense"
-          label="Style URL"
-          placeholder="mapbox://styles/{username}/{style_id}"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          error={showUrlError}
-          helperText={showUrlError ? 'Must be a mapbox://styles/{username}/{style_id} URL' : ' '}
-        />
+          size="small"
+          value={mode}
+          onChange={(_, next: AddStyleMode | null) => next && setMode(next)}
+          sx={{ mt: 1, mb: 0.5 }}
+        >
+          <ToggleButton value="mapbox">Mapbox Style</ToggleButton>
+          <ToggleButton value="raster">Raster Tiles</ToggleButton>
+        </ToggleButtonGroup>
+        {mode === 'mapbox' ? (
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Style URL"
+            placeholder="mapbox://styles/{username}/{style_id}"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            error={showUrlError}
+            helperText={showUrlError ? 'Must be a mapbox://styles/{username}/{style_id} URL' : ' '}
+          />
+        ) : (
+          <>
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Tile URL"
+              placeholder="https://example.com/tiles/{z}/{y}/{x}"
+              value={tileUrl}
+              onChange={(e) => setTileUrl(e.target.value)}
+              error={showTileUrlError}
+              helperText={showTileUrlError ? 'Must be a URL containing {z}, {x}, and {y}' : ' '}
+            />
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Attribution (optional)"
+              value={attribution}
+              onChange={(e) => setAttribution(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              margin="dense"
+              type="number"
+              label="Max Zoom (optional)"
+              placeholder="16"
+              value={maxZoomInput}
+              onChange={(e) => setMaxZoomInput(e.target.value)}
+              error={maxZoomInvalid}
+              helperText={
+                maxZoomInvalid
+                  ? 'Must be a whole number from 0 to 24'
+                  : 'Highest zoom this tile service actually has coverage at — leave blank if unsure. Cached tile services often have inconsistent coverage past a certain zoom, causing 404s; setting this stretches the last available tile instead of requesting missing ones.'
+              }
+            />
+          </>
+        )}
         {createMutation.isError && (
           <Alert severity="error" sx={{ mt: 1 }}>
             Failed to save the style. Please try again.
@@ -121,7 +191,7 @@ function AddStyleDialog({ open, onClose }: { open: boolean; onClose: () => void 
         <Button onClick={handleClose}>Cancel</Button>
         <Button
           variant="contained"
-          disabled={!name.trim() || !normalized || createMutation.isPending}
+          disabled={!name.trim() || !resolvedStyle || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
           Add

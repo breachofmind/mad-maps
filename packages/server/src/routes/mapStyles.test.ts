@@ -60,6 +60,22 @@ describe('GET/POST/PATCH/DELETE /api/map-styles', () => {
     await agent.post('/api/map-styles').send({ name: '', styleUrl: 'not-a-style-url' }).expect(400);
   });
 
+  it('accepts an inline raster tile style object as styleUrl', async () => {
+    const inlineStyle = {
+      version: 8,
+      sources: { raster: { type: 'raster', tiles: ['https://example.com/{z}/{y}/{x}'], tileSize: 256 } },
+      layers: [{ id: 'raster', type: 'raster', source: 'raster' }],
+    };
+
+    const createRes = await agent
+      .post('/api/map-styles')
+      .send({ name: 'Raster Style', styleUrl: inlineStyle })
+      .expect(201);
+    expect(createRes.body.styleUrl).toEqual(inlineStyle);
+
+    await agent.delete(`/api/map-styles/${createRes.body.id}`).expect(204);
+  });
+
   it('returns 404 for a style belonging to another owner', async () => {
     const [otherUser] = await db
       .insert(users)

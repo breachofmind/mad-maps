@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
+import { baseStyleSchema } from '../lib/baseStyleSchema';
 import {
   createMapStyle,
   deleteMapStyleForOwner,
@@ -14,18 +15,14 @@ export const mapStylesRouter = Router();
 
 mapStylesRouter.use(requireAuth);
 
-const styleUrlSchema = z
-  .string()
-  .regex(/^mapbox:\/\/styles\/[^/]+\/[^/]+$/, 'Must be a mapbox://styles/{username}/{style_id} URL');
-
 const createMapStyleSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  styleUrl: styleUrlSchema,
+  styleUrl: baseStyleSchema,
 });
 
 const updateMapStyleSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  styleUrl: styleUrlSchema.optional(),
+  styleUrl: baseStyleSchema.optional(),
 });
 
 function currentUser(req: import('express').Request): User {

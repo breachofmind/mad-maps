@@ -40,7 +40,7 @@ export interface MapStyleDTO {
   id: string;
   ownerId: string;
   name: string;
-  styleUrl: string;
+  styleUrl: BaseStyle;
   createdAt: string;
   updatedAt: string;
 }

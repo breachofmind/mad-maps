@@ -1,14 +1,14 @@
-import type { MapStyleDTO } from '@mad-maps/shared';
+import type { BaseStyle, MapStyleDTO } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface CreateMapStyleInput {
   name: string;
-  styleUrl: string;
+  styleUrl: BaseStyle;
 }
 
 export interface UpdateMapStyleInput {
   name?: string;
-  styleUrl?: string;
+  styleUrl?: BaseStyle;
 }
 
 export function mapStylesQueryKey() {

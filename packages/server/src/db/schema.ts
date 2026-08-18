@@ -57,7 +57,9 @@ export const mapStyles = pgTable('map_styles', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  styleUrl: text('style_url').notNull(),
+  // See maps.baseStyle above — a mapbox://styles/... URL or an inline
+  // Mapbox style spec object.
+  styleUrl: jsonb('style_url').$type<BaseStyle>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
