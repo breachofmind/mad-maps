@@ -10,8 +10,20 @@ module.exports = {
     '^(.*)\\.svg\\?raw$': '$1.svg',
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.jest.json' }],
+    // isolatedModules skips full program-wide type-checking during
+    // transform (ts-jest falls back to per-file transpileModule) — types
+    // are already verified separately by `npm run typecheck`, so paying
+    // for a full TS program in every parallel worker here just adds CPU/
+    // memory contention, which is what was making real-timer/userEvent-
+    // heavy tests (AddExternalLayerDialog, IconPicker) intermittently blow
+    // through Jest's default per-test timeout under load.
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.jest.json', isolatedModules: true }],
     '\\.svg$': '<rootDir>/jest/rawSvgTransform.cjs',
   },
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
+  // Default 5000ms is tight for jsdom + MUI + real userEvent interactions
+  // (clicks/typing/act() flushes), especially under parallel-worker CPU
+  // contention — give these headroom rather than relying on every worker
+  // getting a quiet machine.
+  testTimeout: 15000,
 };
