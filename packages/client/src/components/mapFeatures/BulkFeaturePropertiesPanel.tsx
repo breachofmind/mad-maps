@@ -12,7 +12,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import type { LineStyle } from '@mad-maps/shared';
 import { deleteFeaturesBatch, featuresQueryKey, updateFeaturesBatch } from '../../lib/mapFeatures/api';
 import { IconPicker } from './IconPicker';
-import { MeasurementStat, UnitSelect, ColorSwatchRow } from './featurePropertiesShared';
+import { MeasurementStat, UnitSelect } from './featurePropertiesShared';
+import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { PanelHeader, PanelBody } from '../common/Panel';
 import {
   AREA_UNIT_OPTIONS,
@@ -141,22 +142,22 @@ export function BulkFeaturePropertiesPanel({
             </Box>
           )}
 
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Icon
-            </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
             <IconPicker
+              iconOnly
               value={features[0].feature.properties.icon}
+              color={features[0].feature.properties.color}
               onChange={(icon) => updateMutation.mutate({ icon })}
             />
-          </Box>
-
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              Color
-            </Typography>
-            <ColorSwatchRow value={null} onSelect={(color) => updateMutation.mutate({ color })} />
-          </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <ColorSwatchInput
+                variant="chip"
+                value={features[0].feature.properties.color}
+                onChange={(color) => updateMutation.mutate({ color })}
+                ariaLabel={`Change color for ${features.length} features`}
+              />
+            </Box>
+          </Stack>
 
           {showFontSize && (
             <Box>
