@@ -23,6 +23,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import PublicIcon from '@mui/icons-material/Public';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
@@ -169,6 +170,10 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
       else next.add(layerId);
       return next;
     });
+  }
+
+  function collapseAllLayers() {
+    setCollapsedLayerIds(new Set(collapsibleLayerIds));
   }
 
   // Passing the live row element to setDragImage isn't enough — browsers
@@ -426,6 +431,18 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
     return counts;
   }, [selectedLayer, selectedIndex, featureQueries, externalDataQueries]);
 
+  // Layers whose row has its own expand/collapse toggle (local, with at
+  // least one feature — see the per-row IconButton below) — what "Collapse
+  // all layers" collapses, and what gates that button being enabled at all.
+  const collapsibleLayerIds = useMemo(
+    () =>
+      (layers ?? [])
+        .map((layer, index) => ({ layer, hasFeatures: (featureQueries[index]?.data ?? []).length > 0 }))
+        .filter(({ layer, hasFeatures }) => layer.sourceType === 'local' && hasFeatures)
+        .map(({ layer }) => layer.id),
+    [layers, featureQueries],
+  );
+
   return (
     <>
       <Box
@@ -449,11 +466,25 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
           onToggleCollapse={() => setPanelCollapsedState('layers', !panelCollapsed)}
           collapseLabel="Layers"
           actions={
-            <Tooltip title="Add layer">
-              <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
-                <AddIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="Collapse all layers">
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={collapseAllLayers}
+                    disabled={collapsibleLayerIds.length === 0}
+                    aria-label="Collapse all layers"
+                  >
+                    <UnfoldLessIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Add layer">
+                <IconButton size="small" onClick={(e) => setAddMenuAnchorEl(e.currentTarget)} aria-label="Add layer">
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
           }
         />
         <Menu anchorEl={addMenuAnchorEl} open={Boolean(addMenuAnchorEl)} onClose={() => setAddMenuAnchorEl(null)}>
