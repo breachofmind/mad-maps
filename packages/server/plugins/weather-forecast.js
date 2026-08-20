@@ -44,8 +44,14 @@ module.exports = {
           text: `${title} on "${layer.name}" (map: ${map.title}) — local time is ${forecast.localTime} (${forecast.timezone}).`,
         },
         {
-          type: 'keyValue',
-          items: forecast.days.map((d) => ({ label: d.label, value: `${d.high}°/${d.low}°F — ${d.condition}` })),
+          type: 'table',
+          headers: ['Day', 'High', 'Low', 'Condition'],
+          rows: forecast.days.map((d) => [
+            { type: 'text', text: d.label },
+            { type: 'text', text: `${d.high}°F` },
+            { type: 'text', text: `${d.low}°F` },
+            { type: 'image', url: d.iconUrl, alt: d.condition },
+          ]),
         },
         { type: 'link', text: 'Forecast data from Open-Meteo', href: 'https://open-meteo.com' },
       ],

@@ -38,12 +38,30 @@ const linkBlockSchema = z.object({
   href: httpUrlSchema,
 });
 
+// A table cell is either plain text or a small image (e.g. a weather-icon
+// column) — discriminated the same way top-level blocks are.
+const tableTextCellSchema = z.object({ type: z.literal('text'), text: z.string().max(200) });
+const tableImageCellSchema = z.object({ type: z.literal('image'), url: httpUrlSchema, alt: z.string().max(200).optional() });
+const tableCellSchema = z.discriminatedUnion('type', [tableTextCellSchema, tableImageCellSchema]);
+
+export type PluginTableCell = z.infer<typeof tableCellSchema>;
+
+const tableBlockSchema = z.object({
+  type: z.literal('table'),
+  headers: z.array(z.string().max(200)).max(10),
+  // Rows aren't required to match headers.length — the renderer just lays
+  // out whatever cells each row actually has, so a mismatched row degrades
+  // to a ragged table rather than a rejected response.
+  rows: z.array(z.array(tableCellSchema).max(10)).max(50),
+});
+
 export const pluginPanelBlockSchema = z.discriminatedUnion('type', [
   headingBlockSchema,
   textBlockSchema,
   keyValueBlockSchema,
   imageBlockSchema,
   linkBlockSchema,
+  tableBlockSchema,
 ]);
 
 export type PluginPanelBlock = z.infer<typeof pluginPanelBlockSchema>;

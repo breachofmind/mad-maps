@@ -4,40 +4,56 @@
 // Its forecast endpoint also resolves the location's IANA timezone
 // (timezone=auto), which is all "local time" needs — no separate
 // geocoding/timezone lookup required.
+//
+// Condition icons come from meteocons (https://meteocons.com), served from
+// its npm package via jsdelivr's CDN. Pinned to the exact published version
+// (rather than @latest) so this plugin doesn't silently break if a future
+// meteocons release renames/removes an icon — bump METEOCONS_VERSION
+// deliberately if you want to pick up newer icons.
+const METEOCONS_VERSION = '0.1.0';
+const METEOCONS_BASE_URL = `https://cdn.jsdelivr.net/npm/@meteocons/svg-static@${METEOCONS_VERSION}/fill`;
 
-const WEATHER_CODE_LABELS = {
-  0: 'Clear sky',
-  1: 'Mostly clear',
-  2: 'Partly cloudy',
-  3: 'Overcast',
-  45: 'Fog',
-  48: 'Depositing rime fog',
-  51: 'Light drizzle',
-  53: 'Drizzle',
-  55: 'Dense drizzle',
-  56: 'Light freezing drizzle',
-  57: 'Freezing drizzle',
-  61: 'Light rain',
-  63: 'Rain',
-  65: 'Heavy rain',
-  66: 'Light freezing rain',
-  67: 'Freezing rain',
-  71: 'Light snow',
-  73: 'Snow',
-  75: 'Heavy snow',
-  77: 'Snow grains',
-  80: 'Light rain showers',
-  81: 'Rain showers',
-  82: 'Violent rain showers',
-  85: 'Light snow showers',
-  86: 'Snow showers',
-  95: 'Thunderstorm',
-  96: 'Thunderstorm with light hail',
-  99: 'Thunderstorm with heavy hail',
+function meteoconUrl(icon) {
+  return `${METEOCONS_BASE_URL}/${icon}.svg`;
+}
+
+// WMO weather codes (what Open-Meteo's `weathercode` field returns) mapped
+// to a human label and a meteocons icon slug. Daily aggregates aren't tied
+// to a specific time of day, so "day" icon variants are used throughout
+// rather than picking day/night per-icon.
+const WEATHER_CODES = {
+  0: { label: 'Clear sky', icon: 'clear-day' },
+  1: { label: 'Mostly clear', icon: 'mostly-clear-day' },
+  2: { label: 'Partly cloudy', icon: 'partly-cloudy-day' },
+  3: { label: 'Overcast', icon: 'overcast' },
+  45: { label: 'Fog', icon: 'fog' },
+  48: { label: 'Depositing rime fog', icon: 'fog' },
+  51: { label: 'Light drizzle', icon: 'drizzle' },
+  53: { label: 'Drizzle', icon: 'drizzle' },
+  55: { label: 'Dense drizzle', icon: 'extreme-drizzle' },
+  56: { label: 'Light freezing drizzle', icon: 'sleet' },
+  57: { label: 'Freezing drizzle', icon: 'sleet' },
+  61: { label: 'Light rain', icon: 'rain' },
+  63: { label: 'Rain', icon: 'rain' },
+  65: { label: 'Heavy rain', icon: 'extreme-rain' },
+  66: { label: 'Light freezing rain', icon: 'sleet' },
+  67: { label: 'Freezing rain', icon: 'sleet' },
+  71: { label: 'Light snow', icon: 'snow' },
+  73: { label: 'Snow', icon: 'snow' },
+  75: { label: 'Heavy snow', icon: 'extreme-snow' },
+  77: { label: 'Snow grains', icon: 'snow' },
+  80: { label: 'Light rain showers', icon: 'rain' },
+  81: { label: 'Rain showers', icon: 'rain' },
+  82: { label: 'Violent rain showers', icon: 'extreme-rain' },
+  85: { label: 'Light snow showers', icon: 'snow' },
+  86: { label: 'Snow showers', icon: 'snow' },
+  95: { label: 'Thunderstorm', icon: 'thunderstorms' },
+  96: { label: 'Thunderstorm with light hail', icon: 'thunderstorms-hail' },
+  99: { label: 'Thunderstorm with heavy hail', icon: 'extreme-thunderstorms-hail' },
 };
 
-function weatherLabel(code) {
-  return WEATHER_CODE_LABELS[code] || `Unclear (code ${code})`;
+function weatherInfo(code) {
+  return WEATHER_CODES[code] || { label: `Unclear (code ${code})`, icon: 'not-available' };
 }
 
 // daily.time entries are calendar dates already aggregated in the target
@@ -73,14 +89,18 @@ async function getFiveDayForecastAndLocalTime(lat, lng) {
     hour12: true,
   });
 
-  const days = json.daily.time.map((dateStr, i) => ({
-    label: weekdayLabel(dateStr),
-    high: Math.round(json.daily.temperature_2m_max[i]),
-    low: Math.round(json.daily.temperature_2m_min[i]),
-    condition: weatherLabel(json.daily.weathercode[i]),
-  }));
+  const days = json.daily.time.map((dateStr, i) => {
+    const info = weatherInfo(json.daily.weathercode[i]);
+    return {
+      label: weekdayLabel(dateStr),
+      high: Math.round(json.daily.temperature_2m_max[i]),
+      low: Math.round(json.daily.temperature_2m_min[i]),
+      condition: info.label,
+      iconUrl: meteoconUrl(info.icon),
+    };
+  });
 
   return { timezone, localTime, days };
 }
 
-module.exports = { getFiveDayForecastAndLocalTime };
+module.exports = { getFiveDayForecastAndLocalTime, meteoconUrl };

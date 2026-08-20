@@ -43,4 +43,44 @@ describe('PluginBlockRenderer', () => {
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
+
+  it('renders a table block with headers, text cells, and an image cell', () => {
+    renderBlock({
+      type: 'table',
+      headers: ['Day', 'High', 'Low', 'Condition'],
+      rows: [
+        [
+          { type: 'text', text: 'Thu' },
+          { type: 'text', text: '74°F' },
+          { type: 'text', text: '61°F' },
+          { type: 'image', url: 'https://example.com/icons/rain.svg', alt: 'Rain' },
+        ],
+      ],
+    });
+
+    expect(screen.getByRole('columnheader', { name: 'Day' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Condition' })).toBeInTheDocument();
+    expect(screen.getByText('Thu')).toBeInTheDocument();
+    expect(screen.getByText('74°F')).toBeInTheDocument();
+    expect(screen.getByText('61°F')).toBeInTheDocument();
+    expect(screen.getByAltText('Rain')).toHaveAttribute('src', 'https://example.com/icons/rain.svg');
+  });
+
+  it('renders a table block with no headers', () => {
+    renderBlock({ type: 'table', headers: [], rows: [[{ type: 'text', text: 'lone cell' }]] });
+
+    expect(screen.queryByRole('columnheader')).not.toBeInTheDocument();
+    expect(screen.getByText('lone cell')).toBeInTheDocument();
+  });
+
+  it('renders a table with rows shorter than the header count without throwing', () => {
+    renderBlock({
+      type: 'table',
+      headers: ['A', 'B', 'C'],
+      rows: [[{ type: 'text', text: 'only-one' }]],
+    });
+
+    expect(screen.getByText('only-one')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(2); // header row + one body row
+  });
 });

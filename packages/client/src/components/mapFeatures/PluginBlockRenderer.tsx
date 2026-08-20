@@ -2,7 +2,19 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
-import type { PluginPanelBlock } from '@mad-maps/shared';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import type { PluginPanelBlock, PluginTableCell } from '@mad-maps/shared';
+
+function PluginTableCellContent({ cell }: { cell: PluginTableCell }) {
+  if (cell.type === 'image') {
+    return <Box component="img" src={cell.url} alt={cell.alt ?? ''} sx={{ width: 20, height: 20, display: 'block' }} />;
+  }
+  return <>{cell.text}</>;
+}
 
 interface PluginBlockRendererProps {
   block: PluginPanelBlock;
@@ -55,6 +67,44 @@ export function PluginBlockRenderer({ block }: PluginBlockRendererProps) {
         <Link href={block.href} target="_blank" rel="noopener noreferrer" variant="body2">
           {block.text}
         </Link>
+      );
+    case 'table':
+      // Rows aren't required to have the same cell count as headers (see
+      // the schema) — using a real <table> means each row lays out its own
+      // cells independently, so a short row just degrades to blank trailing
+      // cells rather than misaligning every other row's columns.
+      return (
+        <Box sx={{ overflowX: 'auto' }}>
+          <Table
+            size="small"
+            sx={{
+              '& .MuiTableCell-root': { borderBottom: 'none', px: 1, py: 0.5, fontSize: '0.8125rem' },
+            }}
+          >
+            {block.headers.length > 0 && (
+              <TableHead>
+                <TableRow sx={{ '& .MuiTableCell-root': { borderBottom: '1px solid', borderColor: 'divider' } }}>
+                  {block.headers.map((header, index) => (
+                    <TableCell key={index} sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {header}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+            )}
+            <TableBody>
+              {block.rows.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <TableCell key={cellIndex}>
+                      <PluginTableCellContent cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
       );
   }
 }

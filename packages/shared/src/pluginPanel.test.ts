@@ -49,6 +49,68 @@ describe('pluginPanelResponseSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts a table block with text and image cells', () => {
+    const result = pluginPanelResponseSchema.safeParse({
+      blocks: [
+        {
+          type: 'table',
+          headers: ['Day', 'High', 'Low', 'Condition'],
+          rows: [
+            [
+              { type: 'text', text: 'Thu' },
+              { type: 'text', text: '74°F' },
+              { type: 'text', text: '61°F' },
+              { type: 'image', url: 'https://example.com/icons/rain.png', alt: 'Rain' },
+            ],
+          ],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a table block whose rows have a different cell count than headers', () => {
+    const result = pluginPanelResponseSchema.safeParse({
+      blocks: [
+        {
+          type: 'table',
+          headers: ['A', 'B'],
+          rows: [[{ type: 'text', text: 'only one cell' }]],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a table image cell with a javascript: URL', () => {
+    const result = pluginPanelResponseSchema.safeParse({
+      blocks: [
+        {
+          type: 'table',
+          headers: ['Icon'],
+          rows: [[{ type: 'image', url: 'javascript:alert(1)' }]],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a table with more than 10 columns in a row', () => {
+    const tooManyCells = Array.from({ length: 11 }, (_, i) => ({ type: 'text' as const, text: `c${i}` }));
+    const result = pluginPanelResponseSchema.safeParse({
+      blocks: [{ type: 'table', headers: [], rows: [tooManyCells] }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a table with more than 50 rows', () => {
+    const tooManyRows = Array.from({ length: 51 }, () => [{ type: 'text' as const, text: 'x' }]);
+    const result = pluginPanelResponseSchema.safeParse({
+      blocks: [{ type: 'table', headers: ['A'], rows: tooManyRows }],
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('pluginMetadataSchema', () => {
