@@ -23,11 +23,6 @@ module.exports = {
   name: 'Weather Forecast',
   description: "Shows a real 5-day forecast and local time for the pin's location, via Open-Meteo (no API key required).",
   handler: async ({ feature, layer, map }) => {
-    // Rename a pin's title to "broken" to see the client's error state.
-    if (feature.properties.title?.toLowerCase() === 'broken') {
-      throw new Error('simulated handler failure');
-    }
-
     if (feature.geometry.type !== 'Point') {
       return { blocks: [{ type: 'text', text: 'Weather Forecast only supports point pins.' }] };
     }
@@ -38,11 +33,8 @@ module.exports = {
 
     return {
       blocks: [
-        { type: 'heading', text: '5-Day Forecast' },
-        {
-          type: 'text',
-          text: `${title} on "${layer.name}" (map: ${map.title}) — local time is ${forecast.localTime} (${forecast.timezone}).`,
-        },
+        { type: 'heading', text: forecast.localTime },
+        { type: 'text', text: forecast.timezone },
         {
           type: 'table',
           headers: ['Day', 'High', 'Low', 'Condition'],
