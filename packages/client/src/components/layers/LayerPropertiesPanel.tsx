@@ -20,6 +20,7 @@ import { ColorSwatchInput } from '../common/ColorSwatchInput';
 import { PanelHeader, PanelBody } from '../common/Panel';
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RemoteLayerStyleControls } from './RemoteLayerStyleControls';
+import { PluginSourcePicker } from './PluginSourcePicker';
 import { FEATURE_TYPE_ICONS, FEATURE_TYPE_LABELS } from '../../lib/mapFeatures/featureTypeMeta';
 
 interface LayerPropertiesPanelProps {
@@ -41,6 +42,7 @@ interface LayerPropertiesPanelProps {
   onOpacityChange: (opacity: number) => void;
   onStyleConfigChange: (styleConfig: LayerStyleConfig) => void;
   onPluginEndpointUrlChange: (pluginEndpointUrl: string | null) => void;
+  onPluginIdChange: (pluginId: string | null) => void;
   onRefresh: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -66,6 +68,7 @@ export function LayerPropertiesPanel({
   onOpacityChange,
   onStyleConfigChange,
   onPluginEndpointUrlChange,
+  onPluginIdChange,
   onRefresh,
   onDelete,
   onClose,
@@ -76,7 +79,6 @@ export function LayerPropertiesPanel({
   const isRaster = layer.sourceType === 'raster-url';
   const [name, setName] = useState(layer.name);
   const [opacity, setOpacity] = useState(layer.opacity);
-  const [pluginEndpointUrl, setPluginEndpointUrl] = useState(layer.pluginEndpointUrl ?? '');
 
   const persistName = useDebouncedCallback((value: string) => {
     onNameChange(value);
@@ -85,25 +87,6 @@ export function LayerPropertiesPanel({
   function handleNameChange(value: string) {
     setName(value);
     persistName(value);
-  }
-
-  const persistPluginEndpointUrl = useDebouncedCallback((value: string) => {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      onPluginEndpointUrlChange(null);
-      return;
-    }
-    try {
-      new URL(trimmed);
-    } catch {
-      return; // incomplete/invalid while typing — wait for a valid URL or a clear
-    }
-    onPluginEndpointUrlChange(trimmed);
-  }, 500);
-
-  function handlePluginEndpointUrlChange(value: string) {
-    setPluginEndpointUrl(value);
-    persistPluginEndpointUrl(value);
   }
 
   return (
@@ -242,21 +225,11 @@ export function LayerPropertiesPanel({
           )}
 
           {!isRemote && (
-            <Box>
-              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                Plugin endpoint URL
-              </Typography>
-              <TextField
-                size="small"
-                fullWidth
-                type="url"
-                placeholder="https://example.com/plugin"
-                value={pluginEndpointUrl}
-                onChange={(e) => handlePluginEndpointUrlChange(e.target.value)}
-                helperText="Selecting a pin in this layer will POST its details here and show what comes back."
-                sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#1a1c1b' } }}
-              />
-            </Box>
+            <PluginSourcePicker
+              layer={layer}
+              onPluginIdChange={onPluginIdChange}
+              onPluginEndpointUrlChange={onPluginEndpointUrlChange}
+            />
           )}
 
           <Divider />

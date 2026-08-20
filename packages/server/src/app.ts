@@ -18,10 +18,14 @@ import { searchRouter } from './routes/search';
 import { mapExportRouter } from './routes/export';
 import { mapImportRouter, newMapImportRouter } from './routes/import';
 import { pmtilesRouter } from './routes/pmtiles';
+import { pluginsRouter } from './routes/plugins';
+import { loadPlugins } from './plugins/pluginRegistry';
 
 const PgSession = connectPgSimple(session);
 
 export function createApp() {
+  if (env.PLUGINS_DIR) loadPlugins(env.PLUGINS_DIR);
+
   const app = express();
 
   app.use(helmet());
@@ -61,6 +65,7 @@ export function createApp() {
   app.use('/api/mapFeatures', mapFeaturesRouter);
   app.use('/api/search', searchRouter);
   app.use('/api/pmtiles', pmtilesRouter);
+  app.use('/api/plugins', pluginsRouter);
   app.use('/api/maps/:mapId/export', mapExportRouter);
   app.use('/api/maps/import', newMapImportRouter);
   app.use('/api/maps/:mapId/import', mapImportRouter);

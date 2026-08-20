@@ -53,3 +53,14 @@ export const pluginPanelResponseSchema = z.object({
 });
 
 export type PluginPanelResponse = z.infer<typeof pluginPanelResponseSchema>;
+
+// A URL-based plugin's identity, fetched via GET to the same
+// pluginEndpointUrl the POST content request uses (see
+// pluginMetadata.service.ts). Local plugins don't need this — their name/
+// description come directly from the loaded registry.
+export const pluginMetadataSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000),
+});
+
+export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;

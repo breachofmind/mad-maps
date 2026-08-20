@@ -10,6 +10,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1, 'GOOGLE_CLIENT_SECRET is required'),
   GOOGLE_CALLBACK_URL: z.string().min(1, 'GOOGLE_CALLBACK_URL is required'),
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
+  // Absolute (or cwd-relative) path to a directory of .js local-plugin
+  // files — see plugins/pluginRegistry.ts. Unset by default; local plugins
+  // are entirely opt-in.
+  PLUGINS_DIR: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 

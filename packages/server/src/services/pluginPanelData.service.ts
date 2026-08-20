@@ -1,9 +1,13 @@
 import { pluginPanelResponseSchema, type PluginPanelRequestBody, type PluginPanelResponse } from '@mad-maps/shared';
 import { safeFetch, UnsafeUrlError } from '../lib/safeFetch';
+import { readBodyWithLimit } from '../lib/readBodyWithLimit';
+import { getPlugin, type PluginHandlerArgs } from '../plugins/pluginRegistry';
+import { getMapForOwner } from './maps.service';
 import type { FeatureRow } from './features.service';
 import type { Layer } from '../db/schema';
 
 const FETCH_TIMEOUT_MS = 10_000;
+const PLUGIN_HANDLER_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 512 * 1024;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -42,36 +46,14 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-// Keyed by (endpoint URL, feature id) — unlike the geojson-url cache, a
-// plugin endpoint's response varies per feature, not just per URL.
+// Keyed by (source, identifier, feature id) — unlike the geojson-url cache,
+// a plugin's response varies per feature, not just per source. The 'local:'/
+// 'url:' prefix keeps the two id spaces (plugin id vs URL) from ever
+// colliding in this shared map.
 const cache = new Map<string, CacheEntry>();
 
-function cacheKey(endpointUrl: string, featureId: string): string {
-  return `${endpointUrl}::${featureId}`;
-}
-
-async function readBodyWithLimit(response: Response): Promise<string> {
-  const contentLength = response.headers.get('content-length');
-  if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
-    throw new PluginPanelDataError('Plugin endpoint response exceeds the size limit', 502);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) return response.text();
-
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new PluginPanelDataError('Plugin endpoint response exceeds the size limit', 502);
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf-8');
+function cacheKey(source: 'local' | 'url', identifier: string, featureId: string): string {
+  return `${source}:${identifier}::${featureId}`;
 }
 
 function buildRequestBody(layer: Layer, feature: FeatureRow): PluginPanelRequestBody {
@@ -109,7 +91,9 @@ async function fetchAndValidate(endpointUrl: string, layer: Layer, feature: Feat
     throw new PluginPanelDataError(`Plugin endpoint responded with status ${response.status}`, 502);
   }
 
-  const body = await readBodyWithLimit(response);
+  const body = await readBodyWithLimit(response, MAX_RESPONSE_BYTES, () => {
+    throw new PluginPanelDataError('Plugin endpoint response exceeds the size limit', 502);
+  });
 
   let json: unknown;
   try {
@@ -126,17 +110,80 @@ async function fetchAndValidate(endpointUrl: string, layer: Layer, feature: Feat
   return parsed.data;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, error: PluginPanelDataError): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(error), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+// Local plugins are files the server operator placed on disk themselves —
+// a different trust level than a third-party URL — so handlers receive the
+// feature's full properties and basic layer/map context, not just the
+// minimal {id, type, geometry, title} the external URL contract sends.
+async function runLocalPlugin(ownerId: string, layer: Layer, feature: FeatureRow): Promise<PluginPanelResponse> {
+  const plugin = getPlugin(layer.pluginId!);
+  if (!plugin) {
+    throw new PluginPanelDataError('Configured plugin is no longer available', 400);
+  }
+
+  const map = await getMapForOwner(layer.mapId, ownerId);
+  if (!map) {
+    throw new PluginPanelDataError('Map not found', 404);
+  }
+
+  const args: PluginHandlerArgs = {
+    feature: {
+      id: feature.id,
+      type: feature.featureType as PluginHandlerArgs['feature']['type'],
+      geometry: JSON.parse(feature.geometry) as GeoJSON.Geometry,
+      properties: feature.properties,
+    },
+    layer: { id: layer.id, name: layer.name },
+    map: { id: map.id, title: map.title },
+  };
+
+  let result: PluginPanelResponse;
+  try {
+    result = await withTimeout(
+      Promise.resolve(plugin.handler(args)),
+      PLUGIN_HANDLER_TIMEOUT_MS,
+      new PluginPanelDataError('Plugin handler timed out', 504),
+    );
+  } catch (err) {
+    if (err instanceof PluginPanelDataError) throw err;
+    throw new PluginPanelDataError(`Plugin handler threw: ${(err as Error).message}`, 500);
+  }
+
+  const parsed = pluginPanelResponseSchema.safeParse(result);
+  if (!parsed.success) {
+    throw new PluginPanelDataError('Plugin handler did not return a valid plugin panel response', 500);
+  }
+  return parsed.data;
+}
+
 export async function getPluginPanelData(
   ownerId: string,
   layer: Layer,
   feature: FeatureRow,
   options?: { force?: boolean },
 ): Promise<PluginPanelResponse> {
-  if (!layer.pluginEndpointUrl) {
-    throw new PluginPanelDataError('Layer has no plugin endpoint configured', 400);
+  if (!layer.pluginEndpointUrl && !layer.pluginId) {
+    throw new PluginPanelDataError('Layer has no plugin configured', 400);
   }
 
-  const key = cacheKey(layer.pluginEndpointUrl, feature.id);
+  const key = layer.pluginId
+    ? cacheKey('local', layer.pluginId, feature.id)
+    : cacheKey('url', layer.pluginEndpointUrl!, feature.id);
   const cached = cache.get(key);
   if (!options?.force && cached && cached.expiresAt > Date.now()) {
     return cached.data;
@@ -144,7 +191,9 @@ export async function getPluginPanelData(
 
   checkRateLimit(ownerId);
 
-  const data = await fetchAndValidate(layer.pluginEndpointUrl, layer, feature);
+  const data = layer.pluginId
+    ? await runLocalPlugin(ownerId, layer, feature)
+    : await fetchAndValidate(layer.pluginEndpointUrl!, layer, feature);
   cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
   return data;
 }

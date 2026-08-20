@@ -1,4 +1,4 @@
-import { pluginPanelResponseSchema } from './pluginPanel';
+import { pluginMetadataSchema, pluginPanelResponseSchema } from './pluginPanel';
 
 describe('pluginPanelResponseSchema', () => {
   it('accepts a well-formed response with one of each block type', () => {
@@ -48,5 +48,24 @@ describe('pluginPanelResponseSchema', () => {
       blocks: [{ type: 'keyValue', items: tooMany }],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('pluginMetadataSchema', () => {
+  it('accepts a well-formed name/description', () => {
+    const result = pluginMetadataSchema.safeParse({ name: 'Weather Forecast', description: 'A 5-day forecast' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a missing name', () => {
+    expect(pluginMetadataSchema.safeParse({ description: 'A 5-day forecast' }).success).toBe(false);
+  });
+
+  it('rejects an empty name', () => {
+    expect(pluginMetadataSchema.safeParse({ name: '', description: 'x' }).success).toBe(false);
+  });
+
+  it('accepts an empty description', () => {
+    expect(pluginMetadataSchema.safeParse({ name: 'Weather Forecast', description: '' }).success).toBe(true);
   });
 });

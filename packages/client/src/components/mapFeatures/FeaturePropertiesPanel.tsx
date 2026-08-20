@@ -56,6 +56,7 @@ interface FeaturePropertiesPanelProps {
   feature: MapFeatureDTO;
   layerId: string;
   pluginEndpointUrl: string | null;
+  pluginId: string | null;
   onClose: () => void;
   isEditingVertices: boolean;
   onToggleEditVertices: () => void;
@@ -67,6 +68,7 @@ export function FeaturePropertiesPanel({
   feature,
   layerId,
   pluginEndpointUrl,
+  pluginId,
   onClose,
   isEditingVertices,
   onToggleEditVertices,
@@ -308,7 +310,7 @@ export function FeaturePropertiesPanel({
             </>
           )}
 
-          {pluginEndpointUrl && <PluginDataSection layerId={layerId} featureId={feature.id} />}
+          {(pluginEndpointUrl || pluginId) && <PluginDataSection layerId={layerId} featureId={feature.id} />}
 
           <Divider />
 

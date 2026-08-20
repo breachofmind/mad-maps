@@ -1,5 +1,6 @@
 import { externalGeoJsonFeatureCollectionSchema } from '@mad-maps/shared';
 import { safeFetch, UnsafeUrlError } from '../lib/safeFetch';
+import { readBodyWithLimit } from '../lib/readBodyWithLimit';
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
@@ -25,30 +26,6 @@ interface CacheEntry {
 // single server instance stays tiny, so no eviction beyond TTL is needed.
 const cache = new Map<string, CacheEntry>();
 
-async function readBodyWithLimit(response: Response): Promise<string> {
-  const contentLength = response.headers.get('content-length');
-  if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
-    throw new ExternalLayerDataError('Upstream response exceeds the size limit', 502);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) return response.text();
-
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new ExternalLayerDataError('Upstream response exceeds the size limit', 502);
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf-8');
-}
-
 async function fetchAndValidate(sourceUrl: string): Promise<GeoJSON.FeatureCollection> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -67,7 +44,9 @@ async function fetchAndValidate(sourceUrl: string): Promise<GeoJSON.FeatureColle
     throw new ExternalLayerDataError(`External data source responded with status ${response.status}`, 502);
   }
 
-  const body = await readBodyWithLimit(response);
+  const body = await readBodyWithLimit(response, MAX_RESPONSE_BYTES, () => {
+    throw new ExternalLayerDataError('Upstream response exceeds the size limit', 502);
+  });
 
   let json: unknown;
   try {

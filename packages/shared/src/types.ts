@@ -114,10 +114,21 @@ export interface LayerDTO {
   // Only meaningful for sourceType 'local' — a URL Mad Maps POSTs feature
   // details to on selection, rendering the JSON blocks it returns in the
   // feature properties panel. See @mad-maps/shared's pluginPanel.ts for the
-  // request/response contract.
+  // request/response contract. Mutually exclusive with pluginId.
   pluginEndpointUrl: string | null;
+  // Only meaningful for sourceType 'local' — id of a server-loaded local
+  // plugin (see packages/server/src/plugins/pluginRegistry.ts) to call
+  // instead of an external URL. Mutually exclusive with pluginEndpointUrl.
+  pluginId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// A locally-loaded plugin's public summary, as returned by GET /api/plugins.
+export interface PluginSummaryDTO {
+  id: string;
+  name: string;
+  description: string;
 }
 
 export interface MapFeaturePropertiesDTO {

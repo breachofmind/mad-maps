@@ -128,8 +128,13 @@ export const layers = pgTable('layers', {
   styleConfig: jsonb('style_config').$type<LayerStyleConfig>(),
   // Only meaningful for sourceType 'local'. When set, Mad Maps POSTs the
   // selected feature's id/geometry/title to this URL and renders the JSON
-  // blocks it returns — see pluginPanelData.service.ts.
+  // blocks it returns — see pluginPanelData.service.ts. Mutually exclusive
+  // with pluginId (enforced in layers.service.ts's updateLayerForOwner).
   pluginEndpointUrl: text('plugin_endpoint_url'),
+  // Only meaningful for sourceType 'local'. Id of a server-loaded local
+  // plugin (see plugins/pluginRegistry.ts) to call instead of an external
+  // URL. Mutually exclusive with pluginEndpointUrl.
+  pluginId: text('plugin_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

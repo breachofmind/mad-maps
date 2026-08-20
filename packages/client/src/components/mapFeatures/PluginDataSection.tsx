@@ -11,7 +11,7 @@ import Divider from '@mui/material/Divider';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { fetchPluginPanelData, pluginPanelDataQueryKey } from '../../lib/layers/api';
+import { fetchPluginMetadata, fetchPluginPanelData, pluginMetadataQueryKey, pluginPanelDataQueryKey } from '../../lib/layers/api';
 import { PluginBlockRenderer } from './PluginBlockRenderer';
 
 interface PluginDataSectionProps {
@@ -32,6 +32,15 @@ export function PluginDataSection({ layerId, featureId }: PluginDataSectionProps
     queryFn: () => fetchPluginPanelData(layerId, featureId),
   });
 
+  // Failing to load the plugin's name/description shouldn't block the
+  // section itself — fall back to a generic heading rather than surfacing
+  // a second error state alongside the one for `query` below.
+  const metadataQuery = useQuery({
+    queryKey: pluginMetadataQueryKey(layerId),
+    queryFn: () => fetchPluginMetadata(layerId),
+  });
+  const heading = metadataQuery.data?.name || 'Plugin Data';
+
   const refreshMutation = useMutation({
     mutationFn: () => fetchPluginPanelData(layerId, featureId, { force: true }),
     onSuccess: (data) => {
@@ -43,7 +52,11 @@ export function PluginDataSection({ layerId, featureId }: PluginDataSectionProps
     <Box>
       <Divider sx={{ mb: 2 }} />
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={collapsed ? 0 : 1}>
-        <Typography variant="subtitle2">Plugin Data</Typography>
+        <Tooltip title={metadataQuery.data?.description || ''}>
+          <Typography variant="subtitle2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {heading}
+          </Typography>
+        </Tooltip>
         <Stack direction="row" spacing={0.5} alignItems="center">
           <Tooltip title="Refresh">
             <span>

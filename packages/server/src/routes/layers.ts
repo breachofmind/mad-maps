@@ -15,6 +15,8 @@ import {
 import { ExternalLayerDataError, getExternalLayerData } from '../services/externalLayerData.service';
 import { findFeatureForOwner } from '../services/features.service';
 import { PluginPanelDataError, getPluginPanelData } from '../services/pluginPanelData.service';
+import { PluginMetadataError, getPluginMetadata } from '../services/pluginMetadata.service';
+import { getPlugin } from '../plugins/pluginRegistry';
 
 function currentUser(req: import('express').Request): User {
   return req.user as User;
@@ -114,6 +116,14 @@ const updateLayerSchema = z.object({
   opacity: z.number().min(0).max(1).optional(),
   styleConfig: styleConfigSchema.optional(),
   pluginEndpointUrl: z.string().trim().url().max(2000).nullable().optional(),
+  pluginId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .nullable()
+    .refine((id) => id === null || getPlugin(id) !== undefined, { message: 'Unknown plugin id' })
+    .optional(),
 });
 
 const reorderSchema = z.object({
@@ -193,6 +203,24 @@ layersRouter.get('/:layerId/external-data', async (req, res) => {
   }
 });
 
+layersRouter.get('/:layerId/plugin', async (req, res) => {
+  const layer = await findLayerForOwner(req.params.layerId, currentUser(req).id);
+  if (!layer) return res.status(404).json({ error: 'Layer not found' });
+  if (!layer.pluginEndpointUrl && !layer.pluginId) {
+    return res.status(400).json({ error: 'Layer has no plugin configured' });
+  }
+
+  try {
+    const metadata = await getPluginMetadata(layer, { force: req.query.refresh === 'true' });
+    res.json(metadata);
+  } catch (err) {
+    if (err instanceof PluginMetadataError) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+    throw err;
+  }
+});
+
 layersRouter.get('/:layerId/features/:featureId/plugin-data', async (req, res) => {
   const ownerId = currentUser(req).id;
   const layer = await findLayerForOwner(req.params.layerId, ownerId);
@@ -203,8 +231,8 @@ layersRouter.get('/:layerId/features/:featureId/plugin-data', async (req, res) =
     return res.status(404).json({ error: 'Feature not found' });
   }
 
-  if (!layer.pluginEndpointUrl) {
-    return res.status(400).json({ error: 'Layer has no plugin endpoint configured' });
+  if (!layer.pluginEndpointUrl && !layer.pluginId) {
+    return res.status(400).json({ error: 'Layer has no plugin configured' });
   }
 
   try {

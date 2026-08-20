@@ -7,6 +7,9 @@ import { createMap } from '../services/maps.service';
 import * as externalLayerDataService from '../services/externalLayerData.service';
 import * as pluginPanelDataService from '../services/pluginPanelData.service';
 import { PluginPanelDataError } from '../services/pluginPanelData.service';
+import * as pluginMetadataService from '../services/pluginMetadata.service';
+import { PluginMetadataError } from '../services/pluginMetadata.service';
+import * as pluginRegistry from '../plugins/pluginRegistry';
 
 const app = createApp();
 
@@ -315,6 +318,163 @@ describe('layer routes', () => {
         .mockRejectedValue(new PluginPanelDataError('upstream exploded', 502));
 
       await agent.get(`/api/layers/${layerId}/features/${featureId}/plugin-data`).expect(502);
+    });
+  });
+
+  describe('local plugins', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('rejects an unknown pluginId with 400', async () => {
+      jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue(undefined);
+      const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Unknown Plugin' }).expect(201);
+
+      await agent.patch(`/api/layers/${created.body.id}`).send({ pluginId: 'not-a-real-plugin' }).expect(400);
+    });
+
+    it('accepts a pluginId that matches a loaded plugin', async () => {
+      jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue({
+        id: 'weather-forecast',
+        name: 'Weather Forecast',
+        description: 'd',
+        handler: () => ({ blocks: [] }),
+      });
+      const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Known Plugin' }).expect(201);
+
+      const patched = await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginId: 'weather-forecast' })
+        .expect(200);
+
+      expect(patched.body.pluginId).toBe('weather-forecast');
+      expect(patched.body.pluginEndpointUrl).toBeNull();
+    });
+
+    it('setting pluginId clears a previously-set pluginEndpointUrl, and vice versa', async () => {
+      jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue({
+        id: 'weather-forecast',
+        name: 'Weather Forecast',
+        description: 'd',
+        handler: () => ({ blocks: [] }),
+      });
+      const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Toggle Plugin' }).expect(201);
+
+      const withUrl = await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginEndpointUrl: 'https://plugin.example.com/weather' })
+        .expect(200);
+      expect(withUrl.body.pluginEndpointUrl).toBe('https://plugin.example.com/weather');
+      expect(withUrl.body.pluginId).toBeNull();
+
+      const withPluginId = await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginId: 'weather-forecast' })
+        .expect(200);
+      expect(withPluginId.body.pluginId).toBe('weather-forecast');
+      expect(withPluginId.body.pluginEndpointUrl).toBeNull();
+
+      const backToUrl = await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginEndpointUrl: 'https://plugin.example.com/weather-2' })
+        .expect(200);
+      expect(backToUrl.body.pluginEndpointUrl).toBe('https://plugin.example.com/weather-2');
+      expect(backToUrl.body.pluginId).toBeNull();
+    });
+
+    it('dispatches /plugin-data for a layer configured with only a pluginId', async () => {
+      jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue({
+        id: 'weather-forecast',
+        name: 'Weather Forecast',
+        description: 'd',
+        handler: () => ({ blocks: [] }),
+      });
+      const layer = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Local Plugin Layer' }).expect(201);
+      await agent.patch(`/api/layers/${layer.body.id}`).send({ pluginId: 'weather-forecast' }).expect(200);
+      const feature = await agent
+        .post(`/api/layers/${layer.body.id}/mapFeatures`)
+        .send({ geometry: { type: 'Point', coordinates: [-122.4, 45.5] }, properties: { title: 'Home' } })
+        .expect(201);
+
+      const response = { blocks: [{ type: 'heading', text: '5-Day Forecast' }] };
+      jest.spyOn(pluginPanelDataService, 'getPluginPanelData').mockResolvedValue(response as never);
+
+      const res = await agent
+        .get(`/api/layers/${layer.body.id}/features/${feature.body.id}/plugin-data`)
+        .expect(200);
+      expect(res.body).toEqual(response);
+
+      const [, calledLayer] = (pluginPanelDataService.getPluginPanelData as jest.Mock).mock.calls[0];
+      expect(calledLayer.pluginId).toBe('weather-forecast');
+      expect(calledLayer.pluginEndpointUrl).toBeNull();
+    });
+  });
+
+  describe('plugin metadata', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('returns metadata for a layer with a plugin endpoint configured', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({ name: 'Weather Pins 3' })
+        .expect(201);
+      await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginEndpointUrl: 'https://plugin.example.com/weather-3' })
+        .expect(200);
+
+      const metadata = { name: 'Weather Forecast', description: 'A 5-day forecast' };
+      jest.spyOn(pluginMetadataService, 'getPluginMetadata').mockResolvedValue(metadata as never);
+
+      const res = await agent.get(`/api/layers/${created.body.id}/plugin`).expect(200);
+      expect(res.body).toEqual(metadata);
+
+      const [calledLayer, calledOptions] = (pluginMetadataService.getPluginMetadata as jest.Mock).mock.calls[0];
+      expect(calledLayer.id).toBe(created.body.id);
+      expect(calledOptions).toEqual({ force: false });
+    });
+
+    it('passes ?refresh=true through as force: true', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({ name: 'Weather Pins 4' })
+        .expect(201);
+      await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginEndpointUrl: 'https://plugin.example.com/weather-4' })
+        .expect(200);
+      jest.spyOn(pluginMetadataService, 'getPluginMetadata').mockResolvedValue({ name: 'x', description: 'y' } as never);
+
+      await agent.get(`/api/layers/${created.body.id}/plugin?refresh=true`).expect(200);
+
+      const [, calledOptions] = (pluginMetadataService.getPluginMetadata as jest.Mock).mock.calls[0];
+      expect(calledOptions).toEqual({ force: true });
+    });
+
+    it('returns 400 and does not call the service when the layer has no plugin configured', async () => {
+      const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'No Plugin 2' }).expect(201);
+      jest.spyOn(pluginMetadataService, 'getPluginMetadata');
+
+      await agent.get(`/api/layers/${created.body.id}/plugin`).expect(400);
+      expect(pluginMetadataService.getPluginMetadata).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for a layer not owned by the requester', async () => {
+      await agent.get('/api/layers/00000000-0000-0000-0000-000000000000/plugin').expect(404);
+    });
+
+    it('propagates the status code from a PluginMetadataError', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({ name: 'Flaky Plugin Metadata' })
+        .expect(201);
+      await agent
+        .patch(`/api/layers/${created.body.id}`)
+        .send({ pluginEndpointUrl: 'https://plugin.example.com/flaky-metadata' })
+        .expect(200);
+      jest
+        .spyOn(pluginMetadataService, 'getPluginMetadata')
+        .mockRejectedValue(new PluginMetadataError('upstream exploded', 502));
+
+      await agent.get(`/api/layers/${created.body.id}/plugin`).expect(502);
     });
   });
 

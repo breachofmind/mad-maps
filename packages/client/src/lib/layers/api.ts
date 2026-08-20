@@ -1,4 +1,4 @@
-import type { LayerDTO, LayerStyleConfig, PluginPanelResponse, PmtilesMetadata } from '@mad-maps/shared';
+import type { LayerDTO, LayerStyleConfig, PluginMetadata, PluginPanelResponse, PmtilesMetadata } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface UpdateLayerInput {
@@ -9,6 +9,7 @@ export interface UpdateLayerInput {
   opacity?: number;
   styleConfig?: LayerStyleConfig | null;
   pluginEndpointUrl?: string | null;
+  pluginId?: string | null;
 }
 
 export interface CreateLayerPmtilesOptions {
@@ -73,6 +74,17 @@ export async function fetchPluginPanelData(
   options?: { force?: boolean },
 ): Promise<PluginPanelResponse> {
   const { data } = await apiClient.get<PluginPanelResponse>(`/api/layers/${layerId}/features/${featureId}/plugin-data`, {
+    params: options?.force ? { refresh: 'true' } : undefined,
+  });
+  return data;
+}
+
+export function pluginMetadataQueryKey(layerId: string) {
+  return ['layers', layerId, 'plugin'];
+}
+
+export async function fetchPluginMetadata(layerId: string, options?: { force?: boolean }): Promise<PluginMetadata> {
+  const { data } = await apiClient.get<PluginMetadata>(`/api/layers/${layerId}/plugin`, {
     params: options?.force ? { refresh: 'true' } : undefined,
   });
   return data;

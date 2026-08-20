@@ -25,6 +25,7 @@ export interface UpdateLayerInput {
   opacity?: number;
   styleConfig?: LayerStyleConfig | null;
   pluginEndpointUrl?: string | null;
+  pluginId?: string | null;
 }
 
 export async function listLayersForMap(mapId: string, ownerId: string): Promise<Layer[] | null> {
@@ -81,9 +82,20 @@ export async function updateLayerForOwner(
   const existing = await findLayerForOwner(layerId, ownerId);
   if (!existing) return null;
 
+  // pluginEndpointUrl and pluginId are mutually exclusive — setting one to
+  // a non-null value always clears the other, regardless of what else the
+  // caller's patch does or doesn't mention, so the two can never both end
+  // up set on the same row.
+  const patch = { ...input };
+  if (patch.pluginId != null) {
+    patch.pluginEndpointUrl = null;
+  } else if (patch.pluginEndpointUrl != null) {
+    patch.pluginId = null;
+  }
+
   const [updated] = await db
     .update(layers)
-    .set({ ...input, updatedAt: new Date() })
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(layers.id, layerId))
     .returning();
   return updated;
@@ -136,6 +148,7 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     pmtilesMetadata: layer.pmtilesMetadata ?? null,
     styleConfig: layer.styleConfig ?? null,
     pluginEndpointUrl: layer.pluginEndpointUrl,
+    pluginId: layer.pluginId,
     createdAt: layer.createdAt.toISOString(),
     updatedAt: layer.updatedAt.toISOString(),
   };
