@@ -29,7 +29,7 @@ interface UseRemoteLayerSyncOptions {
   dataQueries: RemoteDataQuery[];
 }
 
-// Wires each geojson-url/pmtiles-url layer's Mapbox source/sublayers to this
+// Wires each geojson-url/pmtiles-url/raster-url layer's Mapbox source/sublayers to this
 // map instance and keeps them synced with `remoteLayers`/`dataQueries`,
 // surviving basemap switches (a 'style.load' wipes all custom sources/layers,
 // so everything is recreated on that event too) and legibility against
@@ -124,7 +124,7 @@ export function useRemoteLayerSync({ map, remoteLayers, dataQueries }: UseRemote
     remoteLayers
       .map(
         (l) =>
-          `${l.id}:${l.name}:${l.color}:${l.visible}:${l.sourceType}:${l.sourceUrl}:${l.sourceLayer}:${JSON.stringify(l.styleConfig)}`,
+          `${l.id}:${l.name}:${l.color}:${l.visible}:${l.opacity}:${l.sourceType}:${l.sourceUrl}:${l.sourceLayer}:${JSON.stringify(l.styleConfig)}`,
       )
       .join(','),
     dataQueries.map((q) => q.dataUpdatedAt).join(','),

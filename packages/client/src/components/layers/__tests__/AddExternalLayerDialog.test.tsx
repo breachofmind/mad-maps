@@ -32,6 +32,10 @@ async function selectPmtilesOption(user: ReturnType<typeof userEventModule.setup
   await user.click(screen.getByRole('radio', { name: 'Custom PMTiles URL' }));
 }
 
+async function selectRasterOption(user: ReturnType<typeof userEventModule.setup>) {
+  await user.click(screen.getByRole('radio', { name: 'Custom raster tile URL' }));
+}
+
 describe('AddExternalLayerDialog PMTiles flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -61,6 +65,7 @@ describe('AddExternalLayerDialog PMTiles flow', () => {
       visible: true,
       color: '#1976d2',
       defaultIcon: 'marker',
+      opacity: 1,
       sourceType: 'pmtiles-url',
       sourceUrl: 'https://example.com/data.pmtiles',
       sourceLayer: 'roads',
@@ -136,5 +141,106 @@ describe('AddExternalLayerDialog PMTiles flow', () => {
 
     expect(screen.getByRole('button', { name: 'Add Layer' })).toBeDisabled();
     expect(mockCreateLayer).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddExternalLayerDialog raster flow', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('reveals name/url fields when Custom raster tile URL is selected', async () => {
+    const user = userEventModule.setup();
+    renderDialog();
+
+    await selectRasterOption(user);
+
+    expect(screen.getByLabelText('Layer name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Raster tile URL')).toBeInTheDocument();
+  });
+
+  it('blocks submit until the URL contains {z}/{x}/{y}, then creates the layer with sourceFormat raster', async () => {
+    mockCreateLayer.mockResolvedValue({
+      id: 'layer-1',
+      mapId: 'map-1',
+      name: 'Weather Radar',
+      orderIndex: 0,
+      visible: true,
+      color: '#1976d2',
+      defaultIcon: 'marker',
+      opacity: 1,
+      sourceType: 'raster-url',
+      sourceUrl: 'https://example.com/tiles/{z}/{x}/{y}.png',
+      sourceLayer: null,
+      pmtilesMetadata: null,
+      styleConfig: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const user = userEventModule.setup();
+    renderDialog();
+    await selectRasterOption(user);
+
+    await user.type(screen.getByLabelText('Layer name'), 'Weather Radar');
+    await user.type(screen.getByLabelText('Raster tile URL'), 'https://example.com/tiles.png');
+    expect(screen.getByRole('button', { name: 'Add Layer' })).toBeDisabled();
+
+    await user.clear(screen.getByLabelText('Raster tile URL'));
+    // user-event's `type` treats `{` as the start of a key-descriptor (e.g.
+    // `{enter}`) — `{{` is its documented escape for a literal `{` (see
+    // https://testing-library.com/docs/user-event/keyboard); `}` needs no
+    // escaping since it isn't a bracket-dict start character.
+    await user.type(screen.getByLabelText('Raster tile URL'), 'https://example.com/tiles/{{z}/{{x}/{{y}.png');
+
+    const submitButton = screen.getByRole('button', { name: 'Add Layer' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
+
+    await waitFor(() =>
+      expect(mockCreateLayer).toHaveBeenCalledWith(
+        'map-1',
+        'Weather Radar',
+        'https://example.com/tiles/{z}/{x}/{y}.png',
+        { sourceFormat: 'raster' },
+      ),
+    );
+  });
+
+  it('routes the curated NEXRAD weather radar option through the raster submission path', async () => {
+    mockCreateLayer.mockResolvedValue({
+      id: 'layer-1',
+      mapId: 'map-1',
+      name: 'Weather Radar (NEXRAD, live)',
+      orderIndex: 0,
+      visible: true,
+      color: '#1976d2',
+      defaultIcon: 'marker',
+      opacity: 1,
+      sourceType: 'raster-url',
+      sourceUrl: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+      sourceLayer: null,
+      pmtilesMetadata: null,
+      styleConfig: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const user = userEventModule.setup();
+    renderDialog();
+
+    const submitButton = screen.getByRole('button', { name: 'Add Layer' });
+    await user.click(screen.getByRole('radio', { name: /Weather Radar \(NEXRAD, live\)/ }));
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
+
+    await waitFor(() =>
+      expect(mockCreateLayer).toHaveBeenCalledWith(
+        'map-1',
+        'Weather Radar (NEXRAD, live)',
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { sourceFormat: 'raster' },
+      ),
+    );
   });
 });

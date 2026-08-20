@@ -1,4 +1,4 @@
-import type { BaseStyle } from '@mad-maps/shared';
+import { isXyzTileUrlTemplate, type BaseStyle } from '@mad-maps/shared';
 
 // Builds an inline Mapbox style spec (see BaseStyle in @mad-maps/shared)
 // wrapping a single raster tile source — the same shape used for the
@@ -17,7 +17,7 @@ import type { BaseStyle } from '@mad-maps/shared';
 export function buildRasterTileStyle(tileUrl: string, attribution?: string, maxzoom?: number): BaseStyle | null {
   const trimmed = tileUrl.trim();
   if (!trimmed) return null;
-  if (!trimmed.includes('{z}') || !trimmed.includes('{x}') || !trimmed.includes('{y}')) return null;
+  if (!isXyzTileUrlTemplate(trimmed)) return null;
 
   return {
     version: 8,

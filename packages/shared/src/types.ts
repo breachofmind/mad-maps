@@ -45,7 +45,7 @@ export interface MapStyleDTO {
   updatedAt: string;
 }
 
-export type LayerSourceType = 'local' | 'geojson-url' | 'pmtiles-url';
+export type LayerSourceType = 'local' | 'geojson-url' | 'pmtiles-url' | 'raster-url';
 
 export interface PmtilesLayerMeta {
   id: string;
@@ -103,6 +103,9 @@ export interface LayerDTO {
   // local features added to this layer — only meaningful for sourceType
   // 'local'; remote layers use styleConfig.defaultIconUrl instead.
   defaultIcon: string;
+  // 0-1. Currently only surfaced in the UI/renderer for sourceType
+  // 'raster-url' — see LayerPropertiesPanel and ensureRemoteLayer.ts.
+  opacity: number;
   sourceType: LayerSourceType;
   sourceUrl: string | null;
   sourceLayer: string | null;

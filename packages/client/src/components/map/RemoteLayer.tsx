@@ -25,14 +25,16 @@ interface RemoteLayerProps {
 // not decided here — see lib/map/layerZOrder.ts, applied by MapEditorPage
 // after both have synced.
 export function RemoteLayer({ map, layers }: RemoteLayerProps) {
-  const remoteLayers = layers.filter((layer) => layer.sourceType === 'geojson-url' || layer.sourceType === 'pmtiles-url');
+  const remoteLayers = layers.filter(
+    (layer) => layer.sourceType === 'geojson-url' || layer.sourceType === 'pmtiles-url' || layer.sourceType === 'raster-url',
+  );
   const queryClient = useQueryClient();
   const activeLayerId = useEditorStore((s) => s.activeLayerId);
   const activeLayer = layers.find((l) => l.id === activeLayerId) ?? null;
 
-  // pmtiles-url layers render straight from their source URL via Mapbox's
-  // vector source (see ensureRemoteLayerAdded) — no server round-trip, so
-  // no query is enabled for them here.
+  // pmtiles-url and raster-url layers render straight from their source URL
+  // via a Mapbox vector/raster source (see ensureRemoteLayerAdded) — no
+  // server round-trip, so no query is enabled for them here.
   const dataQueries = useQueries({
     queries: remoteLayers.map((layer) => ({
       queryKey: externalLayerDataQueryKey(layer.id),

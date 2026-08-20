@@ -736,6 +736,7 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
           onDefaultIconChange={(defaultIcon) =>
             updateMutation.mutate({ layerId: selectedLayer.id, input: { defaultIcon } })
           }
+          onOpacityChange={(opacity) => updateMutation.mutate({ layerId: selectedLayer.id, input: { opacity } })}
           onStyleConfigChange={(styleConfig) =>
             updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
           }

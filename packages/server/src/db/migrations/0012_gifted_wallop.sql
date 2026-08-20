@@ -1,0 +1,1 @@
+ALTER TYPE "public"."layer_source_type" ADD VALUE 'raster-url';

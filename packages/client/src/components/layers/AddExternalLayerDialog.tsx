@@ -17,10 +17,12 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import { isXyzTileUrlTemplate } from '@mad-maps/shared';
 import { EXTERNAL_DATASETS } from '../../lib/layers/externalDatasets';
 import { createLayer, deleteLayer, fetchExternalLayerData, inspectPmtiles, layersQueryKey } from '../../lib/layers/api';
 
 const CUSTOM_GEOJSON_OPTION_ID = 'custom-geojson';
+const CUSTOM_RASTER_OPTION_ID = 'custom-raster';
 const CUSTOM_PMTILES_OPTION_ID = 'custom-pmtiles';
 // Debounces the PMTiles inspect request so it fires once typing pauses
 // rather than on every keystroke — the request itself is cheap (a couple of
@@ -53,11 +55,14 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
   const [debouncedPmtilesUrl, setDebouncedPmtilesUrl] = useState('');
 
   const isCustomGeojson = selectedId === CUSTOM_GEOJSON_OPTION_ID;
+  const isCustomRaster = selectedId === CUSTOM_RASTER_OPTION_ID;
   const isPmtiles = selectedId === CUSTOM_PMTILES_OPTION_ID;
   const dataset = EXTERNAL_DATASETS.find((d) => d.id === selectedId);
-  const name = isCustomGeojson ? customName.trim() : (dataset?.label ?? '');
-  const url = isCustomGeojson ? customUrl.trim() : (dataset?.url ?? '');
+  const isRaster = isCustomRaster || dataset?.format === 'raster';
+  const name = isCustomGeojson || isCustomRaster ? customName.trim() : (dataset?.label ?? '');
+  const url = isCustomGeojson || isCustomRaster ? customUrl.trim() : (dataset?.url ?? '');
   const canSubmitGeojson = name.length > 0 && isValidHttpUrl(url);
+  const canSubmitRaster = name.length > 0 && isXyzTileUrlTemplate(url);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedPmtilesUrl(pmtilesUrl.trim()), PMTILES_INSPECT_DEBOUNCE_MS);
@@ -106,6 +111,19 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
     },
   });
 
+  const addRasterMutation = useMutation({
+    // Unlike the GeoJSON flow above, there's nothing to cheaply fetch/parse
+    // server-side to validate a {z}/{x}/{y} tile template ahead of time —
+    // Mapbox will simply fail to render tiles if it's wrong, the same trust
+    // level the basemap "Add Style" raster flow already gives this shape of
+    // URL (see rasterTileStyle.ts).
+    mutationFn: () => createLayer(mapId, name, url, { sourceFormat: 'raster' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: layersQueryKey(mapId) });
+      handleClose();
+    },
+  });
+
   const addPmtilesMutation = useMutation({
     // Unlike the GeoJSON flow above, validation (inspectQuery) already ran
     // before this point, so there's no create-then-rollback dance — the
@@ -125,6 +143,7 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
 
   function handleClose() {
     addMutation.reset();
+    addRasterMutation.reset();
     addPmtilesMutation.reset();
     setCustomName('');
     setCustomUrl('');
@@ -138,19 +157,20 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
 
   function handleSubmit() {
     if (isPmtiles) addPmtilesMutation.mutate();
+    else if (isRaster) addRasterMutation.mutate();
     else addMutation.mutate();
   }
 
-  const canSubmit = isPmtiles ? canSubmitPmtiles : canSubmitGeojson;
-  const isPending = isPmtiles ? addPmtilesMutation.isPending : addMutation.isPending;
+  const canSubmit = isPmtiles ? canSubmitPmtiles : isRaster ? canSubmitRaster : canSubmitGeojson;
+  const isPending = isPmtiles ? addPmtilesMutation.isPending : isRaster ? addRasterMutation.isPending : addMutation.isPending;
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>Add Data Layer</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Overlay a public GeoJSON or PMTiles dataset on this map. It renders live from the source and can be
-          toggled or removed like any other layer.
+          Overlay a public GeoJSON, raster tile, or PMTiles dataset on this map. It renders live from the source and
+          can be toggled or removed like any other layer.
         </Typography>
         <RadioGroup value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
           {EXTERNAL_DATASETS.map((ds) => (
@@ -170,10 +190,11 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
             />
           ))}
           <FormControlLabel value={CUSTOM_GEOJSON_OPTION_ID} control={<Radio size="small" />} label="Custom GeoJSON URL" />
+          <FormControlLabel value={CUSTOM_RASTER_OPTION_ID} control={<Radio size="small" />} label="Custom raster tile URL" />
           <FormControlLabel value={CUSTOM_PMTILES_OPTION_ID} control={<Radio size="small" />} label="Custom PMTiles URL" />
         </RadioGroup>
 
-        {isCustomGeojson && (
+        {(isCustomGeojson || isCustomRaster) && (
           <Box display="flex" flexDirection="column" gap={1.5} mt={1} pl={4}>
             <TextField
               size="small"
@@ -182,15 +203,28 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
               onChange={(e) => setCustomName(e.target.value)}
               fullWidth
             />
-            <TextField
-              size="small"
-              label="GeoJSON URL"
-              placeholder="https://example.com/data.geojson"
-              value={customUrl}
-              onChange={(e) => setCustomUrl(e.target.value)}
-              error={customUrl.trim().length > 0 && !isValidHttpUrl(customUrl.trim())}
-              fullWidth
-            />
+            {isCustomRaster ? (
+              <TextField
+                size="small"
+                label="Raster tile URL"
+                placeholder="https://example.com/tiles/{z}/{x}/{y}.png"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                error={customUrl.trim().length > 0 && !isXyzTileUrlTemplate(customUrl.trim())}
+                helperText="Must contain {z}, {x}, and {y}"
+                fullWidth
+              />
+            ) : (
+              <TextField
+                size="small"
+                label="GeoJSON URL"
+                placeholder="https://example.com/data.geojson"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                error={customUrl.trim().length > 0 && !isValidHttpUrl(customUrl.trim())}
+                fullWidth
+              />
+            )}
           </Box>
         )}
 
@@ -238,11 +272,13 @@ export function AddExternalLayerDialog({ open, onClose, mapId }: AddExternalLaye
           </Box>
         )}
 
-        {(isPmtiles ? addPmtilesMutation.isError : addMutation.isError) && (
+        {(isPmtiles ? addPmtilesMutation.isError : isRaster ? addRasterMutation.isError : addMutation.isError) && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {isPmtiles
               ? "Couldn't create that layer. Please try again."
-              : "Couldn't load that data source. Double-check the URL and that it returns a valid GeoJSON FeatureCollection."}
+              : isRaster
+                ? "Couldn't create that layer. Please try again."
+                : "Couldn't load that data source. Double-check the URL and that it returns a valid GeoJSON FeatureCollection."}
           </Alert>
         )}
       </DialogContent>

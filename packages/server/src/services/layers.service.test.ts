@@ -73,6 +73,14 @@ describe('layers.service', () => {
     expect(updated?.visible).toBe(false);
   });
 
+  it('defaults opacity to 1 and updates it', async () => {
+    const created = await createLayer(mapId, ownerId, 'Opacity Layer');
+    expect(created?.opacity).toBe(1);
+
+    const updated = await updateLayerForOwner(created!.id, ownerId, { opacity: 0.6 });
+    expect(updated?.opacity).toBe(0.6);
+  });
+
   it('refuses to update a layer for a non-owning user', async () => {
     const created = await createLayer(mapId, ownerId, 'Owner Only');
     const updated = await updateLayerForOwner(created!.id, otherOwnerId, { name: 'Hijacked' });
@@ -133,6 +141,22 @@ describe('layers.service', () => {
     expect(dto.sourceType).toBe('pmtiles-url');
     expect(dto.sourceLayer).toBe('roads');
     expect(dto.pmtilesMetadata).toEqual(pmtilesMetadata);
+  });
+
+  it('creates a raster-url layer and round-trips through the DTO', async () => {
+    const created = await createLayer(mapId, ownerId, 'Weather Radar', {
+      url: 'https://example.com/tiles/{z}/{x}/{y}.png',
+      format: 'raster',
+    });
+
+    expect(created?.sourceType).toBe('raster-url');
+    expect(created?.sourceUrl).toBe('https://example.com/tiles/{z}/{x}/{y}.png');
+    expect(created?.sourceLayer).toBeNull();
+    expect(created?.pmtilesMetadata).toBeNull();
+
+    const dto = toLayerDTO(created!);
+    expect(dto.sourceType).toBe('raster-url');
+    expect(dto.sourceUrl).toBe('https://example.com/tiles/{z}/{x}/{y}.png');
   });
 
   it('defaults styleConfig to null, sets it, and clears it back to null', async () => {

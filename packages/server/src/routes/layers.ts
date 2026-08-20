@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { isMakiIconName, pmtilesMetadataSchema } from '@mad-maps/shared';
+import { isMakiIconName, isXyzTileUrlTemplate, pmtilesMetadataSchema } from '@mad-maps/shared';
 import type { User } from '../db/schema';
 import { requireAuth } from '../middleware/requireAuth';
 import {
@@ -22,7 +22,7 @@ const createLayerSchema = z
   .object({
     name: z.string().trim().min(1).max(200),
     sourceUrl: z.string().trim().url().max(2000).optional(),
-    sourceFormat: z.enum(['geojson', 'pmtiles']).optional(),
+    sourceFormat: z.enum(['geojson', 'pmtiles', 'raster']).optional(),
     sourceLayer: z.string().trim().min(1).max(200).optional(),
     pmtilesMetadata: pmtilesMetadataSchema.optional(),
   })
@@ -39,6 +39,23 @@ const createLayerSchema = z
           code: 'custom',
           message: 'pmtilesMetadata is required for a pmtiles layer',
           path: ['pmtilesMetadata'],
+        });
+      }
+    } else if (val.sourceFormat === 'raster') {
+      if (!val.sourceUrl) {
+        ctx.addIssue({ code: 'custom', message: 'sourceUrl is required for a raster layer', path: ['sourceUrl'] });
+      } else if (!isXyzTileUrlTemplate(val.sourceUrl)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'sourceUrl must be a {z}/{x}/{y} tile URL template',
+          path: ['sourceUrl'],
+        });
+      }
+      if (val.sourceLayer || val.pmtilesMetadata) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'sourceLayer/pmtilesMetadata only apply to pmtiles layers',
+          path: ['sourceFormat'],
         });
       }
     } else if (val.sourceLayer || val.pmtilesMetadata) {
@@ -92,6 +109,7 @@ const updateLayerSchema = z.object({
   visible: z.boolean().optional(),
   color: z.string().min(1).max(32).optional(),
   defaultIcon: z.string().trim().min(1).max(100).optional(),
+  opacity: z.number().min(0).max(1).optional(),
   styleConfig: styleConfigSchema.optional(),
 });
 
@@ -116,7 +134,7 @@ mapLayersRouter.post('/', async (req: Request<{ mapId: string }>, res) => {
   const source = sourceUrl
     ? {
         url: sourceUrl,
-        format: sourceFormat === 'pmtiles' ? ('pmtiles' as const) : ('geojson' as const),
+        format: sourceFormat ?? ('geojson' as const),
         sourceLayer,
         pmtilesMetadata,
       }

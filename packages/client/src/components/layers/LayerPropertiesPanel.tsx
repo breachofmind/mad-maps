@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
@@ -37,6 +38,7 @@ interface LayerPropertiesPanelProps {
   onNameChange: (name: string) => void;
   onColorChange: (color: string) => void;
   onDefaultIconChange: (icon: string) => void;
+  onOpacityChange: (opacity: number) => void;
   onStyleConfigChange: (styleConfig: LayerStyleConfig) => void;
   onRefresh: () => void;
   onDelete: () => void;
@@ -60,6 +62,7 @@ export function LayerPropertiesPanel({
   onNameChange,
   onColorChange,
   onDefaultIconChange,
+  onOpacityChange,
   onStyleConfigChange,
   onRefresh,
   onDelete,
@@ -68,7 +71,9 @@ export function LayerPropertiesPanel({
   onToggleCollapse,
 }: LayerPropertiesPanelProps) {
   const isRemote = layer.sourceType !== 'local';
+  const isRaster = layer.sourceType === 'raster-url';
   const [name, setName] = useState(layer.name);
+  const [opacity, setOpacity] = useState(layer.opacity);
 
   const persistName = useDebouncedCallback((value: string) => {
     onNameChange(value);
@@ -182,7 +187,30 @@ export function LayerPropertiesPanel({
             ariaLabel={`Change ${layer.name} color`}
           />
 
-          {isRemote && (
+          {isRaster && (
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Opacity
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {Math.round(opacity * 100)}%
+                </Typography>
+              </Stack>
+              <Slider
+                size="small"
+                min={0}
+                max={1}
+                step={0.05}
+                value={opacity}
+                onChange={(_e, value) => setOpacity(value as number)}
+                onChangeCommitted={(_e, value) => onOpacityChange(value as number)}
+                aria-label="Layer opacity"
+              />
+            </Box>
+          )}
+
+          {isRemote && layer.sourceType !== 'raster-url' && (
             <RemoteLayerStyleControls
               layer={layer}
               map={map}

@@ -36,6 +36,22 @@ export function ensureRemoteLayerAdded(
   const layerId = layer.id;
   const id = remoteSourceId(layerId);
   const ids = remoteSubLayerIds(layerId);
+
+  // Raster tiles have no discrete features to style/filter by property, so
+  // this is a single fixed source+layer with none of the vector machinery
+  // below — the source itself has nothing to refresh once added (like the
+  // vector/pmtiles-url source), but opacity is a paint property and can
+  // still change on an existing layer.
+  if (layer.sourceType === 'raster-url') {
+    if (map.getSource(id)) {
+      if (map.getLayer(ids.raster)) map.setPaintProperty(ids.raster, 'raster-opacity', layer.opacity);
+      return;
+    }
+    map.addSource(id, { type: 'raster', tiles: [layer.sourceUrl!], tileSize: 256 });
+    map.addLayer({ id: ids.raster, type: 'raster', source: id, paint: { 'raster-opacity': layer.opacity } });
+    return;
+  }
+
   const colorExpression = buildColorExpression(layer.color, layer.styleConfig);
   const iconFilter = pointIconFilter(layer.styleConfig, loadedIconUrls);
   const styleConfig = layer.styleConfig;

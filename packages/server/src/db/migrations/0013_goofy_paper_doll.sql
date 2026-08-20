@@ -1,0 +1,1 @@
+ALTER TABLE "layers" ADD COLUMN "opacity" double precision DEFAULT 1 NOT NULL;

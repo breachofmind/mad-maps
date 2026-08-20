@@ -13,6 +13,9 @@ export function remoteSubLayerIds(layerId: string) {
     point: `${base}-point`,
     label: `${base}-label`,
     icon: `${base}-icon`,
+    // Only used for sourceType 'raster-url' — a single raster layer, unlike
+    // the vector sub-layer set above (see ensureRemoteLayerAdded).
+    raster: `${base}-raster`,
   };
 }
 
@@ -22,5 +25,5 @@ export function remoteSubLayerIds(layerId: string) {
 // other layers' groups.
 export function remoteLayerZOrderIds(layerId: string): string[] {
   const ids = remoteSubLayerIds(layerId);
-  return [ids.fill, ids.outline, ids.line, ids.point, ids.icon, ids.label];
+  return [ids.raster, ids.fill, ids.outline, ids.line, ids.point, ids.icon, ids.label];
 }

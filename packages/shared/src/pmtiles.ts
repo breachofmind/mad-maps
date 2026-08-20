@@ -15,4 +15,4 @@ export const pmtilesMetadataSchema = z.object({
   bounds: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 
-export const layerSourceTypeSchema = z.enum(['local', 'geojson-url', 'pmtiles-url']);
+export const layerSourceTypeSchema = z.enum(['local', 'geojson-url', 'pmtiles-url', 'raster-url']);

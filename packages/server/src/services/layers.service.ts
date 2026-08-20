@@ -6,16 +6,23 @@ import { getMapForOwner } from './maps.service';
 
 export interface CreateLayerSource {
   url: string;
-  format: 'geojson' | 'pmtiles';
+  format: 'geojson' | 'pmtiles' | 'raster';
   sourceLayer?: string;
   pmtilesMetadata?: PmtilesMetadata;
 }
+
+const SOURCE_TYPE_BY_FORMAT = {
+  geojson: 'geojson-url',
+  pmtiles: 'pmtiles-url',
+  raster: 'raster-url',
+} as const;
 
 export interface UpdateLayerInput {
   name?: string;
   visible?: boolean;
   color?: string;
   defaultIcon?: string;
+  opacity?: number;
   styleConfig?: LayerStyleConfig | null;
 }
 
@@ -47,7 +54,7 @@ export async function createLayer(
       mapId,
       name,
       orderIndex: 0,
-      sourceType: source ? (source.format === 'pmtiles' ? 'pmtiles-url' : 'geojson-url') : 'local',
+      sourceType: source ? SOURCE_TYPE_BY_FORMAT[source.format] : 'local',
       sourceUrl: source?.url ?? null,
       sourceLayer: source?.format === 'pmtiles' ? (source.sourceLayer ?? null) : null,
       pmtilesMetadata: source?.format === 'pmtiles' ? (source.pmtilesMetadata ?? null) : null,
@@ -121,6 +128,7 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     visible: layer.visible,
     color: layer.color,
     defaultIcon: layer.defaultIcon,
+    opacity: layer.opacity,
     sourceType: layer.sourceType,
     sourceUrl: layer.sourceUrl,
     sourceLayer: layer.sourceLayer,

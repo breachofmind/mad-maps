@@ -6,6 +6,7 @@ export interface UpdateLayerInput {
   visible?: boolean;
   color?: string;
   defaultIcon?: string;
+  opacity?: number;
   styleConfig?: LayerStyleConfig | null;
 }
 
@@ -13,6 +14,10 @@ export interface CreateLayerPmtilesOptions {
   sourceFormat: 'pmtiles';
   sourceLayer: string;
   pmtilesMetadata: PmtilesMetadata;
+}
+
+export interface CreateLayerRasterOptions {
+  sourceFormat: 'raster';
 }
 
 export function layersQueryKey(mapId: string) {
@@ -28,12 +33,12 @@ export async function createLayer(
   mapId: string,
   name: string,
   sourceUrl?: string,
-  pmtilesOptions?: CreateLayerPmtilesOptions,
+  sourceOptions?: CreateLayerPmtilesOptions | CreateLayerRasterOptions,
 ): Promise<LayerDTO> {
   const { data } = await apiClient.post<LayerDTO>(`/api/maps/${mapId}/layers`, {
     name,
     sourceUrl,
-    ...pmtilesOptions,
+    ...sourceOptions,
   });
   return data;
 }

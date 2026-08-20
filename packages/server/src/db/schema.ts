@@ -91,7 +91,12 @@ export interface LayerStyleConfig {
   defaultIconUrl: string | null;
 }
 
-export const layerSourceTypeEnum = pgEnum('layer_source_type', ['local', 'geojson-url', 'pmtiles-url']);
+export const layerSourceTypeEnum = pgEnum('layer_source_type', [
+  'local',
+  'geojson-url',
+  'pmtiles-url',
+  'raster-url',
+]);
 
 export const layers = pgTable('layers', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -105,6 +110,11 @@ export const layers = pgTable('layers', {
   // Icon applied to brand-new local features added to this layer — see
   // LayerStyleConfig.defaultIconUrl for the remote-layer counterpart.
   defaultIcon: text('default_icon').notNull().default('marker'),
+  // 0-1. Currently only surfaced in the UI for sourceType 'raster-url' (as
+  // Mapbox `raster-opacity`) — other source types ignore it for now, but
+  // it's a plain per-layer scalar like `color`/`visible`, not tied to the
+  // per-feature-property machinery in styleConfig below.
+  opacity: doublePrecision('opacity').notNull().default(1),
   sourceType: layerSourceTypeEnum('source_type').notNull().default('local'),
   sourceUrl: text('source_url'),
   // Only set for sourceType 'pmtiles-url': the vector-tile source-layer name

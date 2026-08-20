@@ -87,6 +87,23 @@ describe('layer routes', () => {
     await agent.post(`/api/maps/${mapId}/layers`).send({ name: '' }).expect(400);
   });
 
+  it('defaults opacity to 1, and sets it within 0-1', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Opacity Test' }).expect(201);
+    expect(created.body.opacity).toBe(1);
+
+    const patched = await agent
+      .patch(`/api/layers/${created.body.id}`)
+      .send({ opacity: 0.4 })
+      .expect(200);
+    expect(patched.body.opacity).toBe(0.4);
+  });
+
+  it('rejects an opacity outside 0-1', async () => {
+    const created = await agent.post(`/api/maps/${mapId}/layers`).send({ name: 'Bad Opacity' }).expect(201);
+    await agent.patch(`/api/layers/${created.body.id}`).send({ opacity: 1.5 }).expect(400);
+    await agent.patch(`/api/layers/${created.body.id}`).send({ opacity: -0.1 }).expect(400);
+  });
+
   it('rejects a sourceUrl that is not a valid URL', async () => {
     await agent
       .post(`/api/maps/${mapId}/layers`)
@@ -283,6 +300,58 @@ describe('layer routes', () => {
           sourceFormat: 'pmtiles',
           sourceLayer: 'roads',
           pmtilesMetadata,
+        })
+        .expect(201);
+
+      await agent.get(`/api/layers/${created.body.id}/external-data`).expect(400);
+    });
+  });
+
+  describe('raster layers', () => {
+    it('creates a layer with sourceType raster-url for a {z}/{x}/{y} tile URL', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Weather Radar',
+          sourceUrl: 'https://example.com/tiles/{z}/{x}/{y}.png',
+          sourceFormat: 'raster',
+        })
+        .expect(201);
+
+      expect(created.body.sourceType).toBe('raster-url');
+      expect(created.body.sourceUrl).toBe('https://example.com/tiles/{z}/{x}/{y}.png');
+    });
+
+    it('rejects a raster sourceFormat whose sourceUrl is missing {z}/{x}/{y}', async () => {
+      await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Bad Radar',
+          sourceUrl: 'https://example.com/tiles.png',
+          sourceFormat: 'raster',
+        })
+        .expect(400);
+    });
+
+    it('rejects a raster sourceFormat with a sourceLayer', async () => {
+      await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Bad Radar 2',
+          sourceUrl: 'https://example.com/tiles/{z}/{x}/{y}.png',
+          sourceFormat: 'raster',
+          sourceLayer: 'roads',
+        })
+        .expect(400);
+    });
+
+    it('returns 400 for external-data on a raster-url layer (never proxied server-side)', async () => {
+      const created = await agent
+        .post(`/api/maps/${mapId}/layers`)
+        .send({
+          name: 'Weather Radar 2',
+          sourceUrl: 'https://example.com/tiles-2/{z}/{x}/{y}.png',
+          sourceFormat: 'raster',
         })
         .expect(201);
 
