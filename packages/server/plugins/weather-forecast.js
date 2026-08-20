@@ -1,8 +1,8 @@
 // Demo local plugin for Mad Maps' "Installed plugin" layer option.
 //
 // Point the server's PLUGINS_DIR env var at this folder (e.g.
-// PLUGINS_DIR=examples/plugins in packages/server/.env — resolved relative
-// to the server process's cwd, which is packages/server in both `npm run
+// PLUGINS_DIR=plugins in packages/server/.env — resolved relative to the
+// server process's cwd, which is packages/server in both `npm run
 // dev:server` and `npm run start` — then restart the server) and "Weather
 // Forecast" will show up in the plugin picker for local layers.
 //
@@ -11,12 +11,13 @@
 // packages/server/src/plugins/pluginRegistry.ts) and returns/resolves a
 // { blocks } object matching @mad-maps/shared's pluginPanelResponseSchema.
 //
-// Real forecast + local time, via Open-Meteo (see ../lib/weatherForecast.js)
-// — local plugins run in-process and are trusted code, so unlike the
-// external-URL plugin contract this can freely reach out to a third-party
-// API on its own.
+// Real forecast + local time, via Open-Meteo (see lib/weatherForecast.js)
+// — local plugins run in-process and are trusted code, so unlike an
+// external-URL plugin this can freely reach out to a third-party API on its
+// own. lib/ is a subdirectory, not a top-level .js file, so the plugin
+// loader (which only scans top-level *.js entries) skips it.
 
-const { getFiveDayForecastAndLocalTime } = require('../lib/weatherForecast');
+const { getFiveDayForecastAndLocalTime } = require('./lib/weatherForecast');
 
 module.exports = {
   name: 'Weather Forecast',

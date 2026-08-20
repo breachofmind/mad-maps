@@ -1,9 +1,9 @@
-// Shared by both demo weather plugins (../demo-plugin-server.js and
-// ../plugins/weather-forecast.js) — fetches a real 5-day forecast and
-// resolves local time for a lat/lng via Open-Meteo (https://open-meteo.com),
-// a free weather API that needs no API key/signup. Its forecast endpoint
-// also resolves the location's IANA timezone (timezone=auto), which is all
-// "local time" needs — no separate geocoding/timezone lookup required.
+// Used by the demo local plugin at ../weather-forecast.js — fetches a real
+// 5-day forecast and resolves local time for a lat/lng via Open-Meteo
+// (https://open-meteo.com), a free weather API that needs no API key/signup.
+// Its forecast endpoint also resolves the location's IANA timezone
+// (timezone=auto), which is all "local time" needs — no separate
+// geocoding/timezone lookup required.
 
 const WEATHER_CODE_LABELS = {
   0: 'Clear sky',
