@@ -5,6 +5,8 @@ import { db, pool } from '../db/client';
 import { users, maps } from '../db/schema';
 import { createMap } from '../services/maps.service';
 import * as externalLayerDataService from '../services/externalLayerData.service';
+import * as pluginPanelDataService from '../services/pluginPanelData.service';
+import { PluginPanelDataError } from '../services/pluginPanelData.service';
 
 const app = createApp();
 
@@ -239,6 +241,80 @@ describe('layer routes', () => {
 
     it('returns 404 for a layer not owned by the requester', async () => {
       await agent.get('/api/layers/00000000-0000-0000-0000-000000000000/external-data').expect(404);
+    });
+  });
+
+  describe('plugin panel data', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    async function createLayerWithFeature(name: string, pluginEndpointUrl?: string) {
+      const layer = await agent.post(`/api/maps/${mapId}/layers`).send({ name }).expect(201);
+      if (pluginEndpointUrl) {
+        await agent.patch(`/api/layers/${layer.body.id}`).send({ pluginEndpointUrl }).expect(200);
+      }
+      const feature = await agent
+        .post(`/api/layers/${layer.body.id}/mapFeatures`)
+        .send({ geometry: { type: 'Point', coordinates: [-122.4, 45.5] }, properties: { title: 'Home' } })
+        .expect(201);
+      return { layerId: layer.body.id as string, featureId: feature.body.id as string };
+    }
+
+    it('returns plugin data for a feature on a layer with a plugin endpoint configured', async () => {
+      const { layerId, featureId } = await createLayerWithFeature('Weather Pins', 'https://plugin.example.com/weather');
+
+      const response = { blocks: [{ type: 'heading', text: '5-Day Forecast' }] };
+      jest.spyOn(pluginPanelDataService, 'getPluginPanelData').mockResolvedValue(response as never);
+
+      const res = await agent.get(`/api/layers/${layerId}/features/${featureId}/plugin-data`).expect(200);
+      expect(res.body).toEqual(response);
+
+      const [calledOwnerId, calledLayer, calledFeature, calledOptions] = (
+        pluginPanelDataService.getPluginPanelData as jest.Mock
+      ).mock.calls[0];
+      expect(calledOwnerId).toBe(ownerId);
+      expect(calledLayer.id).toBe(layerId);
+      expect(calledFeature.id).toBe(featureId);
+      expect(calledOptions).toEqual({ force: false });
+    });
+
+    it('passes ?refresh=true through as force: true', async () => {
+      const { layerId, featureId } = await createLayerWithFeature('Weather Pins 2', 'https://plugin.example.com/weather');
+      jest.spyOn(pluginPanelDataService, 'getPluginPanelData').mockResolvedValue({ blocks: [] } as never);
+
+      await agent.get(`/api/layers/${layerId}/features/${featureId}/plugin-data?refresh=true`).expect(200);
+
+      const [, , , calledOptions] = (pluginPanelDataService.getPluginPanelData as jest.Mock).mock.calls[0];
+      expect(calledOptions).toEqual({ force: true });
+    });
+
+    it('returns 400 and does not call the service when the layer has no plugin endpoint configured', async () => {
+      const { layerId, featureId } = await createLayerWithFeature('No Plugin');
+      jest.spyOn(pluginPanelDataService, 'getPluginPanelData');
+
+      await agent.get(`/api/layers/${layerId}/features/${featureId}/plugin-data`).expect(400);
+      expect(pluginPanelDataService.getPluginPanelData).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the feature does not belong to the given layer', async () => {
+      const a = await createLayerWithFeature('Layer A', 'https://plugin.example.com/weather');
+      const b = await createLayerWithFeature('Layer B', 'https://plugin.example.com/weather');
+
+      await agent.get(`/api/layers/${a.layerId}/features/${b.featureId}/plugin-data`).expect(404);
+    });
+
+    it('returns 404 for a layer not owned by the requester', async () => {
+      await agent
+        .get('/api/layers/00000000-0000-0000-0000-000000000000/features/00000000-0000-0000-0000-000000000000/plugin-data')
+        .expect(404);
+    });
+
+    it('propagates the status code from a PluginPanelDataError', async () => {
+      const { layerId, featureId } = await createLayerWithFeature('Flaky Plugin', 'https://plugin.example.com/weather');
+      jest
+        .spyOn(pluginPanelDataService, 'getPluginPanelData')
+        .mockRejectedValue(new PluginPanelDataError('upstream exploded', 502));
+
+      await agent.get(`/api/layers/${layerId}/features/${featureId}/plugin-data`).expect(502);
     });
   });
 

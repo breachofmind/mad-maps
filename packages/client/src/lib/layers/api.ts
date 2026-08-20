@@ -1,4 +1,4 @@
-import type { LayerDTO, LayerStyleConfig, PmtilesMetadata } from '@mad-maps/shared';
+import type { LayerDTO, LayerStyleConfig, PluginPanelResponse, PmtilesMetadata } from '@mad-maps/shared';
 import { apiClient } from '../apiClient';
 
 export interface UpdateLayerInput {
@@ -8,6 +8,7 @@ export interface UpdateLayerInput {
   defaultIcon?: string;
   opacity?: number;
   styleConfig?: LayerStyleConfig | null;
+  pluginEndpointUrl?: string | null;
 }
 
 export interface CreateLayerPmtilesOptions {
@@ -57,6 +58,21 @@ export async function fetchExternalLayerData(
   options?: { force?: boolean },
 ): Promise<GeoJSON.FeatureCollection> {
   const { data } = await apiClient.get<GeoJSON.FeatureCollection>(`/api/layers/${layerId}/external-data`, {
+    params: options?.force ? { refresh: 'true' } : undefined,
+  });
+  return data;
+}
+
+export function pluginPanelDataQueryKey(layerId: string, featureId: string) {
+  return ['layers', layerId, 'features', featureId, 'plugin-data'];
+}
+
+export async function fetchPluginPanelData(
+  layerId: string,
+  featureId: string,
+  options?: { force?: boolean },
+): Promise<PluginPanelResponse> {
+  const { data } = await apiClient.get<PluginPanelResponse>(`/api/layers/${layerId}/features/${featureId}/plugin-data`, {
     params: options?.force ? { refresh: 'true' } : undefined,
   });
   return data;

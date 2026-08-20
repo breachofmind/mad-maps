@@ -14,7 +14,7 @@ function sanitizeProperties<T extends { descriptionHtml?: string }>(properties: 
   return { ...properties, descriptionHtml: sanitizeHtml(properties.descriptionHtml) };
 }
 
-interface FeatureRow {
+export interface FeatureRow {
   id: string;
   layerId: string;
   orderIndex: number;

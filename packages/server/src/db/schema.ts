@@ -126,6 +126,10 @@ export const layers = pgTable('layers', {
   // client never has to re-fetch the archive to know what properties exist.
   pmtilesMetadata: jsonb('pmtiles_metadata').$type<PmtilesMetadata>(),
   styleConfig: jsonb('style_config').$type<LayerStyleConfig>(),
+  // Only meaningful for sourceType 'local'. When set, Mad Maps POSTs the
+  // selected feature's id/geometry/title to this URL and renders the JSON
+  // blocks it returns — see pluginPanelData.service.ts.
+  pluginEndpointUrl: text('plugin_endpoint_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

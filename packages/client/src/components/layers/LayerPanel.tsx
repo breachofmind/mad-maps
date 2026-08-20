@@ -740,6 +740,9 @@ export function LayerPanel({ mapId, map, externalPropertiesCollapsed }: LayerPan
           onStyleConfigChange={(styleConfig) =>
             updateMutation.mutate({ layerId: selectedLayer.id, input: { styleConfig } })
           }
+          onPluginEndpointUrlChange={(pluginEndpointUrl) =>
+            updateMutation.mutate({ layerId: selectedLayer.id, input: { pluginEndpointUrl } })
+          }
           onRefresh={() => refreshExternalLayerMutation.mutate(selectedLayer.id)}
           onDelete={() => {
             deleteMutation.mutate(selectedLayer.id);

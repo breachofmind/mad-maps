@@ -13,6 +13,8 @@ import {
   updateLayerForOwner,
 } from '../services/layers.service';
 import { ExternalLayerDataError, getExternalLayerData } from '../services/externalLayerData.service';
+import { findFeatureForOwner } from '../services/features.service';
+import { PluginPanelDataError, getPluginPanelData } from '../services/pluginPanelData.service';
 
 function currentUser(req: import('express').Request): User {
   return req.user as User;
@@ -111,6 +113,7 @@ const updateLayerSchema = z.object({
   defaultIcon: z.string().trim().min(1).max(100).optional(),
   opacity: z.number().min(0).max(1).optional(),
   styleConfig: styleConfigSchema.optional(),
+  pluginEndpointUrl: z.string().trim().url().max(2000).nullable().optional(),
 });
 
 const reorderSchema = z.object({
@@ -184,6 +187,31 @@ layersRouter.get('/:layerId/external-data', async (req, res) => {
     res.json(data);
   } catch (err) {
     if (err instanceof ExternalLayerDataError) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+    throw err;
+  }
+});
+
+layersRouter.get('/:layerId/features/:featureId/plugin-data', async (req, res) => {
+  const ownerId = currentUser(req).id;
+  const layer = await findLayerForOwner(req.params.layerId, ownerId);
+  if (!layer) return res.status(404).json({ error: 'Layer not found' });
+
+  const feature = await findFeatureForOwner(req.params.featureId, ownerId);
+  if (!feature || feature.layerId !== layer.id) {
+    return res.status(404).json({ error: 'Feature not found' });
+  }
+
+  if (!layer.pluginEndpointUrl) {
+    return res.status(400).json({ error: 'Layer has no plugin endpoint configured' });
+  }
+
+  try {
+    const data = await getPluginPanelData(ownerId, layer, feature, { force: req.query.refresh === 'true' });
+    res.json(data);
+  } catch (err) {
+    if (err instanceof PluginPanelDataError) {
       return res.status(err.statusCode).json({ error: err.message });
     }
     throw err;

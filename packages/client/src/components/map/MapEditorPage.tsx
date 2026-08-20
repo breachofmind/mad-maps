@@ -333,6 +333,7 @@ export function MapEditorPage() {
             key={singleSelectedFeature.feature.id}
             feature={singleSelectedFeature.feature}
             layerId={singleSelectedFeature.layer.id}
+            pluginEndpointUrl={singleSelectedFeature.layer.pluginEndpointUrl}
             onClose={() => setSelection(null)}
             isEditingVertices={isEditingVertices}
             onToggleEditVertices={() => setIsEditingVertices((prev) => !prev)}

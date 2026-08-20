@@ -24,6 +24,7 @@ export interface UpdateLayerInput {
   defaultIcon?: string;
   opacity?: number;
   styleConfig?: LayerStyleConfig | null;
+  pluginEndpointUrl?: string | null;
 }
 
 export async function listLayersForMap(mapId: string, ownerId: string): Promise<Layer[] | null> {
@@ -134,6 +135,7 @@ export function toLayerDTO(layer: Layer): LayerDTO {
     sourceLayer: layer.sourceLayer,
     pmtilesMetadata: layer.pmtilesMetadata ?? null,
     styleConfig: layer.styleConfig ?? null,
+    pluginEndpointUrl: layer.pluginEndpointUrl,
     createdAt: layer.createdAt.toISOString(),
     updatedAt: layer.updatedAt.toISOString(),
   };

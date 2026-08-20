@@ -71,6 +71,7 @@ describe('AddExternalLayerDialog PMTiles flow', () => {
       sourceLayer: 'roads',
       pmtilesMetadata: { layers: [{ id: 'roads', fields: { name: 'String' } }], minzoom: 0, maxzoom: 14 },
       styleConfig: null,
+      pluginEndpointUrl: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
@@ -174,6 +175,7 @@ describe('AddExternalLayerDialog raster flow', () => {
       sourceLayer: null,
       pmtilesMetadata: null,
       styleConfig: null,
+      pluginEndpointUrl: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
@@ -222,6 +224,7 @@ describe('AddExternalLayerDialog raster flow', () => {
       sourceLayer: null,
       pmtilesMetadata: null,
       styleConfig: null,
+      pluginEndpointUrl: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });

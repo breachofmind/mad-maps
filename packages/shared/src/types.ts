@@ -111,6 +111,11 @@ export interface LayerDTO {
   sourceLayer: string | null;
   pmtilesMetadata: PmtilesMetadata | null;
   styleConfig: LayerStyleConfig | null;
+  // Only meaningful for sourceType 'local' — a URL Mad Maps POSTs feature
+  // details to on selection, rendering the JSON blocks it returns in the
+  // feature properties panel. See @mad-maps/shared's pluginPanel.ts for the
+  // request/response contract.
+  pluginEndpointUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

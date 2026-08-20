@@ -19,6 +19,7 @@ import { deleteFeature, featuresQueryKey, updateFeature, type UpdateFeatureInput
 import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
+import { PluginDataSection } from './PluginDataSection';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 import { MeasurementStat, PropertyReadOnlyRow, UnitSelect } from './featurePropertiesShared';
 import { PanelHeader, PanelBody } from '../common/Panel';
@@ -54,6 +55,7 @@ const LINE_STYLE_OPTIONS: { value: LineStyle; label: string }[] = [
 interface FeaturePropertiesPanelProps {
   feature: MapFeatureDTO;
   layerId: string;
+  pluginEndpointUrl: string | null;
   onClose: () => void;
   isEditingVertices: boolean;
   onToggleEditVertices: () => void;
@@ -64,6 +66,7 @@ interface FeaturePropertiesPanelProps {
 export function FeaturePropertiesPanel({
   feature,
   layerId,
+  pluginEndpointUrl,
   onClose,
   isEditingVertices,
   onToggleEditVertices,
@@ -304,6 +307,8 @@ export function FeaturePropertiesPanel({
               </Box>
             </>
           )}
+
+          {pluginEndpointUrl && <PluginDataSection layerId={layerId} featureId={feature.id} />}
 
           <Divider />
 
