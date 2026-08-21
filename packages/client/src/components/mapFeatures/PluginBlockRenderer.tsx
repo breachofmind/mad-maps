@@ -11,7 +11,7 @@ import type { PluginPanelBlock, PluginTableCell } from '@mad-maps/shared';
 
 function PluginTableCellContent({ cell }: { cell: PluginTableCell }) {
   if (cell.type === 'image') {
-    return <Box component="img" src={cell.url} alt={cell.alt ?? ''} sx={{ width: 20, height: 20, display: 'block' }} />;
+    return <Box component="img" src={cell.url} alt={cell.alt ?? ''} sx={{ width: 32, height: 32, display: 'block' }} />;
   }
   return <>{cell.text}</>;
 }
