@@ -129,6 +129,60 @@ describe('map feature routes', () => {
       .expect(400);
   });
 
+  it('creates and updates a feature with metadata key/value pairs', async () => {
+    const createRes = await agent
+      .post(`/api/layers/${layerId}/mapFeatures`)
+      .send({
+        geometry: { type: 'Point', coordinates: [-122.3, 37.6] },
+        properties: { title: 'With Metadata', metadata: { 'asset tag': 'A-4471' } },
+      })
+      .expect(201);
+    expect(createRes.body.properties.metadata).toEqual({ 'asset tag': 'A-4471' });
+
+    const featureId = createRes.body.id as string;
+
+    const patchRes = await agent
+      .patch(`/api/mapFeatures/${featureId}`)
+      .send({ properties: { metadata: { inspected: '2026-08-01' } } })
+      .expect(200);
+    expect(patchRes.body.properties.metadata).toEqual({ inspected: '2026-08-01' });
+
+    await agent.delete(`/api/mapFeatures/${featureId}`).expect(204);
+  });
+
+  it('rejects metadata payloads that exceed the schema limits with 400', async () => {
+    const featureId = (
+      await agent
+        .post(`/api/layers/${layerId}/mapFeatures`)
+        .send({ geometry: { type: 'Point', coordinates: [-122.2, 37.5] } })
+        .expect(201)
+    ).body.id as string;
+
+    // key too long (>60 chars)
+    await agent
+      .patch(`/api/mapFeatures/${featureId}`)
+      .send({ properties: { metadata: { [`k`.repeat(61)]: 'v' } } })
+      .expect(400);
+
+    // value too long (>500 chars)
+    await agent
+      .patch(`/api/mapFeatures/${featureId}`)
+      .send({ properties: { metadata: { k: 'v'.repeat(501) } } })
+      .expect(400);
+
+    // empty key
+    await agent
+      .patch(`/api/mapFeatures/${featureId}`)
+      .send({ properties: { metadata: { '': 'v' } } })
+      .expect(400);
+
+    // too many pairs (>50)
+    const tooManyPairs = Object.fromEntries(Array.from({ length: 51 }, (_, i) => [`k${i}`, 'v']));
+    await agent.patch(`/api/mapFeatures/${featureId}`).send({ properties: { metadata: tooManyPairs } }).expect(400);
+
+    await agent.delete(`/api/mapFeatures/${featureId}`).expect(204);
+  });
+
   it('returns 404 when listing features for a layer owned by another user', async () => {
     const [otherUser] = await db
       .insert(users)

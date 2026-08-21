@@ -139,6 +139,7 @@ export interface MapFeaturePropertiesDTO {
   strokeWidth?: number;
   lineStyle?: LineStyle;
   fontSize?: number;
+  metadata?: Record<string, string>;
 }
 
 export interface MapFeatureDTO {

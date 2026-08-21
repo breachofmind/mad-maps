@@ -20,6 +20,7 @@ import { useDebouncedCallback } from '../../lib/useDebouncedCallback';
 import { RichTextEditor } from './RichTextEditor';
 import { IconPicker } from './IconPicker';
 import { PluginDataSection } from './PluginDataSection';
+import { FeatureMetadataEditor } from './FeatureMetadataEditor';
 import { SANITIZE_CONFIG } from '../../lib/mapFeatures/sanitizeConfig';
 import { MeasurementStat, PropertyReadOnlyRow, UnitSelect } from './featurePropertiesShared';
 import { PanelHeader, PanelBody } from '../common/Panel';
@@ -309,6 +310,12 @@ export function FeaturePropertiesPanel({
               </Box>
             </>
           )}
+
+          <FeatureMetadataEditor
+            key={`metadata-${feature.id}`}
+            metadata={feature.properties.metadata ?? {}}
+            onCommit={(metadata) => updateMutation.mutate({ properties: { metadata } })}
+          />
 
           {(pluginEndpointUrl || pluginId) && <PluginDataSection layerId={layerId} featureId={feature.id} />}
 

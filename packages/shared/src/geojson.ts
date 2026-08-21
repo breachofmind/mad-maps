@@ -27,6 +27,14 @@ export type Geometry = z.infer<typeof geometrySchema>;
 
 export const featureTypeSchema = z.enum(['point', 'line', 'polygon', 'text']);
 
+const featureMetadataSchema = z
+  .record(
+    z.string().trim().min(1, 'Key cannot be empty').max(60, 'Key too long'),
+    z.string().trim().max(500, 'Value too long'),
+  )
+  .refine((obj) => Object.keys(obj).length <= 50, { message: 'Too many metadata pairs (max 50)' })
+  .optional();
+
 export const mapFeaturePropertiesSchema = z.object({
   title: z.string().max(200).default(''),
   descriptionHtml: z.string().default(''),
@@ -35,6 +43,7 @@ export const mapFeaturePropertiesSchema = z.object({
   strokeWidth: z.number().positive().optional(),
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   fontSize: z.number().min(8).max(64).optional(),
+  metadata: featureMetadataSchema,
 });
 
 export const batchUpdateFeaturesSchema = z.object({

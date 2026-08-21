@@ -8,7 +8,8 @@ import { sanitizeHtml } from '../lib/sanitizeHtml';
 
 // Defense in depth: the client sanitizes with DOMPurify before sending, but
 // descriptionHtml is re-sanitized here too so storage is never trusted to
-// have gone through the client's sanitizer.
+// have gone through the client's sanitizer. metadata isn't sanitized here
+// since it's always rendered as plain text client-side, never as HTML.
 function sanitizeProperties<T extends { descriptionHtml?: string }>(properties: T): T {
   if (properties.descriptionHtml === undefined) return properties;
   return { ...properties, descriptionHtml: sanitizeHtml(properties.descriptionHtml) };

@@ -194,6 +194,69 @@ describe('features.service CRUD and ownership', () => {
 
     expect(updated?.properties.descriptionHtml).toBe('<p>safe</p>');
   });
+
+  it('persists metadata set on create', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [3, 3] },
+      properties: { ...defaultProperties, metadata: { 'asset tag': 'A-4471' } },
+    });
+
+    expect(toMapFeatureDTO(created!).properties.metadata).toEqual({ 'asset tag': 'A-4471' });
+  });
+
+  it('sets metadata on update when the feature previously had none', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [4, 4] },
+      properties: defaultProperties,
+    });
+    expect(created?.properties.metadata).toBeUndefined();
+
+    const updated = await updateFeatureForOwner(created!.id, ownerId, {
+      properties: { metadata: { inspected: '2026-08-01' } },
+    });
+
+    expect(updated?.properties.metadata).toEqual({ inspected: '2026-08-01' });
+  });
+
+  it('fully replaces metadata on a subsequent update rather than deep-merging', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [5, 5] },
+      properties: { ...defaultProperties, metadata: { a: '1', b: '2' } },
+    });
+
+    const updated = await updateFeatureForOwner(created!.id, ownerId, {
+      properties: { metadata: { c: '3' } },
+    });
+
+    expect(updated?.properties.metadata).toEqual({ c: '3' });
+  });
+
+  it('clears metadata when updated with an empty object', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [6, 6] },
+      properties: { ...defaultProperties, metadata: { a: '1' } },
+    });
+
+    const updated = await updateFeatureForOwner(created!.id, ownerId, {
+      properties: { metadata: {} },
+    });
+
+    expect(updated?.properties.metadata).toEqual({});
+  });
+
+  it('leaves existing metadata untouched when a patch omits it entirely', async () => {
+    const created = await createFeature(layerId, ownerId, {
+      geometry: { type: 'Point', coordinates: [7, 7] },
+      properties: { ...defaultProperties, metadata: { a: '1' } },
+    });
+
+    const updated = await updateFeatureForOwner(created!.id, ownerId, {
+      properties: { title: 'New Title' },
+    });
+
+    expect(updated?.properties.metadata).toEqual({ a: '1' });
+    expect(updated?.properties.title).toBe('New Title');
+  });
 });
 
 describe('features.service batch operations', () => {

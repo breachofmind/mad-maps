@@ -150,6 +150,7 @@ export interface MapFeatureProperties {
   strokeWidth?: number;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
   fontSize?: number;
+  metadata?: Record<string, string>;
 }
 
 export const mapFeatures = pgTable('map_features', {
